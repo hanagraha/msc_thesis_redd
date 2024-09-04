@@ -1,0 +1,13 @@
+name: act
+dependencies:
+  - python
+  - numpy
+  - matplotlib
+  - spyder
+  - owslib
+  - gdal
+  - geopandas
+  - rasterio
+  - rasterstats
+  - affine
+  - osmnx
