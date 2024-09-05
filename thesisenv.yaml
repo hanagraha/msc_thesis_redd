@@ -1,6 +1,6 @@
-name: act
+name: thesis
 dependencies:
-  - python
+  - python=3.10.12
   - numpy
   - matplotlib
   - spyder
@@ -10,4 +10,5 @@ dependencies:
   - rasterio
   - rasterstats
   - affine
-  - osmnx
+  - pandas
+
