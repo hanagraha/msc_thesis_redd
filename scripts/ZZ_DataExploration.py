@@ -355,6 +355,78 @@ lossperc2013 = loss2013 / study area (this is what the paper did,
 
 ############################################################################
 
+### DEFINE FUNCTION TO REPROJECT AND CLIP
+def reproject_and_clip_raster(tif_path, target_crs, clip_boundary_gdf):
+    with rasterio.open(tif_path) as src:
+        
+        # Calculate the transform and dimensions for the target CRS
+        transform, width, height = calculate_default_transform(
+            src.crs, target_crs, src.width, src.height, *src.bounds)
+        
+        # Create a metadata template for the reprojected raster
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': target_crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
+        
+        # Reproject the raster in memory
+        reprojected_array = rasterio.MemoryFile().open(**kwargs)
+        
+        for i in range(1, src.count + 1):
+            reproject(
+                source=rasterio.band(src, i),
+                destination=rasterio.band(reprojected_array, i),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=target_crs,
+                resampling=Resampling.nearest
+            )
+        
+        # Clip the reprojected raster with the boundary
+        clip_boundary = [feature['geometry'] for feature in clip_boundary_gdf.__geo_interface__['features']]
+        clipped_image, clipped_transform = mask(reprojected_array, clip_boundary, crop=True, nodata=255)
+        clipped_image = clipped_image.astype('float32')   
+        clipped_image[clipped_image == 255] = np.nan
+        
+        return clipped_image, clipped_transform, kwargs
+
+
+### REPROJECT AND CLIP GFC
+gfc_clipped_dict = {}
+
+for tif in gfc_files:
+    clipped_image, clipped_transform, metadata = reproject_and_clip_raster(tif, epsg_string, aoi_geom)
+    non_nan_mask = ~np.isnan(clipped_image) 
+    clipped_image[non_nan_mask] += 2000
+    
+    # Save to drive
+    output_path = tif.replace(".tif", "_clipped.tif")
+    gfc_clipped_dict[output_path] = clipped_image
+    print(f"Preprocessing Complete for {output_path}")
+    
+    with rasterio.open(output_path, 'w', **metadata) as dst:
+        dst.write(clipped_image)
+        
+        
+### REPROJECT AND CLIP TMF
+tmf_clipped_dict = {}
+
+for tif in tmf_files:
+    clipped_image, clipped_transform, metadata = reproject_and_clip_raster(tif, epsg_string, aoi_geom)
+    
+    # Save to drive
+    output_path = tif.replace(".tif", "_clipped.tif")
+    tmf_clipped_dict[output_path] = clipped_image
+    print(f"Preprocessing Complete for {output_path}")
+    
+    
+    with rasterio.open(output_path, 'w', **metadata) as dst:
+        dst.write(clipped_image)
+
 
 # Function to reproject and clip a TIFF
 def reproject_and_clip_raster(tif_path, target_crs, clip_boundary_gdf):
@@ -475,6 +547,38 @@ for tif in tif_files:
 #         file.write(chunk)
 
 # print("Download complete.")
+
+# def reproject_raster2(input_raster_path, epsg_string):
+#     # Open the source raster
+#     with rasterio.open(input_raster_path) as src:
+#         # Calculate the new transform, width, and height for the target CRS
+#         transform, width, height = calculate_default_transform(
+#             src.crs, epsg_string, src.width, src.height, *src.bounds)
+        
+#         # Copy the metadata and update with new projection details
+#         kwargs = src.meta.copy()
+#         kwargs.update({
+#             'crs': epsg_string,
+#             'transform': transform,
+#             'width': width,
+#             'height': height
+#         })
+        
+#         # Create an empty array to hold the reprojected data
+#         reprojected_array = np.empty((src.count, height, width), dtype=src.meta['dtype'])
+        
+#         # Loop through each band and reproject
+#         for i in range(1, src.count + 1):
+#             reproject(
+#                 source=rasterio.band(src, i),
+#                 destination=reprojected_array[i - 1],
+#                 src_transform=src.transform,
+#                 src_crs=src.crs,
+#                 dst_transform=transform,
+#                 dst_crs=epsg_string,
+#                 resampling=Resampling.nearest)
+        
+#         return reprojected_array
 
 ############################################################################
 
