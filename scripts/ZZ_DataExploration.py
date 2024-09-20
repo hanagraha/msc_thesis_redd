@@ -84,6 +84,83 @@ epsg_string = f"EPSG:{villages_epsg}"
 
 ############################################################################
 
+### DOWNLOAD GFC DATA
+gfc_urls = ["https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_10N_020W.tif",
+            "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_lossyear_10N_020W.tif"]
+
+# Directory to save the files
+gfc_dir = "data/hansen"
+
+# Create the directory if it doesn't exist
+os.makedirs(gfc_dir, exist_ok=True)  
+
+# Loop through each URL
+for url in gfc_urls:
+    
+    # Extract filename from the URL
+    filename = url.split("/")[-1]
+    local_filename = os.path.join(gfc_dir, filename)
+
+    # Send GET request to the URL
+    response = requests.get(url, stream=True)
+
+    # Open the file in write-binary mode and write the content
+    with open(local_filename, 'wb') as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
+
+    print(f"Download complete for {filename}")
+
+
+### DOWNLOAD TMF DATA
+jrc_urls = ["https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DegradationYear&lat=N10&lon=W20",
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W20",
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2013&lat=N10&lon=W20",
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2014&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2015&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2016&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2017&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2018&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2019&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2020&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2021&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2022&lat=N10&lon=W20", 
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2023&lat=N10&lon=W20"]
+
+
+# Directory to save the files
+jrc_dir = "data/jrc"
+
+# Create the directory if it doesn't exist
+os.makedirs(jrc_dir, exist_ok=True)  
+
+# Loop through each URL
+for url in jrc_urls:
+    
+    # Extract filename from the URL
+    filename = url.split("dataset=")[1].split("&")[0]
+    filename = f"tmf_{filename}.tif"
+    local_filename = os.path.join(jrc_dir, filename)
+
+    # Send GET request to the URL
+    response = requests.get(url, stream=True)
+
+    # Open the file in write-binary mode and write the content
+    with open(local_filename, 'wb') as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
+
+    print(f"Download complete for {filename}")
+
+
+############################################################################
+
+
+# IMPORT DEFORESTATION DATASETS (WEB DOWNLOAD TO DRIVE)
+
+
+############################################################################
+
 ### REPROJECT TMF
 with rasterio.open('data/jrc/JRC_TMF_DeforestationYear_INT_1982_2023_v1_AFR_ID51_N10_W20.tif') as src:
     transform, width, height = calculate_default_transform(
@@ -242,6 +319,34 @@ show(gfc_defor_clipped, ax=ax2, title='GFC Deforestation Year')
 plt.show()
 
 
+
+
+############################################################################
+
+
+# R SCRIPT WORK
+
+
+############################################################################
+
+"""
+
+To create line graph on forest loss %
+
+loop for every year
+anything with forest loss before 2013 subtract from forest in 2000
+
+forest2013 = forest2012 - loss2013
+lossperc2013 = loss2013 / study area (this is what the paper did, 
+                                      reasoning that dividing by forest in 
+                                      that area changes, not super reliable)
+
+
+
+"""
+
+
+
 ############################################################################
 
 
@@ -249,6 +354,65 @@ plt.show()
 
 
 ############################################################################
+
+
+# Function to reproject and clip a TIFF
+def reproject_and_clip_raster(tif_path, target_crs, clip_boundary_gdf):
+    with rasterio.open(tif_path) as src:
+        # Calculate the transform and dimensions for the target CRS
+        transform, width, height = calculate_default_transform(
+            src.crs, target_crs, src.width, src.height, *src.bounds)
+        
+        # Create a metadata template for the reprojected raster
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': target_crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
+        
+        # Reproject the raster in memory
+        reprojected_array = rasterio.MemoryFile().open(**kwargs)
+        
+        for i in range(1, src.count + 1):
+            reproject(
+                source=rasterio.band(src, i),
+                destination=rasterio.band(reprojected_array, i),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=target_crs,
+                resampling=Resampling.nearest
+            )
+        
+        # Clip the reprojected raster with the boundary
+        clip_boundary = [feature['geometry'] for feature in clip_boundary_gdf.__geo_interface__['features']]
+        clipped_image, clipped_transform = mask(reprojected_array, clip_boundary, crop=True)
+        
+        return clipped_image, clipped_transform, kwargs
+
+# Load your clip boundary (e.g., GeoDataFrame)
+clip_boundary_gdf = gpd.read_file("path_to_clip_boundary.shp")
+clip_boundary_gdf = clip_boundary_gdf.to_crs("EPSG:4326")  # Ensure the boundary is in the same CRS as the target CRS
+clip_boundary_gdf = aoi_geom
+
+# Define the target CRS (e.g., EPSG code or proj string)
+target_crs = epsg_string  # Replace with your target CRS
+
+# List of raster datasets (TIFF files) to process
+tif_files = ["data/jrc/tmf_DeforestationYear.tif", "data/jrc/tmf_DegradationYear.tif"]
+
+# Loop through datasets, reproject, and clip
+for tif in tif_files:
+    clipped_image, clipped_transform, metadata = reproject_and_clip_raster(tif, target_crs, clip_boundary_gdf)
+    
+    # Now you can either save the clipped image or continue processing
+    output_path = tif.replace(".tif", "_clipped.tif")
+    with rasterio.open(output_path, 'w', **metadata) as dst:
+        dst.write(clipped_image)
+
+
 
 # vil_shape = villages[['geometry']]
 # vil_new = vil_shape.explode(ignore_index=True)
@@ -289,6 +453,28 @@ plt.show()
     
 # # Add 2000 to GFC so instead of 22 looks like 2022
 # gfc_defor = gfc_defor + 2000
+
+# "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_10N_020W.tif"
+# "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_lossyear_10N_020W.tif"
+
+
+
+
+# # URL of the file to download
+# url = "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2022-v1.10/Hansen_GFC-2022-v1.10_lossyear_10N_020W.tif"
+
+# # Local filename to save the file
+# local_filename = "data/hansen/Hansen_GFC-2022-v1.10_lossyear_10N_020W.tif"
+
+# # Send GET request to the URL
+# response = requests.get(url, stream=True)
+
+# # Open the file in write-binary mode and write the content
+# with open(local_filename, 'wb') as file:
+#     for chunk in response.iter_content(chunk_size=8192):
+#         file.write(chunk)
+
+# print("Download complete.")
 
 ############################################################################
 
