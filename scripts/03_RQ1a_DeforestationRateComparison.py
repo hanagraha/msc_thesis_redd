@@ -159,6 +159,7 @@ with rasterio.open(gfc_baseforest_file, 'w', **gfc_treecover_profile) as dst:
 print(f"GFC baseline forest saved as {gfc_baseforest_file}")
 
 
+
 ### FOREST MASK SPATIAL AGREEMENT
 nodata_val = 255
 

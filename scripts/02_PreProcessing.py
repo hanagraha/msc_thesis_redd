@@ -20,6 +20,7 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.mask import mask
 import pandas as pd
 import numpy as np
+import glob
 
 
 
@@ -233,28 +234,200 @@ print(f"Reclassification Complete for {gfc_reproj_files[0]}")
     
     
     
+############################################################################
+
+
+# RESAMPLING
+
+
+############################################################################    
+"""
+GFC has shape (3030, 3654) and TMF has shape (2812, 3389). TMF will be 
+resampled to match the shape of GFC to retain spatial accuracy
+"""    
+
+### COMPARE GFC and TMF SHAPES
+# Read GFC
+gfc_lossyear = "data/hansen_preprocessed/gfc_lossyear_AOI.tif"
+with rasterio.open(gfc_lossyear) as gfc:
+    gfc_lossyear = gfc.read(1)
+    gfc_lossyear_profile = gfc.profile
+    gfc_lossyear_shape = gfc.shape
+    gfc_lossyear_transform = gfc.transform
+
+# Read TMF
+tmf_deforyear = "data/jrc_preprocessed/tmf_DeforestationYear_AOI.tif"
+with rasterio.open(tmf_deforyear) as tmf:
+    tmf_deforyear = tmf.read(1)
+    tmf_deforyear_profile = tmf.profile
+    tmf_deforyear_shape = tmf.shape
+    tmf_deforyear_transform = tmf.transform
+
+# Compare shapes
+if gfc_lossyear_shape == tmf_deforyear_shape:
+    print("Both rasters have the same shape.")
+    print("Shape:", gfc_lossyear_shape)
+else:
+    print("The shapes of the two rasters are different.")
+    print("Shape of GFC Lossyear:", gfc_lossyear_shape)
+    print("Shape of TMF Deforestation Year:", tmf_deforyear_shape)
+
+
+### DOUBLE CHECK THAT GFC FILES ALL HAVE THE SAME SHAPE
+# Read GFC treecover
+gfc_treecover = "data/hansen_preprocessed/gfc_treecover2000_AOI.tif"
+with rasterio.open(gfc_treecover) as gfc:
+    gfc_treecover = gfc.read(1)
+    gfc_treecover_profile = gfc.profile
+    gfc_treecover_shape = gfc.shape
+    gfc_treecover_transform = gfc.transform
+
+# Compare shapes
+if gfc_treecover_shape == gfc_lossyear_shape:
+    print("Both rasters have the same shape.")
+    print("Shape:", gfc_treecover_shape)
+else:
+    print("The shapes of the two rasters are different.")
+    print("Shape of GFC Treecover:", gfc_treecover_shape)
+    print("Shape of GFC Lossyear:", gfc_lossyear_shape)
+
+
+### RESAMPLE TMF TO GFC
+tmf_folder = "data/jrc_preprocessed"
+tmf_files = glob.glob(os.path.join(tmf_folder, "*AOI.tif*"))
+
+# Make sure the list only has tif files
+tmf_files = ([file for file in tmf_files if file.endswith('.tif') and not 
+              file.endswith(('.xml', '.ovr'))])
+
+# Resample all tmf tif files
+for raster_path in tmf_files:
+    with rasterio.open(raster_path) as src:
+        source_data = src.read(1)  # Read the first band
+        source_profile = src.profile
+        source_transform = src.transform
+
+    # Create an output array for the resampled data
+    resampled_data = np.zeros(gfc_treecover_shape, dtype=source_data.dtype)
+
+    # Perform the resampling
+    rasterio.warp.reproject(
+        source=source_data,
+        destination=resampled_data,
+        src_transform=source_transform,
+        dst_transform=gfc_treecover_transform,
+        src_crs=source_profile['crs'],
+        dst_crs=gfc_treecover_profile['crs'],
+        resampling=Resampling.nearest
+    )
+
+    # Update the profile for the resampled raster
+    gfc_treecover_profile.update({
+        'height': gfc_treecover_shape[0],
+        'width': gfc_treecover_shape[1],
+        'transform': gfc_treecover_transform,
+        'nodata': source_profile['nodata']  # Keep the same NoData value
+    })
+
+    # Save the resampled raster
+    output_file = raster_path.replace(".tif", "_resampled.tif")
+    with rasterio.open(output_file, 'w', **gfc_treecover_profile) as dst:
+        dst.write(resampled_data, 1)
+
+    print(f"Resampled raster saved as {output_file}")
     
     
     
+############################################################################
+
+
+# FOREST MASKS
+
+
+############################################################################    
+
+### READ RELEVANT FILES
+gfc_treecover = "data/hansen_preprocessed/gfc_treecover2000_AOI.tif"
+with rasterio.open(gfc_treecover) as gfc:
+    gfc_treecover = gfc.read(1)
+    gfc_treecover_profile = gfc.profile
+
+tmf_trans_sub = "data/jrc_preprocessed/tmf_TransitionMap_Subtypes_AOI_resampled.tif"
+with rasterio.open(tmf_trans_sub) as tmf:
+    tmf_trans_sub = tmf.read(1)
+    tmf_trans_sub_profile = tmf.profile
+
+
+### CREATE TMF BASELINE FOREST 
+"""
+"The initial tropical moist forest domain can be derived from the Transition 
+Map - Sub types map by selecting all pixels belonging to classes 10 to 89 
+excluding classes 71 and 72."
+- taken from https://forobs.jrc.ec.europa.eu/TMF/resources#how_to
+"""
+
+# Create baseline forest mask
+tmf_baseforest_mask = ((tmf_trans_sub >= 10) & (tmf_trans_sub <= 89) & 
+                       (tmf_trans_sub != 71) & (tmf_trans_sub != 72))
+
+# Mask TMF forest
+tmf_baseforest = np.where(tmf_baseforest_mask, tmf_trans_sub, 255)
+
+# Update data type and nodata value for saving
+tmf_trans_sub_profile.update(dtype=rasterio.float32, nodata=255)  
+
+# Save to drive
+tmf_baseforest_file = 'data/jrc_preprocessed/tmf_baselineforest.tif'
+
+with rasterio.open(tmf_baseforest_file, 'w', **tmf_trans_sub_profile) as dst:
+    dst.write(tmf_baseforest.astype(rasterio.float32), 1)
+
+print(f"TMF baseline forest saved as {tmf_baseforest_file}")
+
+
+### CREATE GFC BASELINE FOREST 
+"""
+Forest mask will use 50% forest cover threshold from Malan et al. (2024)
+"""
+
+# Create baseline forest mask
+gfc_baseforest_mask = (gfc_treecover >= 50)
+
+# Mask GFC forest
+gfc_baseforest = np.where(gfc_baseforest_mask, gfc_treecover, 255)
+
+# Update data type and nodata value for saving
+gfc_treecover_profile.update(dtype=rasterio.float32, nodata=255)  
+
+# Save to drive
+gfc_baseforest_file = 'data/hansen_preprocessed/gfc_baselineforest.tif'
+
+with rasterio.open(gfc_baseforest_file, 'w', **gfc_treecover_profile) as dst:
+    dst.write(gfc_baseforest.astype(rasterio.float32), 1)
+
+print(f"GFC baseline forest saved as {gfc_baseforest_file}")
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+### FOREST MASK SPATIAL AGREEMENT
+nodata_val = 255
+
+# Convert forest masks to binary layers
+binary_gfc_baseforest = np.where(gfc_baseforest == nodata_val, 0, 1)  # 1 where data exists, 0 where NoData
+binary_tmf_baseforest = np.where(tmf_baseforest == nodata_val, 0, 2)  # 2 where data exists, 0 where NoData
+
+# Add binary layers to get spatial agreement map
+agreement_map = binary_gfc_baseforest + binary_tmf_baseforest
+
+agreement_profile = gfc_treecover_profile
+agreement_profile.update(dtype=rasterio.uint8, nodata=0)
+
+# Save the result as a new raster file
+agreement_path = "data/intermediate/forestmask_spatial_agreement.tif"
+
+with rasterio.open(agreement_path, 'w', **agreement_profile) as dst:
+    dst.write(agreement_map.astype(rasterio.uint8), 1)
+
+print(f"Spatial agreement map saved as {agreement_path}")
     
     
     
