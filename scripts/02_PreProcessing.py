@@ -109,7 +109,7 @@ def reproject_raster(raster_path, epsg, output_folder):
                        'width': width,
                        'height': height})
         
-        output_path = raster_path.replace(".tif", "_reprojected.tif")
+        output_path = raster_path.replace(".tif", "_AOI.tif")
         folder_name = os.path.basename(os.path.dirname(output_path))
         output_path = output_path.replace(folder_name, output_folder)
 
@@ -180,15 +180,15 @@ def clip_raster(raster_path, aoi_geom, nodata_val):
     raster_clip = raster_clip.astype('float32')
     # raster_clip[raster_clip == nodata_val] = np.nan
     
-    outpath = raster_path.replace("_reprojected.tif", "_clipped.tif")
+    # outpath = raster_path.replace("_reprojected.tif", "_clipped.tif")
     
     # if os.path.exists(outpath): 
     #     os.remove(outpath)
     
-    with rasterio.open(outpath, 'w', **out_meta) as dest:
+    with rasterio.open(raster_path, 'w', **out_meta) as dest:
         dest.write(raster_clip)
     
-    print(f"Clipping Complete for {outpath}")
+    print(f"Clipping Complete for {raster_path}")
     
     return raster_clip, out_meta  
     
@@ -218,7 +218,7 @@ GFC lossyear will be reclassified to match the year format of TMF degradation ye
 gfc_lossyear, gfc_lossyear_meta = clip_raster(gfc_reproj_files[0], aoi_geom, 255)
 
 # Get path to save the reclassified file
-gfc_lossyear_path = gfc_reproj_files[0].replace("_reprojected.tif", "_reclassified.tif")
+# gfc_lossyear_path = gfc_reproj_files[0].replace("_reprojected.tif", "_reclassified.tif")
 
 # Add 2000 to non-NA years
 gfc_lossyear_new = np.where(gfc_lossyear != 255, gfc_lossyear + 2000, gfc_lossyear)
@@ -227,9 +227,9 @@ gfc_lossyear_new = np.where(gfc_lossyear != 255, gfc_lossyear + 2000, gfc_lossye
 gfc_lossyear_meta.update(dtype='int16')
 
 # Write file to drive
-with rasterio.open(gfc_lossyear_path, 'w', **gfc_lossyear_meta) as dest:
+with rasterio.open(gfc_reproj_files[0], 'w', **gfc_lossyear_meta) as dest:
     dest.write(gfc_lossyear_new)
-print(f"Reclassification Complete for {gfc_lossyear_path}")
+print(f"Reclassification Complete for {gfc_reproj_files[0]}")
     
     
     
