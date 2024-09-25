@@ -455,7 +455,7 @@ gfc_baseforest2012 = np.where(mask2012, gfc_baseforest, gfc_baseforest_meta['nod
 
 # Save new baseline forest
 gfc_baseforest2012_meta = gfc_baseforest_meta.copy()
-gfc_baseforest2012_file = "gfc_baselineforest_2012.tif"
+gfc_baseforest2012_file = "data/hansen_preprocessed/gfc_baselineforest_2012.tif"
 
 with rasterio.open(gfc_baseforest2012_file, 'w', **gfc_baseforest2012_meta) as dst:
     dst.write(gfc_baseforest2012, 1)
