@@ -429,6 +429,103 @@ with rasterio.open(agreement_path, 'w', **agreement_profile) as dst:
 
 print(f"Spatial agreement map saved as {agreement_path}")
     
+
+### UPDATE GFC BASELINE FOREST
+"""
+Upon review of the spatial agreement map, the GFC baseline forest is best
+suited for this thesis. The mask must be updated to represent forest in 2012
+"""
+
+# Read lossyear and baseline forest files
+gfc_lossyear = "data/hansen_preprocessed/gfc_lossyear_AOI.tif"
+with rasterio.open(gfc_lossyear) as gfc:
+    gfc_lossyear = gfc.read(1)
+    gfc_lossyear_meta = gfc.meta
+
+gfc_baseforest = "data/hansen_preprocessed/gfc_baselineforest.tif"
+with rasterio.open(gfc_baseforest) as gfc:
+    gfc_baseforest = gfc.read(1)
+    gfc_baseforest_meta = gfc.meta
+
+# Create mask that excludes pixels that were deforested between 2001-2012
+mask2012 = (gfc_lossyear < 2001) | (gfc_lossyear > 2012)
+
+# Apply mask, setting pixels that were deforested before 2012 as nodata
+gfc_baseforest2012 = np.where(mask2012, gfc_baseforest, gfc_baseforest_meta['nodata'])
+
+# Save new baseline forest
+gfc_baseforest2012_meta = gfc_baseforest_meta.copy()
+gfc_baseforest2012_file = "gfc_baselineforest_2012.tif"
+
+with rasterio.open(gfc_baseforest2012_file, 'w', **gfc_baseforest2012_meta) as dst:
+    dst.write(gfc_baseforest2012, 1)
     
     
+### APPLY GFC BASELINE FOREST
+
+# Read GFC files
+gfc_folder = "data/hansen_preprocessed"
+gfc_files = glob.glob(os.path.join(gfc_folder, "*AOI*"))
+gfc_files = ([file for file in gfc_files if file.endswith('.tif') and not 
+              file.endswith(('.xml', '.ovr'))])
+
+# Read TMF files
+tmf_folder = "data/jrc_preprocessed"
+tmf_files = glob.glob(os.path.join(tmf_folder, "*_AOI*"))
+tmf_files = ([file for file in tmf_files if file.endswith('_resampled.tif') and not 
+              file.endswith(('.xml', '.ovr'))])
+
+# Mask GFC files
+for file in gfc_files:
+    
+    with rasterio.open(file) as src:
+        
+        file_data = src.read(1)
+        file_meta = src.meta
+
+        # Apply mask
+        masked_data = np.where(gfc_baseforest2012 != gfc_baseforest2012_meta['nodata'], 
+                               file_data, file_meta['nodata'])
+
+        # Create output file name
+        output_file = file.replace('_AOI.tif', '_fm.tif')
+
+        # Save the masked output
+        with rasterio.open(output_file, 'w', **file_meta) as dst:
+            dst.write(masked_data, 1)
+
+        print(f"Masked file saved as: {output_file}")
+
+# Mask TMF files
+for file in tmf_files:
+    
+    with rasterio.open(file) as src:
+        
+        file_data = src.read(1)
+        file_meta = src.meta
+
+        # Apply mask
+        masked_data = np.where(gfc_baseforest2012 != gfc_baseforest2012_meta['nodata'], 
+                               file_data, file_meta['nodata'])
+
+        # Create output file name
+        output_file = file.replace('_AOI_resampled.tif', '_fm.tif')
+
+        # Save the masked output
+        with rasterio.open(output_file, 'w', **file_meta) as dst:
+            dst.write(masked_data, 1)
+
+        print(f"Masked file saved as: {output_file}")
+
+
+
+
+
+
+
+
+
+
+
+
     
