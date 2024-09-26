@@ -778,7 +778,37 @@ plt.show()
 
 # plt.show()
 
+# ############################################################################
 
+
+# # IMPORT RELEVANT DATASETS (LOCAL DRIVE)
+
+
+# ############################################################################
+
+# ### READ POLYGON DATA
+# grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
+# villages = gpd.read_file("data/village polygons/VillagePolygons.geojson")
+
+# # Annual Change data
+# tmf_folder = "data/jrc_preprocessed"
+# tmf_annual_files = glob.glob(os.path.join(tmf_folder, "*AnnualChange*"))
+# tmf_annual_files = ([file for file in tmf_annual_files if file.endswith('_fm.tif') 
+#                      and not file.endswith(('.xml', '.ovr'))])
+
+# tmf_annual_dict = {}
+
+# for file in tmf_annual_files:
+#     filename = os.path.basename(file)
+#     year = filename.split("AnnualChange_")[1].split('_')[0]
+#     var = f"tmf_{year}"
+    
+#     with rasterio.open(file) as tmf:
+#         tmf_annual = tmf.read(1)
+#         tmf_annual_dict[var] = tmf_annual
+
+#     print(f"Stored {var}, data shape: {tmf_annual.shape}")
+    
 
 
 

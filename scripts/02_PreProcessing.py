@@ -326,6 +326,7 @@ for raster_path in tmf_files:
         'height': gfc_treecover_shape[0],
         'width': gfc_treecover_shape[1],
         'transform': gfc_treecover_transform,
+        'dtype': source_data.dtype,
         'nodata': source_profile['nodata']  # Keep the same NoData value
     })
 
@@ -519,7 +520,90 @@ for file in tmf_files:
 
 
 
+############################################################################
 
+
+# SPLIT MULTI-YEAR LAYERS INTO SINGLE-YEAR
+
+
+############################################################################
+# Filepaths and nodata value
+nodata_val = 255
+gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+tmf_deforyear_file = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
+tmf_degrayear_file = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
+
+### SPLIT GFC LOSSYEAR
+
+with rasterio.open(gfc_lossyear_file) as src:
+    raster_data = src.read(1)
+    profile = src.profile
+
+    # Loop through each year from 2013 to 2023
+    for year in range(2013, 2024):
+        
+        # Create mask
+        year_mask = np.where(raster_data == year, raster_data, nodata_val)
+
+        # Update profile just in case
+        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+
+        # Save to drive
+        output_filename = gfc_lossyear_file.replace("hansen_preprocessed", 
+                        "intermediate").replace('_fm.tif', f'_{year}.tif')
+        with rasterio.open(output_filename, 'w', **profile) as dst:
+            dst.write(year_mask.astype(rasterio.float32), 1)
+        
+        print(f"Single-year file created for GFC Deforestation in {year}")
+
+
+### SPLIT TMF DEFORESTATION YEAR
+
+with rasterio.open(tmf_deforyear_file) as src:
+    raster_data = src.read(1)
+    profile = src.profile
+
+    # Loop through each year from 2013 to 2023
+    for year in range(2013, 2024):
+        
+        # Create mask
+        year_mask = np.where(raster_data == year, raster_data, nodata_val)
+
+        # Update profile just in case
+        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+
+        # Save to drive
+        output_filename = tmf_deforyear_file.replace("jrc_preprocessed", 
+                        "intermediate").replace('_fm.tif', f'_{year}.tif')
+        with rasterio.open(output_filename, 'w', **profile) as dst:
+            dst.write(year_mask.astype(rasterio.float32), 1)
+        
+        print(f"Single-year file created for TMF Deforestation in {year}")
+
+
+### SPLIT TMF DEGRADATION YEAR
+
+with rasterio.open(tmf_degrayear_file) as src:
+    raster_data = src.read(1)
+    profile = src.profile
+
+    # Loop through each year from 2013 to 2023
+    for year in range(2013, 2024):
+        
+        # Create mask
+        year_mask = np.where(raster_data == year, raster_data, nodata_val)
+
+        # Update profile just in case
+        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+
+        # Save to drive
+        output_filename = tmf_degrayear_file.replace("jrc_preprocessed", 
+                        "intermediate").replace('_fm.tif', f'_{year}.tif')
+        with rasterio.open(output_filename, 'w', **profile) as dst:
+            dst.write(year_mask.astype(rasterio.float32), 1)
+        
+        print(f"Single-year file created for TMF Degradation in {year}")
+        
 
 
 
