@@ -813,4 +813,56 @@ plt.show()
 
 
 
+# # Define the unique classes and corresponding colors
+# # Class values and their corresponding colors in RGB format
+# class_colors = {
+#     10: (0, 90, 0),       # Undisturbed TMF
+#     20: (100, 155, 35),   # Degraded TMF
+#     30: (210, 250, 60),   # Forest regrowth
+#     41: (255, 135, 15),   # Deforested land - plantations
+#     42: (0, 140, 190),    # Deforested land - water bodies
+#     43: (255, 215, 0),    # Deforested land - other
+#     50: (255, 0, 0),      # Ongoing deforestation/degradation
+#     60: (0, 0, 255),      # Permanent and seasonal water
+#     70: (192, 192, 192),  # Other land cover
+#     255: (255, 255, 255), # NoData
+# }
+
+# # Convert the colors from 0-255 RGB to 0-1 scale for matplotlib
+# cmap_colors = np.array(list(class_colors.values())) / 255.0
+# cmap = ListedColormap(cmap_colors)
+
+# # Define boundaries and the normalization for the colormap
+# boundaries = unique_values.tolist()
+# norm = BoundaryNorm(boundaries, cmap.N)
+
+# # Plot the raster data
+# plt.figure(figsize=(8, 8), dpi=300)
+# im = plt.imshow(tmf_trans, cmap=cmap, norm=norm)
+
+# # Create the legend with the appropriate labels
+# legend_labels = {
+#     10: 'Undisturbed tropical moist forest',
+#     20: 'Degraded tropical moist forest',
+#     30: 'Forest regrowth',
+#     41: 'Deforested land - plantations',
+#     42: 'Deforested land - water bodies',
+#     43: 'Deforested land - other',
+#     50: 'Ongoing deforestation/degradation',
+#     60: 'Permanent and seasonal water',
+#     70: 'Other land cover',
+#     255: 'NoData'
+# }
+
+# # Create custom legend patches with the correct color for each class
+# legend_patches = [Patch(color=np.array(class_colors[i])/255.0, label=legend_labels[i]) for i in legend_labels]
+
+# # Add legend to the plot
+# plt.legend(handles=legend_patches, loc='lower right', bbox_to_anchor=(1,0), title="Classes")
+
+# # Set title and show the plot
+# plt.title('TMF Transition Map')
+# plt.axis('off')  # Turn off the axis
+# plt.tight_layout()
+# plt.show()
 

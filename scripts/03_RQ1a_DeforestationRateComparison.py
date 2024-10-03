@@ -21,6 +21,8 @@ import numpy as np
 from rasterstats import zonal_stats
 from rasterio.plot import show
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.patches import Patch
 
 
 
@@ -151,6 +153,81 @@ ax.set_xticklabels(years)  # Label them with the year values
 ax.legend(title='Land Cover Types', loc='lower left')
 
 # Show the plot
+plt.tight_layout()
+plt.show()
+
+
+
+############################################################################
+
+
+# EXPLORE TRANSITION MAP DATASET
+
+
+############################################################################
+### READ FILE UNIQUE VALUES
+tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
+with rasterio.open(tmf_trans_file) as tmf:
+    tmf_trans = tmf.read(1)
+
+unique_values, pixel_counts = np.unique(tmf_trans, return_counts=True)
+
+"""
+NOTE: the value "0" exists in the transition map. This value is present in the 
+raw data and is not described in the TMF data manual. Because it has a limited 
+coverage, the value "0" pixels will excluded from the following analysis
+"""
+
+# Exclude the value "0" and NA
+unique_values = unique_values[1:10]
+pixel_counts = pixel_counts[1:10]
+
+
+# List class labels (from the tmf manual)
+tmf_trans_labels = ['Undisturbed tropical moist forest', 
+                    'Degraded tropical moist forest',
+                    'Forest regrowth',
+                    'Deforested land - plantations',
+                    'Deforested land - water bodies',
+                    'Deforested land - other',
+                    'Ongoing deforestation/degradation',
+                    'Permanent and seasonal water',
+                    'Other land cover']
+
+
+### CALCULATE PIXEL CLASS DISTRIBUTIONS
+total_pixels = np.sum(pixel_counts)
+pixel_percent = (pixel_counts / total_pixels)*100
+
+# Store in a dataframe
+tmf_trans_summary = pd.DataFrame({
+    'Value': unique_values,
+    'Label': tmf_trans_labels,
+    'Pixel_Count': pixel_counts,
+    'Pixel_Percent': pixel_percent
+})
+
+# Sort classes in descending percent order
+tmf_trans_sorted = tmf_trans_summary.sort_values(by='Pixel_Percent', 
+                                                 ascending=False)
+
+
+### PLOT AS BAR CHART
+plt.figure(figsize=(10, 6))
+bars = plt.bar(tmf_trans_sorted['Label'], tmf_trans_sorted['Pixel_Percent'])
+
+# Add labels and title
+plt.xlabel('Land Cover Classes')
+plt.ylabel('Pixel Percent (%)')
+plt.title('Pixel Percentage by Land Cover Class (Sorted)')
+
+# Rotate x-axis labels for better readability
+plt.xticks(rotation=45, ha='right')
+
+# Add grid lines
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Display the plot
 plt.tight_layout()
 plt.show()
 
