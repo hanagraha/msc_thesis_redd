@@ -18,11 +18,8 @@ import geopandas as gpd
 import pandas as pd
 import os
 import numpy as np
-from rasterstats import zonal_stats
-from rasterio.plot import show
+from rasterio.mask import mask
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap, BoundaryNorm
-from matplotlib.patches import Patch
 
 
 
@@ -71,7 +68,7 @@ grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 # Create AOI
 aoi = (gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True))
        .dissolve()[['geometry']])
-
+aoi_geom = aoi.geometry
 
 
 ############################################################################
@@ -250,7 +247,7 @@ agreements = []
 for gfc, tmf, year in zip(gfc_binary_vars, tmf_binary_vars, years):
     gfc_data = locals()[gfc]
     tmf_data = locals()[tmf]
-    var_name = f"agreemeent_{year}"
+    var_name = f"agreement_{year}"
     
     agreement = gfc_data + tmf_data
     locals()[var_name] = agreement
@@ -262,8 +259,9 @@ for gfc, tmf, year in zip(gfc_binary_vars, tmf_binary_vars, years):
 agree_vals = np.unique(locals()[agreements[1]])
 print(f"Values in agreement map are {agree_vals}")
 
+
 # Save maps to file
-tmf_profile.update(dtype=rasterio.uint8)  
+agreement_files = []
 
 for var, year in zip(agreements, years):
     data = locals()[var]
@@ -272,9 +270,47 @@ for var, year in zip(agreements, years):
     output_filepath = os.path.join(out_dir, output_filename)
     
     with rasterio.open(output_filepath, 'w', **tmf_profile) as dst:
-        dst.write(data.astype(rasterio.uint8), 1)
+        dst.write(data.astype(rasterio.float32), 1)
     
+    agreement_files.append(output_filepath)
     print(f"Data for {var} saved to file")
+    
+
+# Clip again and save to remove agreement on pixels outside the AOI
+def clip_raster(raster_path, aoi_geom, nodata_val):
+    with rasterio.open(raster_path) as rast:
+        raster_clip, out_transform = mask(rast, aoi_geom, crop=True, 
+                                          nodata=nodata_val)
+        
+        out_meta = rast.meta.copy()
+        out_meta.update({
+            'driver': 'GTiff',
+            'count': 1,
+            'height': raster_clip.shape[1],
+            'width': raster_clip.shape[2],
+            'transform': out_transform,
+            'nodata': nodata_val})
+        
+    raster_clip = raster_clip.astype('float32')
+    
+    # Save as the same name to override the unclipped file
+    with rasterio.open(raster_path, 'w', **out_meta) as dest:
+        dest.write(raster_clip)
+    
+    return raster_clip
+
+# Clip each spatial agreement map and override old files
+for file, var in zip(agreement_files, agreements):
+    clipped_agreement = clip_raster(file, aoi_geom, nodata_val)
+    
+    # This overrides the old agreement variables
+    locals()[var] = clipped_agreement
+    
+    print(f"Saved clipped data for {var}")
+
+# Check values in clipped file (should be 0, 1, 2, 255)    
+agree_vals = np.unique(locals()[agreements[1]])
+print(f"Values in agreement map are {agree_vals}")
 
 
 
@@ -285,6 +321,106 @@ for var, year in zip(agreements, years):
 
 
 ############################################################################
+def calc_agreement_ratios(image):
+    # Mask out NoData (255) values
+    valid_pixels = image[image != 255]
+    
+    # Count pixels with values 0, 1, and 2
+    total_pixels = valid_pixels.size
+    count_0 = np.sum(valid_pixels == 0)
+    count_1 = np.sum(valid_pixels == 1)
+    count_2 = np.sum(valid_pixels == 2)
+    
+    # Calculate ratios
+    perc_0 = (count_0 / total_pixels)*100
+    perc_1 = (count_1 / total_pixels)*100
+    perc_2 = (count_2 / total_pixels)*100
+    
+    return perc_0, perc_1, perc_2
 
 
 
+agree_stats = None
+
+# Process each image
+for var, year in zip(agreements, years):
+    data = locals()[var]
+    perc_0, perc_1, perc_2 = calc_agreement_ratios(data)
+    
+    # Append results to the DataFrame
+    temp_df = pd.DataFrame({
+        'Year': [year],
+        'Percent_0': [perc_0],
+        'Percent_1': [perc_1],
+        'Percent_2': [perc_2]
+    })
+    
+    if agree_stats is None:
+        agree_stats = temp_df
+    else:
+        agree_stats = pd.concat([agree_stats, temp_df], ignore_index=True)
+
+# Show the DataFrame
+print(agree_stats)
+
+
+
+############################################################################
+
+
+# PLOT STATISTICS
+
+
+############################################################################
+"""
+The following is created with help from ChatGPT, especially the diagonal lines
+"""
+
+# Create a figure and two subplots
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 8), 
+                               gridspec_kw={'height_ratios': [0.8, 1]})
+
+# Plot data in the upper subplot (for the range 90% and above)
+agree_stats.plot(x='Year', y=['Percent_0', 'Percent_1', 'Percent_2'], 
+                 kind='line', ax=ax1, legend=False)
+ax1.set_ylim(90, 100)  # Upper range
+ax1.grid(True, linestyle='--')
+ax1.set_ylabel('Percentage of Pixels in AOI (%)')
+ax1.spines['bottom'].set_visible(False)  # Hide the bottom spine (axis line)
+
+# Plot data in the lower subplot (for the range below 5%)
+agree_stats.plot(x='Year', y=['Percent_0', 'Percent_1', 'Percent_2'], 
+                 kind='line', ax=ax2, legend=False)
+ax2.set_ylim(0, 5)  # Lower range
+ax2.grid(True, linestyle='--')
+ax2.set_xlabel('Year')
+ax2.set_ylabel('Percentage of Pixels in AOI (%)')
+ax2.spines['top'].set_visible(False)  # Hide the top spine (axis line)
+
+# Add diagonal lines to indicate the break between axes
+d = .015  # Diagonal line size
+kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
+ax1.plot((-d, +d), (-d, +d), **kwargs)  # Upper left diagonal
+ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # Upper right diagonal
+
+kwargs.update(transform=ax2.transAxes)  # Switch to lower subplot
+ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # Lower left diagonal
+ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # Lower right diagonal
+
+# Create a single legend for both subplots, positioned below the x-axis
+lines, _ = ax1.get_legend_handles_labels()
+
+# Custom labels for the legend
+custom_labels = ['Agreement on Not Deforested', 'Disagreement on Deforested', 
+                 'Agreement on Deforested']
+
+# Add the legend
+fig.legend(lines, custom_labels, loc='upper center', 
+           bbox_to_anchor=(0.5, +0.01), ncol=3)
+
+# Set X axis ticks
+ax2.set_xticks(agree_stats['Year'])  # Set ticks to each year
+ax2.set_xticklabels(agree_stats['Year'], rotation=45)  # Set labels and rotate for better visibility
+
+plt.tight_layout(rect=[0, 0.01, 1, 1])
+plt.show()
