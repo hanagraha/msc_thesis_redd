@@ -19,6 +19,7 @@ import pandas as pd
 import os
 import numpy as np
 from rasterio.mask import mask
+from statsmodels.stats.contingency_tables import mcnemar 
 import matplotlib.pyplot as plt
 
 
@@ -339,7 +340,6 @@ def calc_agreement_ratios(image):
     return perc_0, perc_1, perc_2
 
 
-
 agree_stats = None
 
 # Process each image
@@ -424,3 +424,163 @@ ax2.set_xticklabels(agree_stats['Year'], rotation=45)  # Set labels and rotate f
 
 plt.tight_layout(rect=[0, 0.01, 1, 1])
 plt.show()
+
+
+
+############################################################################
+
+
+# MCNEMAR'S TEST
+
+
+############################################################################
+"""
+McNemar's test requires a square contingency table. To achieve this, a 
+different reclassification scheme (still binary) and agreement are calculated
+
+Examples on conducting McNemar's test with Python found in:
+https://www.geeksforgeeks.org/how-to-perform-mcnemars-test-in-python/
+
+"""
+
+# Reclassify GFC
+"""
+GFC will be reclassified to be 1 for no deforestation, 2 for deforestation
+"""
+gfc_binary_vars = []
+
+for var, year in zip(gfc_vars, years):
+    gfc_data = locals()[var]
+    binary_data = np.where(gfc_data == 255, 1, 2)
+    var_name = f"gfc_binary_{year}"
+    locals()[var_name] = binary_data
+    
+    gfc_binary_vars.append(var_name)
+    print(f"Reclassified {var} to binary codes")
+    
+# Check codes are binary (use 2013 as example)
+binary_vals = np.unique(locals()[gfc_binary_vars[1]])
+orig_vals = np.unique(locals()[gfc_vars[0]])
+
+if np.array_equal(binary_vals, orig_vals):
+    print(f"Binary reclassification for GFC failed. Original values are \
+          {orig_vals} and new values are {binary_vals}")
+else:
+    print(f"Binary reclassification for GFC succeeded. Original values are \
+          {orig_vals} and new values are {binary_vals}")
+
+
+# Reclassify TMF
+"""
+TMF will be reclassisified to be 4 for no deforestation, 6 for deforestation
+"""
+tmf_binary_vars = []
+
+for var, year in zip(tmf_vars, years):
+    tmf_data = locals()[var]
+    binary_data = np.where(tmf_data == 255, 4, 6)
+    var_name = f"tmf_binary_{year}"
+    locals()[var_name] = binary_data
+    
+    tmf_binary_vars.append(var_name)
+    print(f"Reclassified {var} to binary codes")
+    
+# Check codes are binary (use 2013 as example)
+binary_vals = np.unique(locals()[tmf_binary_vars[1]])
+orig_vals = np.unique(locals()[tmf_vars[0]])
+
+if np.array_equal(binary_vals, orig_vals):
+    print(f"Binary reclassification for TMF failed. Original values are \
+          {orig_vals} and new values are {binary_vals}")
+else:
+    print(f"Binary reclassification for TMF succeeded. Original values are \
+          {orig_vals} and new values are {binary_vals}")
+
+
+# Create empty list to store agreement layers
+agreements = []
+
+# Add binary GFC and TMF layers
+for gfc, tmf, year in zip(gfc_binary_vars, tmf_binary_vars, years):
+    gfc_data = locals()[gfc]
+    tmf_data = locals()[tmf]
+    var_name = f"agreement_{year}"
+    
+    agreement = gfc_data + tmf_data
+    locals()[var_name] = agreement
+    
+    agreements.append(var_name)
+    print(f"Spatial agreement map created for {year}")
+    
+# Check values for spatial agreement (should be 5, 6, 7, 8)
+agree_vals = np.unique(locals()[agreements[1]])
+print(f"Values in agreement map are {agree_vals}")
+
+# Save maps to file
+agreement_files = []
+
+for var, year in zip(agreements, years):
+    data = locals()[var]
+    data = data.astype(np.uint8)
+    output_filename = f"agreement_mcnemar_matrix_{year}.tif"
+    output_filepath = os.path.join(out_dir, output_filename)
+    
+    with rasterio.open(output_filepath, 'w', **tmf_profile) as dst:
+        dst.write(data.astype(rasterio.float32), 1)
+    
+    agreement_files.append(output_filepath)
+    print(f"Data for {var} saved to file")
+    
+# Clip each spatial agreement map and override old files
+for file, var in zip(agreement_files, agreements):
+    clipped_agreement = clip_raster(file, aoi_geom, nodata_val)
+    
+    # This overrides the old agreement variables
+    locals()[var] = clipped_agreement
+    
+    print(f"Saved clipped data for {var}")
+
+# Check values in clipped file (should be 0, 1, 2, 255)    
+agree_vals = np.unique(locals()[agreements[1]])
+print(f"Values in agreement map are {agree_vals}")
+
+def agreement_matrix(image):
+    # Mask out NoData (255) values
+    valid_pixels = image[image != 255]
+    
+    # Count pixels with values 0, 1, and 2
+    count_5 = np.sum(valid_pixels == 5) # agreement not deforestation
+    count_6 = np.sum(valid_pixels == 6) # only GFC says deforestation
+    count_7 = np.sum(valid_pixels == 7) # only TMF says deforestation
+    count_8 = np.sum(valid_pixels == 8) # agreement on deforestation
+    
+    # Create contingency matrix
+    matrix = [[count_5, count_7], 
+              [count_6, count_8]]
+
+    return matrix
+
+
+agree_matrices = []
+
+# Process each image
+for var, year in zip(agreements, years):
+    data = locals()[var]
+    matrix = agreement_matrix(data)
+    agree_matrices.append(matrix)
+
+# Show the DataFrame
+print(agree_matrices)
+
+
+# Run McNemar's test on every contingency matrix
+mcnemar_results = []
+
+# Perform McNemar test for each matrix and store the results
+for matrix in agree_matrices:
+    result = mcnemar(matrix)
+    mcnemar_results.append({'statistic': result.statistic, 
+                            'pvalue': result.pvalue})
+    
+# Save in a dataframe
+mcnemar_df = pd.DataFrame(mcnemar_results, index=years)
