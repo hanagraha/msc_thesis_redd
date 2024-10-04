@@ -584,3 +584,15 @@ for matrix in agree_matrices:
     
 # Save in a dataframe
 mcnemar_df = pd.DataFrame(mcnemar_results, index=years)
+
+# Plot results
+plt.figure(figsize=(10, 6))
+plt.plot(mcnemar_df.index, mcnemar_df['statistic'], linestyle='-', 
+         color='#5B9BD5')
+
+# Adding labels and title
+plt.xlabel('Year')
+plt.ylabel('McNemar Statistic')
+plt.xticks(mcnemar_df.index)  # Show all years as ticks
+plt.grid(linestyle='--')  # Add gridlines
+plt.show()
