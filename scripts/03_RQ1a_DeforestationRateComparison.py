@@ -19,17 +19,14 @@ import pandas as pd
 import os
 import numpy as np
 from rasterstats import zonal_stats
-from rasterio.plot import show
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap, BoundaryNorm
-from matplotlib.patches import Patch
 
 
 
 ############################################################################
 
 
-# SET UP DIRECTORY
+# SET UP DIRECTORY AND NODATA
 
 
 ############################################################################
@@ -41,6 +38,9 @@ os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
+
+# Set nodata value
+nodata_val = 255
 
 
 
@@ -61,10 +61,6 @@ tmf_degrayear_paths = [f"data/intermediate/tmf_DegradationYear_{year}.tif"
                        for year in range(2013, 2024)]
 tmf_annual_paths = [f"data/jrc_preprocessed/tmf_AnnualChange_{year}_fm.tif" for 
                     year in range(2013,2024)]
-
-# Set nodata value
-nodata_val = 255
-
 
 ### POLYGON DATA
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
