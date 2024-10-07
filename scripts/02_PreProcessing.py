@@ -3,6 +3,13 @@
 Created on Mon Sep 23 16:58:43 2024
 
 @author: hanna
+
+This file conducts the following pre-processing steps: reprojection, clipping, 
+reclassifying, resampling, masking, separating, and combining. The inputs for
+this file takes outputs from the 01_DataDownload.py file: 2 GFC rasters and 15
+TMF rasters. It also uses 1 shapefile and 1 geojson that are found in the 
+GIT repository.
+
 """
 
 ############################################################################
@@ -27,7 +34,7 @@ import glob
 ############################################################################
 
 
-# SET UP DIRECTORY
+# SET UP DIRECTORY AND NODATA
 
 
 ############################################################################
@@ -45,12 +52,17 @@ gfc_folder = "data/hansen_raw"
 tmf_folder = "data/jrc_raw"
 
 # Get list of all tif files in the folder
-gfc_files = [f"{gfc_folder}/{file}" for file in os.listdir(gfc_folder) if file.endswith('.tif')]
-tmf_files = [f"{tmf_folder}/{file}" for file in os.listdir(tmf_folder) if file.endswith('.tif')]
+gfc_files = [f"{gfc_folder}/{file}" for file in os.listdir(gfc_folder) if 
+             file.endswith('.tif')]
+tmf_files = [f"{tmf_folder}/{file}" for file in os.listdir(tmf_folder) if 
+             file.endswith('.tif')]
 
 # Print the file paths to check
-print(gfc_files)
-print(tmf_files)
+print(f"GFC Files Stored: {gfc_files}")
+print(f"TMF Files Stored: {tmf_files}")
+
+# Set nodata value
+nodata_val = 255
 
 
 
@@ -96,6 +108,12 @@ aoi_geom = aoi.geometry
 
 
 ############################################################################
+"""
+This segment will reproject all raster data to match crs of the villages and
+GRNP crs (EPSG 32629). This EPSG is also most accurate for Sierra Leone. 
+
+Expected runtime ~3-6min
+"""
 
 ### DEFINE FUNCTION TO REPROJECT RASTERS
 def reproject_raster(raster_path, epsg, output_folder):
@@ -159,48 +177,47 @@ for tif in tmf_files:
 
 
 ############################################################################
+"""
+This segment will override the previously created files with updated versions
+that are clipped to the AOI (combination of villages and GRNP area)
+
+Expected runtime: <1min
+"""
 
 ### DEFINE FUNCTION TO CLIP RASTERS
-def clip_raster(raster_path, aoi_geom, nodata_val):
+def clip_raster(raster_path, aoi_geom, nodata_value):
     
-    # open raster
+    # Read raster
     with rasterio.open(raster_path) as rast:
         
         # Clip raster
-        raster_clip, out_transform = mask(rast, aoi_geom, crop=True, nodata=nodata_val)
+        raster_clip, out_transform = mask(rast, aoi_geom, crop=True, nodata=nodata_value)
         
         out_meta = rast.meta.copy()
         out_meta.update({
             'driver': 'GTiff',
+            'dtype': 'int16', # to incorporate values over 255
             'count': 1,
             'height': raster_clip.shape[1],
             'width': raster_clip.shape[2],
             'transform': out_transform,
-            'nodata': nodata_val})
-        
-    raster_clip = raster_clip.astype('float32')
-    # raster_clip[raster_clip == nodata_val] = np.nan
+            'nodata': nodata_value})
     
-    # outpath = raster_path.replace("_reprojected.tif", "_clipped.tif")
-    
-    # if os.path.exists(outpath): 
-    #     os.remove(outpath)
-    
+    # Write file to hardrive (with the same name as input file, overriding)
     with rasterio.open(raster_path, 'w', **out_meta) as dest:
         dest.write(raster_clip)
     
     print(f"Clipping Complete for {raster_path}")
-    
     return raster_clip, out_meta  
     
 
 # Clip GFC rasters
 for file in gfc_reproj_files:
-    clip_raster(file, aoi_geom, 255)
+    clip_raster(file, aoi_geom, nodata_val)
     
 # Clip TMF rasters
 for file in tmf_reproj_files:
-    clip_raster(file, aoi_geom, 255)
+    clip_raster(file, aoi_geom, nodata_val)
     
     
     
@@ -212,25 +229,30 @@ for file in tmf_reproj_files:
 
 ############################################################################
 """
-GFC lossyear will be reclassified to match the year format of TMF degradation year
+GFC lossyear will be reclassified to match the format of TMF degradation year
+such that the years will be in the format 2013-2023 (instead of 13-23) and 
+undisturbed forests will have value 0 (instead of 2000)
+
+Expected runtime: <1min
 """
+gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_AOI.tif"
 
 # Re-do the clip function to get metadata
-gfc_lossyear, gfc_lossyear_meta = clip_raster(gfc_reproj_files[0], aoi_geom, 255)
+gfc_lossyear, gfc_lossyear_meta = clip_raster(gfc_lossyear_file, aoi_geom, 
+                                              nodata_val)
 
-# Get path to save the reclassified file
-# gfc_lossyear_path = gfc_reproj_files[0].replace("_reprojected.tif", "_reclassified.tif")
+# Add 2000 to all non-NA years
+gfc_lossyear_new = np.where(gfc_lossyear != nodata_val, gfc_lossyear + 2000, 
+                            gfc_lossyear)
 
-# Add 2000 to non-NA years
-gfc_lossyear_new = np.where(gfc_lossyear != 255, gfc_lossyear + 2000, gfc_lossyear)
+# Reclassify undisturbed forest from 2000 to 0
+gfc_lossyear_new = np.where(gfc_lossyear_new == 2000, 0, gfc_lossyear_new)
 
-# Make sure data type can hold 2000 values
-gfc_lossyear_meta.update(dtype='int16')
-
-# Write file to drive
-with rasterio.open(gfc_reproj_files[0], 'w', **gfc_lossyear_meta) as dest:
+# Write file to hardrive (with the same name as input file, overriding)
+with rasterio.open(gfc_lossyear_file, 'w', **gfc_lossyear_meta) as dest:
     dest.write(gfc_lossyear_new)
-print(f"Reclassification Complete for {gfc_reproj_files[0]}")
+    
+print(f"Reclassification Complete for {gfc_lossyear_file}")
     
     
     
@@ -243,7 +265,9 @@ print(f"Reclassification Complete for {gfc_reproj_files[0]}")
 ############################################################################    
 """
 GFC has shape (3030, 3654) and TMF has shape (2812, 3389). TMF will be 
-resampled to match the shape of GFC to retain spatial accuracy
+resampled to match the shape of GFC to retain spatial accuracy. 
+
+Expected runtime: <1min
 """    
 
 ### COMPARE GFC and TMF SHAPES
@@ -296,7 +320,8 @@ else:
 tmf_folder = "data/jrc_preprocessed"
 tmf_files = glob.glob(os.path.join(tmf_folder, "*AOI.tif*"))
 
-# Make sure the list only has tif files
+# Make sure the list only has tif files (other filetypes show up when using
+# QGIS or ArcGIS for visualization)
 tmf_files = ([file for file in tmf_files if file.endswith('.tif') and not 
               file.endswith(('.xml', '.ovr'))])
 
@@ -307,7 +332,7 @@ for raster_path in tmf_files:
         source_profile = src.profile
         source_transform = src.transform
 
-    # Create an output array for the resampled data
+    # Create empty output array with the same dimensions as input TMF files
     resampled_data = np.zeros(gfc_treecover_shape, dtype=source_data.dtype)
 
     # Perform the resampling
@@ -330,13 +355,26 @@ for raster_path in tmf_files:
         'nodata': source_profile['nodata']  # Keep the same NoData value
     })
 
-    # Save the resampled raster
+    # Save the resampled raster with new filename for comparison
     output_file = raster_path.replace(".tif", "_resampled.tif")
     with rasterio.open(output_file, 'w', **gfc_treecover_profile) as dst:
         dst.write(resampled_data, 1)
 
     print(f"Resampled raster saved as {output_file}")
-    
+
+# Double check results
+tmf_deforyear_resampled = "data/jrc_preprocessed/tmf_DeforestationYear_AOI_resampled.tif"
+with rasterio.open(tmf_deforyear_resampled) as tmf:
+    tmf_deforyear_resampled_shape = tmf.shape
+
+# Compare shapes
+if gfc_lossyear_shape == tmf_deforyear_resampled_shape:
+    print("Both rasters have the same shape.")
+    print("Shape:", gfc_lossyear_shape)
+else:
+    print("The shapes of the two rasters are different.")
+    print("Shape of GFC Lossyear:", gfc_lossyear_shape)
+    print("Shape of Resampled TMF Deforestation Year:", tmf_deforyear_resampled_shape)
     
     
 ############################################################################
@@ -365,6 +403,8 @@ with rasterio.open(tmf_trans_sub) as tmf:
 Map - Sub types map by selecting all pixels belonging to classes 10 to 89 
 excluding classes 71 and 72."
 - taken from https://forobs.jrc.ec.europa.eu/TMF/resources#how_to
+
+Expected runtime: <1min
 """
 
 # Create baseline forest mask
@@ -410,8 +450,6 @@ print(f"GFC baseline forest saved as {gfc_baseforest_file}")
     
     
 ### FOREST MASK SPATIAL AGREEMENT
-nodata_val = 255
-
 # Convert forest masks to binary layers
 binary_gfc_baseforest = np.where(gfc_baseforest == nodata_val, 0, 1)  # 1 where data exists, 0 where NoData
 binary_tmf_baseforest = np.where(tmf_baseforest == nodata_val, 0, 2)  # 2 where data exists, 0 where NoData
@@ -462,7 +500,7 @@ with rasterio.open(gfc_baseforest2012_file, 'w', **gfc_baseforest2012_meta) as d
     dst.write(gfc_baseforest2012, 1)
     
     
-### APPLY GFC BASELINE FOREST
+### APPLY GFC BASELINE FOREST 2012 MASK
 
 # Read GFC files
 gfc_folder = "data/hansen_preprocessed"
@@ -478,9 +516,7 @@ tmf_files = ([file for file in tmf_files if file.endswith('_resampled.tif') and 
 
 # Mask GFC files
 for file in gfc_files:
-    
     with rasterio.open(file) as src:
-        
         file_data = src.read(1)
         file_meta = src.meta
 
@@ -491,7 +527,7 @@ for file in gfc_files:
         # Create output file name
         output_file = file.replace('_AOI.tif', '_fm.tif')
 
-        # Save the masked output
+        # Save masked gfc files
         with rasterio.open(output_file, 'w', **file_meta) as dst:
             dst.write(masked_data, 1)
 
@@ -499,9 +535,7 @@ for file in gfc_files:
 
 # Mask TMF files
 for file in tmf_files:
-    
     with rasterio.open(file) as src:
-        
         file_data = src.read(1)
         file_meta = src.meta
 
@@ -512,7 +546,7 @@ for file in tmf_files:
         # Create output file name
         output_file = file.replace('_AOI_resampled.tif', '_fm.tif')
 
-        # Save the masked output
+        # Save masked tmf files
         with rasterio.open(output_file, 'w', **file_meta) as dst:
             dst.write(masked_data, 1)
 
@@ -527,6 +561,14 @@ for file in tmf_files:
 
 
 ############################################################################
+"""
+For RQ1a and RQ2a, single-year layers are needed to process deforestation
+information. This segment converst GFC lossyear, TMF deforestation year, and 
+TMF degradation year (all layers that represent multiple years) into individual
+layers for each year (11 years per layer, 33 new files total)
+
+Expected runtime: <1min
+"""
 # Filepaths and nodata value
 nodata_val = 255
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
@@ -534,7 +576,6 @@ tmf_deforyear_file = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
 tmf_degrayear_file = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
 
 ### SPLIT GFC LOSSYEAR
-
 with rasterio.open(gfc_lossyear_file) as src:
     raster_data = src.read(1)
     profile = src.profile
@@ -546,7 +587,7 @@ with rasterio.open(gfc_lossyear_file) as src:
         year_mask = np.where(raster_data == year, raster_data, nodata_val)
 
         # Update profile just in case
-        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+        profile.update(dtype=rasterio.int16, nodata=nodata_val)
 
         # Save to drive
         output_filename = gfc_lossyear_file.replace("hansen_preprocessed", 
@@ -558,7 +599,6 @@ with rasterio.open(gfc_lossyear_file) as src:
 
 
 ### SPLIT TMF DEFORESTATION YEAR
-
 with rasterio.open(tmf_deforyear_file) as src:
     raster_data = src.read(1)
     profile = src.profile
@@ -570,7 +610,7 @@ with rasterio.open(tmf_deforyear_file) as src:
         year_mask = np.where(raster_data == year, raster_data, nodata_val)
 
         # Update profile just in case
-        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+        profile.update(dtype=rasterio.int16, nodata=nodata_val)
 
         # Save to drive
         output_filename = tmf_deforyear_file.replace("jrc_preprocessed", 
@@ -582,7 +622,6 @@ with rasterio.open(tmf_deforyear_file) as src:
 
 
 ### SPLIT TMF DEGRADATION YEAR
-
 with rasterio.open(tmf_degrayear_file) as src:
     raster_data = src.read(1)
     profile = src.profile
@@ -594,7 +633,7 @@ with rasterio.open(tmf_degrayear_file) as src:
         year_mask = np.where(raster_data == year, raster_data, nodata_val)
 
         # Update profile just in case
-        profile.update(dtype=rasterio.float32, nodata=nodata_val)
+        profile.update(dtype=rasterio.int16, nodata=nodata_val)
 
         # Save to drive
         output_filename = tmf_degrayear_file.replace("jrc_preprocessed", 
@@ -606,8 +645,53 @@ with rasterio.open(tmf_degrayear_file) as src:
         
 
 
+############################################################################
 
 
+# COMBINE TMF DEFORESTATION AND DEGRADATION YEAR
+
+
+############################################################################
+"""
+For all RQs, a combination of TMF Deforestation and Degradation Year is needed.
+This segment combines multi-year tmf deforestation and degradation data.
+
+Expected runtime: <1min
+"""
+# Read relevant datasets
+tmf_deforyear = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
+tmf_degrayear = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
+
+# Combine TMF deforestation and degradation year maps
+with rasterio.open(tmf_deforyear) as src1, rasterio.open(tmf_degrayear) as src2:
+    tmf_defor = src1.read(1)  
+    tmf_degra = src2.read(1)
+    profile = src1.profile
+    
+    # Only use TMF data from 2013-2023 (exclude 1984-2012)
+    tmf_defor = np.where((tmf_defor >= 1984) & (tmf_defor <= 2012), 
+                         nodata_val, tmf_defor)
+    tmf_degra = np.where((tmf_degra >= 1984) & (tmf_degra <= 2012), 
+                         nodata_val, tmf_degra)
+
+    # Handling NoData values
+    defor_mask = tmf_defor == nodata_val
+    degra_mask = tmf_degra == nodata_val
+
+    # Combine the data (e.g., taking the max value between the two, ignoring NoData)
+    combined_data = np.where(defor_mask, tmf_degra, np.where(degra_mask, 
+                             tmf_defor, np.maximum(tmf_defor, tmf_degra)))
+    
+    tmf_comb_filename = "data/intermediate/tmf_defordegra_year.tif"
+    
+    with rasterio.open(tmf_comb_filename, 'w', **profile) as dst:
+        dst.write(combined_data, 1)
+
+print(f"Combined raster saved to {tmf_comb_filename}")
+
+# View unique values to check
+comb_vals = np.unique(combined_data)
+print(f"Values in agreement map are {comb_vals}")
 
 
 
