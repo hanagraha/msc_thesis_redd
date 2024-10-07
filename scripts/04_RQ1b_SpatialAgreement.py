@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 ############################################################################
 
 
-# SET UP DIRECTORY
+# SET UP DIRECTORY AND NODATA
 
 
 ############################################################################
@@ -39,6 +39,9 @@ os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
+
+# Set nodata value
+nodata_val = 255
 
 
 
@@ -58,9 +61,6 @@ tmf_degrayear_paths = [f"data/intermediate/tmf_DegradationYear_{year}.tif"
 tmf_annual_paths = [f"data/jrc_preprocessed/tmf_AnnualChange_{year}_fm.tif" for 
                     year in range(2013,2024)]
 
-# Set nodata value
-nodata_val = 255
-
 
 ### POLYGON DATA
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
@@ -70,6 +70,7 @@ grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 aoi = (gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True))
        .dissolve()[['geometry']])
 aoi_geom = aoi.geometry
+
 
 
 ############################################################################
@@ -133,7 +134,7 @@ the raster datasets becuase the NAN value is 255, and all values of interest
 range from 2013-2023.
 """
 
-### COMBINE DEFORESTATION AND DEGRADATION
+### COMBINE DEFORESTATION AND DEGRADATION PER YEAR
 # Loop over each year's deforestation and degradation data
 years = range(2013, 2024)
 tmf_vars =  []
@@ -596,3 +597,76 @@ plt.ylabel('McNemar Statistic')
 plt.xticks(mcnemar_df.index)  # Show all years as ticks
 plt.grid(linestyle='--')  # Add gridlines
 plt.show()
+
+
+
+
+############################################################################
+
+
+# CREATE COMBINED AGREEMENT MAPS
+
+
+############################################################################
+"""
+The sensitive early combination is defined by Bos et al. (2019) as recording 
+the earliest deforestation year between two datasets, regardless of the other
+product's detection
+"""
+
+### SENSITIVE EARLY
+# Read relevant datasets
+gfc_lossyear = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+tmf_defordegra = "data/intermediate/tmf_defordegra_year.tif"
+
+# Combine TMF and GFC maps
+with rasterio.open(gfc_lossyear) as src1, rasterio.open(tmf_defordegra) as src2:
+    gfc = src1.read(1)  
+    tmf = src2.read(1) 
+    profile = src1.profile
+
+    gfc_mask = gfc == nodata_val
+    tmf_mask = tmf == nodata_val
+
+    # Take minimum value of both datasets, or the value of the other dataset
+    # if pixel value is 255 (nodata)
+    combined_data = np.where(tmf_mask, gfc, np.where(gfc_mask, 
+                             tmf, np.minimum(tmf, gfc)))
+    
+    # Define output filename
+    gfc_tmf_outfile = "data/intermediate/gfc_tmf_sensitive_early.tif"
+
+    # Write the output raster
+    with rasterio.open(gfc_tmf_outfile, 'w', **profile) as dst:
+        dst.write(combined_data, 1)
+
+print(f"Combined raster saved to {gfc_tmf_outfile}")
+
+# View unique values to check
+comb_vals = np.unique(combined_data)
+print(f"Values in agreement map are {comb_vals}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
