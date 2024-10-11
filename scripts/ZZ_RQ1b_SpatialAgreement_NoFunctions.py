@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri Oct 11 11:25:56 2024
+
+@author: hanna
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Thu Oct  3 18:18:38 2024
 
 @author: hanna
@@ -49,37 +56,37 @@ nodata_val = 255
 ############################################################################
 
 
-# IMPORT AND READ DATA
+# IMPORT DATA
 
 
 ############################################################################
-# Raster data filepaths
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
 tmf_defordegra_file = "data/intermediate/gfc_tmf_combyear.tif"
 
-# Read raster data
-with rasterio.open(gfc_lossyear_file) as gfc:
-    gfc_lossyear = gfc.read(1)
-    
-with rasterio.open(tmf_defordegra_file) as tmf:
-    tmf_defordegra = tmf.read(1)
-    profile = tmf.profile
-
-# Read vector data
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
 grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
+
 
 # Create REDD+ and non-REDD+ polygons
 villages = villages[['grnp_4k', 'geometry']]
 villages = villages.dissolve(by='grnp_4k')
 villages = villages.reset_index()
 
-# Create REDD+ and non-REDD+ geometries
-redd_geom = villages.loc[1, 'geometry']
-nonredd_geom = villages.loc[0, 'geometry']
 
-# Create GRNP geometry
-grnp_geom = grnp.geometry
+
+############################################################################
+
+
+# READ DATA
+
+
+############################################################################
+with rasterio.open(gfc_lossyear_file) as gfc:
+    gfc_lossyear = gfc.read(1)
+    
+with rasterio.open(tmf_defordegra_file) as tmf:
+    tmf_defordegra = tmf.read(1)
+    profile = tmf.profile
 
 
 
@@ -92,49 +99,66 @@ grnp_geom = grnp.geometry
 ############################################################################
 years = range(2013, 2024)
 
-def binary_reclass(yeardata, yearrange, class1, class2, nodata):
-    binary_list = []
-    for year in yearrange:
-        binary_data = np.where(yeardata == year, class1, np.where(
-            yeardata == nodata, nodata, class2))
-        binary_list.append(binary_data)
-    print("Binary reclassification complete")    
-    return binary_list
+# Reclassify GFC (where undisturbed = 1, deforested = 2)
+gfc_binary_vars = []
+for year in years:
+    binary_data = np.where(gfc_lossyear == year, 2, np.where(
+                            gfc_lossyear == nodata_val, nodata_val, 1))
+    varname = f"gfc_binary_{year}"
+    locals()[varname] = binary_data
+    gfc_binary_vars.append(varname)
+    
+    print(f"Reclassified {varname} to binary codes")
 
-gfc_binary_vars = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
-tmf_binary_vars = binary_reclass(tmf_defordegra, years, 6, 4, nodata_val)
+# Reclassify TMF (where undisturbed = 4, deforested = 6)
+tmf_binary_vars = []
+for year in years:
+    binary_data = np.where(tmf_defordegra == year, 6, np.where(
+                            tmf_defordegra == nodata_val, nodata_val, 4))
+    varname = f"tmf_binary_{year}"
+    locals()[varname] = binary_data
+    tmf_binary_vars.append(varname)
+    
+    print(f"Reclassified {varname} to binary codes")
 
 
 
 ############################################################################
 
 
-# CREATE SPATIAL AGREEMENT RASTERS
+# CREATE SPATIAL AGREEMENT LAYERS
 
 
 ############################################################################
 # Create empty list to store agreement layers
 agreements = []
 
-# Add binary maps together per year 
+# Add binary GFC and TMF layers
 for gfc, tmf, year in zip(gfc_binary_vars, tmf_binary_vars, years):
-    agreement = np.where((gfc == 255) | (tmf == 255), 255, gfc + tmf)
-    agreements.append(agreement)
+    gfc_data = locals()[gfc]
+    tmf_data = locals()[tmf]
+    var_name = f"agreement_{year}"
+    
+    agreement = np.where((gfc_data == 255) | (tmf_data == 255), 255, 
+                          gfc_data + tmf_data)
+    locals()[var_name] = agreement
+    
+    agreements.append(var_name)
     print(f"Spatial agreement map created for {year}")
     
-# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
-agree_vals = np.unique(agreements[1])
+# Check values for spatial agreement (should be 5, 6, 7, 8)
+agree_vals = np.unique(locals()[agreements[1]])
+
 print(f"Values in agreement map are {agree_vals}")
 
-# Define output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 
-# Create empty list to store output filepaths
+# Save maps to file
+out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 agreement_files = []
 
-# Save each agreement raster to drive
 for var, year in zip(agreements, years):
-    data = var.astype(np.uint8)
+    data = locals()[var]
+    data = data.astype(np.uint8)
     output_filename = f"agreement_gfc_combtmf_{year}.tif"
     output_filepath = os.path.join(out_dir, output_filename)
     
@@ -142,12 +166,81 @@ for var, year in zip(agreements, years):
         dst.write(data.astype(rasterio.float32), 1)
     
     agreement_files.append(output_filepath)
-    print(f"Agreement Map for {year} saved to file")
+    print(f"Data for {var} saved to file")
 
-# Define function for clipping stack of agreement rasters
-def filestack_clip(array_files, yearrange, geometry, nodataval):
+
+
+############################################################################
+
+
+# CALCULATE SPATIAL AGREEMENT STATISTICS FOR AOI
+
+
+############################################################################
+
+def calc_agreement_ratios(image):
+    # Mask out NoData (255) values
+    valid_pixels = image[image != 255]
+    
+    # Count pixels with values 5, 6, 7, and 8
+    total_pixels = valid_pixels.size
+    count_5 = np.sum(valid_pixels == 5) # agreement undisturbed
+    count_6 = np.sum(valid_pixels == 6) # only gfc detects deforested
+    count_7 = np.sum(valid_pixels == 7) # only tmf detects deforested
+    count_8 = np.sum(valid_pixels == 8) # agreement deforested
+    
+    # Reclassify counts to agreement and disagreement
+    agreement_undisturbed = count_5
+    disagreement = count_6 + count_7
+    agreement_deforested = count_8
+    
+    # Calculate ratios
+    perc_agree_undisturbed = (agreement_undisturbed / total_pixels)*100
+    perc_disagree = (disagreement / total_pixels)*100
+    perc_agree_deforested = (agreement_deforested / total_pixels)*100
+    
+    return perc_agree_undisturbed, perc_disagree, perc_agree_deforested
+
+
+agree_stats = None
+
+# Calculate agreement stats for each agreement image
+for var, year in zip(agreements, years):
+    data = locals()[var]
+    perc_5, perc_67, perc_8 = calc_agreement_ratios(data)
+    
+    # Append results to the DataFrame
+    temp_df = pd.DataFrame({
+        'Year': [year],
+        'Agree_Undisturbed': [perc_5],
+        'Disagree': [perc_67],
+        'Agree_Deforested': [perc_8]
+    })
+    
+    if agree_stats is None:
+        agree_stats = temp_df
+    else:
+        agree_stats = pd.concat([agree_stats, temp_df], ignore_index=True)
+
+# Show the DataFrame
+print(agree_stats)
+
+
+
+############################################################################
+
+
+# CALCULATE SPATIAL AGREEMENT STATISTICS FOR REDD+/NON-REDD+ VILLAGES
+
+
+############################################################################
+# Create REDD+ and non-REDD+ geometries
+redd_geom = villages.loc[1].geometry
+nonredd_geom = villages.loc[0, 'geometry']
+
+def filestack_clip(arraylist, yearrange, geometry, nodataval):
     clipped_list = []
-    for file, year, in zip(array_files, yearrange):
+    for file, year, in zip(arraylist, yearrange):
         with rasterio.open(file) as rast:
             agree_clip, agree_trans = mask(rast, geometry, crop=True,
                                             nodata=nodataval)
@@ -156,88 +249,133 @@ def filestack_clip(array_files, yearrange, geometry, nodataval):
     print(f"Clipping complete for {filenum} files")
     return clipped_list
 
-# Clip agreement rasters to REDD+ area
-redd_agreement = filestack_clip(agreement_files, years, [redd_geom], nodata_val)
+# Clip to REDD+ area
+redd_agreement = []
+for file, year in zip(agreement_files, years):
+    with rasterio.open(file) as rast:
+        agree_clip, agree_trans = mask(rast, [redd_geom], crop=True, 
+                                       nodata=nodata_val) 
+    redd_agreement.append(agree_clip)
+    print(f"Clipped {year} agreement to REDD+ villages")
 
-# Double check values
+# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
 agree_vals = np.unique(redd_agreement[1])
+
 print(f"Values in agreement map are {agree_vals}") 
-
-# Clip agreement rasters to non-REDD+ area
-nonredd_agreement = filestack_clip(agreement_files, years, [nonredd_geom], nodata_val)
-
-# Double check values
+    
+# Clip to non-REDD+ area
+nonredd_agreement = []
+for file, year in zip(agreement_files, years):
+    with rasterio.open(file) as rast:
+        agree_clip, agree_trans = mask(rast, [nonredd_geom], crop=True, 
+                                       nodata=nodata_val) 
+    nonredd_agreement.append(agree_clip)
+    print(f"Clipped {year} agreement to non-REDD+ villages")
+    
+# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
 agree_vals = np.unique(nonredd_agreement[1])
+
 print(f"Values in agreement map are {agree_vals}") 
 
-# Clip agreement rasters to GRNP area
-grnp_agreement = filestack_clip(agreement_files, years, grnp_geom, nodata_val)
+
+### REDD+ AGREEMENT STATISTICS
+redd_agree_stats = None
+
+# Calculate agreement stats for each agreement image
+for var, year in zip(redd_agreement, years):
+    perc_5, perc_67, perc_8 = calc_agreement_ratios(var)
+    
+    # Append results to the DataFrame
+    temp_df = pd.DataFrame({
+        'Year': [year],
+        'Agree_Undisturbed': [perc_5],
+        'Disagree': [perc_67],
+        'Agree_Deforested': [perc_8]
+    })
+    
+    if redd_agree_stats is None:
+        redd_agree_stats = temp_df
+    else:
+        redd_agree_stats = pd.concat([redd_agree_stats, temp_df], 
+                                     ignore_index=True)
+
+# Show the DataFrame
+print(redd_agree_stats)
+
+
+### NON-REDD+ AGREEMENT STATISTICS
+nonredd_agree_stats = None
+
+# Calculate agreement stats for each agreement image
+for var, year in zip(nonredd_agreement, years):
+    perc_5, perc_67, perc_8 = calc_agreement_ratios(var)
+    
+    # Append results to the DataFrame
+    temp_df = pd.DataFrame({
+        'Year': [year],
+        'Agree_Undisturbed': [perc_5],
+        'Disagree': [perc_67],
+        'Agree_Deforested': [perc_8]
+    })
+    
+    if nonredd_agree_stats is None:
+        nonredd_agree_stats = temp_df
+    else:
+        nonredd_agree_stats = pd.concat([nonredd_agree_stats, temp_df], 
+                                        ignore_index=True)
+
+# Show the DataFrame
+print(nonredd_agree_stats)
 
 
 
 ############################################################################
 
 
-# CALCULATE SPATIAL AGREEMENT STATISTICS
+# CALCULATE SPATIAL AGREEMENT STATISTICS FOR GRNP
 
 
 ############################################################################
-def agreestats(image, class1=5, class2=6, class3=7, class4=8):
-    # Mask out NoData (255) values
-    valid_pixels = image[image != 255]
-    
-    # Count pixels with values 5, 6, 7, and 8
-    total_pixels = valid_pixels.size
-    count_5 = np.sum(valid_pixels == class1) # agreement undisturbed
-    count_6 = np.sum(valid_pixels == class2) # only gfc detects deforested
-    count_7 = np.sum(valid_pixels == class3) # only tmf detects deforested
-    count_8 = np.sum(valid_pixels == class4) # agreement deforested
-    
-    # Reclassify counts to agreement and disagreement
-    agreement_undisturbed = count_5
-    disagreement = count_6 + count_7
-    agreement_deforested = count_8
-    
-    # Calculate ratios
-    perc_5 = (agreement_undisturbed / total_pixels)*100
-    perc_67 = (disagreement / total_pixels)*100
-    perc_8 = (agreement_deforested / total_pixels)*100
-    
-    return perc_5, perc_67, perc_8
+# Create GRNP geometry
+grnp_geom = grnp.geometry
 
-def agreestat_summary(imagelist, yearrange):
-    # Create an empty list
-    agree_stats = []
+# Clip to GRNP area
+grnp_agreement = []
+for file, year in zip(agreement_files, years):
+    with rasterio.open(file) as rast:
+        agree_clip, agree_trans = mask(rast, grnp_geom, crop=True, 
+                                       nodata=nodata_val) 
+    grnp_agreement.append(agree_clip)
+    print(f"Clipped {year} agreement to the GRNP")
+
+# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
+agree_vals = np.unique(grnp_agreement[1])
+
+print(f"Values in agreement map are {agree_vals}") 
+
+### GRNP AGREEMENT STATISTICS
+grnp_agree_stats = None
+
+# Calculate agreement stats for each agreement image
+for var, year in zip(grnp_agreement, years):
+    perc_5, perc_67, perc_8 = calc_agreement_ratios(var)
     
-    # Calculate statistics for each image
-    for var, year, in zip(imagelist, yearrange):
-        perc_5, perc_67, perc_8 = agreestats(var)
-        
-        # Append results to list as a dictionary
-        agree_stats.append({
-            'Year': year,
-            'Agree_Undisturbed': perc_5,
-            'Disagree': perc_67,
-            'Agree_Deforested': perc_8
-        })   
+    # Append results to the DataFrame
+    temp_df = pd.DataFrame({
+        'Year': [year],
+        'Agree_Undisturbed': [perc_5],
+        'Disagree': [perc_67],
+        'Agree_Deforested': [perc_8]
+    })
     
-    # Convert list to dataframe
-    agree_stats = pd.DataFrame(agree_stats)
-    
-    return agree_stats
+    if grnp_agree_stats is None:
+        grnp_agree_stats = temp_df
+    else:
+        grnp_agree_stats = pd.concat([grnp_agree_stats, temp_df], 
+                                     ignore_index=True)
 
-# Calculate summary statistics for AOI
-aoi_agree_stats = agreestat_summary(agreements, years)
-
-# Calculate summary statistics for REDD+ area
-redd_agree_stats = agreestat_summary(redd_agreement, years)
-
-# Calculate summary statistics for non-REDD+ area
-nonredd_agree_stats = agreestat_summary(nonredd_agreement, years)
-
-# Calculate summary statistics for GRNP area
-grnp_agree_stats= agreestat_summary(grnp_agreement, years)
-
+# Show the DataFrame
+print(grnp_agree_stats)
 
 
 ############################################################################
