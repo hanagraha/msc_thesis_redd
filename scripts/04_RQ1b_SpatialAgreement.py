@@ -44,6 +44,9 @@ print("New Working Directory:", os.getcwd())
 # Set nodata value
 nodata_val = 255
 
+# Set output directory
+out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+
 
 
 ############################################################################
@@ -90,8 +93,10 @@ grnp_geom = grnp.geometry
 
 
 ############################################################################
+# Define study range years
 years = range(2013, 2024)
 
+# Define function to reclassify multi-year array to binary single-year arrays
 def binary_reclass(yeardata, yearrange, class1, class2, nodata):
     binary_list = []
     for year in yearrange:
@@ -101,8 +106,18 @@ def binary_reclass(yeardata, yearrange, class1, class2, nodata):
     print("Binary reclassification complete")    
     return binary_list
 
-gfc_binary_vars = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
-tmf_binary_vars = binary_reclass(tmf_defordegra, years, 6, 4, nodata_val)
+# Define function to check values of new array
+def valcheck(array, dataname):
+    uniquevals = np.unique(array)
+    print(f"Unique values in the {dataname} are {uniquevals}")
+
+# Reclassify GFC lossyear array
+gfc_binary_arrs = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
+valcheck(gfc_binary_arrs[1], "gfc binary array")
+
+# Reclassify TMF deforestation and degradation array
+tmf_binary_arrs = binary_reclass(tmf_defordegra, years, 6, 4, nodata_val)
+valcheck(tmf_binary_arrs[1], "tmf binary array")
 
 
 
@@ -114,35 +129,49 @@ tmf_binary_vars = binary_reclass(tmf_defordegra, years, 6, 4, nodata_val)
 
 ############################################################################
 # Create empty list to store agreement layers
-agreements = []
+aoi_agreement = []
 
 # Add binary maps together per year 
-for gfc, tmf, year in zip(gfc_binary_vars, tmf_binary_vars, years):
-    agreement = np.where((gfc == 255) | (tmf == 255), 255, gfc + tmf)
-    agreements.append(agreement)
+for gfc, tmf, year in zip(gfc_binary_arrs, tmf_binary_arrs, years):
+    agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
+                         gfc + tmf)
+    aoi_agreement.append(agreement)
     print(f"Spatial agreement map created for {year}")
     
 # Check values for spatial agreement (should be 5, 6, 7, 8, 255)
-agree_vals = np.unique(agreements[1])
-print(f"Values in agreement map are {agree_vals}")
+valcheck(aoi_agreement[1], "aoi spatial agreement")
 
-# Define output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
-
-# Create empty list to store output filepaths
-agreement_files = []
+# Define function to save a list of files by year
+def filestack_write(arraylist, yearrange, dtype, fileprefix):
+    # Create empty list to store output filepaths
+    filelist = []
+    
+    # Save each array to drive
+    for var, year in zip(arraylist, yearrange):
+        # Adapt file datatype
+        data = var.astype(dtype)
+        
+        # Define file name and path
+        output_filename = f"{fileprefix}_{year}.tif"
+        output_filepath = os.path.join(out_dir, output_filename)
+        
+        # Update profile with dtype string
+        profile['dtype'] = data.dtype.name
+        
+        # Write array to file
+        with rasterio.open(output_filepath, "w", **profile) as dst:
+            dst.write(data, 1)
+            
+        # Append filepath to list
+        filelist.append(output_filepath)
+        
+        print(f"{output_filename} saved to file")
+    
+    return filelist
 
 # Save each agreement raster to drive
-for var, year in zip(agreements, years):
-    data = var.astype(np.uint8)
-    output_filename = f"agreement_gfc_combtmf_{year}.tif"
-    output_filepath = os.path.join(out_dir, output_filename)
-    
-    with rasterio.open(output_filepath, 'w', **profile) as dst:
-        dst.write(data.astype(rasterio.float32), 1)
-    
-    agreement_files.append(output_filepath)
-    print(f"Agreement Map for {year} saved to file")
+agreement_files = filestack_write(aoi_agreement, years, rasterio.uint8, 
+                                  "agreement_gfc_combtmf")
 
 # Define function for clipping stack of agreement rasters
 def filestack_clip(array_files, yearrange, geometry, nodataval):
@@ -156,22 +185,21 @@ def filestack_clip(array_files, yearrange, geometry, nodataval):
     print(f"Clipping complete for {filenum} files")
     return clipped_list
 
-# Clip agreement rasters to REDD+ area
-redd_agreement = filestack_clip(agreement_files, years, [redd_geom], nodata_val)
+def filestack_clip_multi(array_files, yearrange, geom1, geom2, geom3, nodataval):
+    redd_clip = filestack_clip(array_files, yearrange, geom1, nodataval)
+    nonredd_clip = filestack_clip(array_files, yearrange, geom2, nodataval)
+    grnp_clip = filestack_clip(array_files, yearrange, geom3, nodataval)
+    
+    return redd_clip, nonredd_clip, grnp_clip
+
+# Clip agreement rasters to REDD+, non-REDD+, and GRNP area
+redd_agreement, nonredd_agreement, grnp_agreement = filestack_clip_multi(
+    agreement_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
 
 # Double check values
-agree_vals = np.unique(redd_agreement[1])
-print(f"Values in agreement map are {agree_vals}") 
-
-# Clip agreement rasters to non-REDD+ area
-nonredd_agreement = filestack_clip(agreement_files, years, [nonredd_geom], nodata_val)
-
-# Double check values
-agree_vals = np.unique(nonredd_agreement[1])
-print(f"Values in agreement map are {agree_vals}") 
-
-# Clip agreement rasters to GRNP area
-grnp_agreement = filestack_clip(agreement_files, years, grnp_geom, nodata_val)
+valcheck(redd_agreement[1], "redd+ agreement")
+valcheck(nonredd_agreement[1], "non-redd+ agreement")
+valcheck(grnp_agreement[1], "grnp agreement")
 
 
 
@@ -227,7 +255,7 @@ def agreestat_summary(imagelist, yearrange):
     return agree_stats
 
 # Calculate summary statistics for AOI
-aoi_agree_stats = agreestat_summary(agreements, years)
+aoi_agree_stats = agreestat_summary(aoi_agreement, years)
 
 # Calculate summary statistics for REDD+ area
 redd_agree_stats = agreestat_summary(redd_agreement, years)
@@ -243,235 +271,96 @@ grnp_agree_stats= agreestat_summary(grnp_agreement, years)
 ############################################################################
 
 
-# PLOT STATISTICS FOR AGREEMENT IN AOI
+# PLOT STATISTICS FOR SPATIAL AGREEMENT
 
 
 ############################################################################
-"""
-The following is created with help from ChatGPT, especially the diagonal lines
-"""
-
-# Create a figure and two subplots
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 8), 
-                               gridspec_kw={'height_ratios': [0.8, 1]})
-
-# Plot data in the upper subplot (for the range 90% and above)
-agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 'Agree_Deforested'], 
-                 kind='line', ax=ax1, legend=False)
-ax1.set_ylim(94, 100)  # Upper range
-ax1.grid(True, linestyle='--')
-ax1.set_ylabel('Percentage of Pixels in AOI (%)')
-ax1.spines['bottom'].set_visible(False)  # Hide the bottom spine (axis line)
-
-# Plot data in the lower subplot (for the range below 5%)
-agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 'Agree_Deforested'], 
-                 kind='line', ax=ax2, legend=False)
-ax2.set_ylim(0, 3)  # Lower range
-ax2.grid(True, linestyle='--')
-ax2.set_xlabel('Year')
-ax2.set_ylabel('Percentage of Pixels in AOI (%)')
-ax2.spines['top'].set_visible(False)  # Hide the top spine (axis line)
-
-# Add diagonal lines to indicate the break between axes
-d = .015  # Diagonal line size
-kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-ax1.plot((-d, +d), (-d, +d), **kwargs)  # Upper left diagonal
-ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # Upper right diagonal
-
-kwargs.update(transform=ax2.transAxes)  # Switch to lower subplot
-ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # Lower left diagonal
-ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # Lower right diagonal
-
-# Create a single legend for both subplots, positioned below the x-axis
-lines, _ = ax1.get_legend_handles_labels()
-
-# Custom labels for the legend
-custom_labels = ['Agreement on Not Deforested', 'Disagreement on Deforested', 
-                 'Agreement on Deforested']
-
-# Add the legend
-fig.legend(lines, custom_labels, loc='upper center', 
-           bbox_to_anchor=(0.5, +0.01), ncol=3)
-
-# Set X axis ticks
-ax2.set_xticks(agree_stats['Year'])  # Set ticks to each year
-ax2.set_xticklabels(agree_stats['Year'], rotation=45)  # Set labels and rotate for better visibility
-
-plt.tight_layout(rect=[0, 0.01, 1, 1])
-plt.show()
-
-
-
-############################################################################
-
-
-# PLOT STATISTICS FOR AGREEMENT IN REDD+ AND NON-REDD+ VILLAGES
-
-
-############################################################################
-"""
-The following is created with help from ChatGPT, especially the diagonal lines
-"""
-
-# Create a figure and two subplots
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 8), 
-                               gridspec_kw={'height_ratios': [0.8, 1]})
-
-# Plot REDD+ data in the upper subplot (for the range 90% and above)
-redd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax1, legend=False, color=['blue', 
-                                        'orange', 'red'], linestyle='-')
-# Plot non-REDD+ data in the upper subplot
-nonredd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                      'Agree_Deforested'], 
-                         kind='line', ax=ax1, legend=False, color=['green', 
-                                        'orange', 'red'], linestyle='--')
-
-ax1.set_ylim(90, 100) 
-ax1.grid(True, linestyle='--')
-ax1.set_ylabel('Percentage of Pixels in AOI (%)')
-ax1.spines['bottom'].set_visible(False) 
-
-# Plot REDD+ data in the lower subplot (for the range below 5%)
-redd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax2, legend=False, color=['green', 
-                                        'orange', 'red'], linestyle='-')
-# Plot non-REDD+ data in the lower subplot
-nonredd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                      'Agree_Deforested'], 
-                         kind='line', ax=ax2, legend=False, color=['green', 
-                                        'orange', 'red'], linestyle='--')
-
-ax2.set_ylim(0, 5)  # Lower range
-ax2.grid(True, linestyle='--')
-ax2.set_xlabel('Year')
-ax2.set_ylabel('Percentage of Pixels in AOI (%)')
-ax2.spines['top'].set_visible(False)
-
-# Add diagonal lines to indicate the break between axes
-d = .015  
-kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-ax1.plot((-d, +d), (-d, +d), **kwargs)  
-ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs) 
-
-kwargs.update(transform=ax2.transAxes) 
-ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  
-ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  
-
-# Create a single legend for both subplots, positioned below the x-axis
-lines, _ = ax1.get_legend_handles_labels()
-
-# Custom labels for the legend
-custom_labels = ['REDD+ Agreement on Not Deforested', 
-                 'REDD+ Disagreement on Deforested', 
-                 'REDD+ Agreement on Deforested',
-                 'Non-REDD+ Agreement on Not Deforested', 
-                 'Non-REDD+ Disagreement on Deforested', 
-                 'Non-REDD+ Agreement on Deforested']
-
-# Add the legend
-fig.legend(lines, custom_labels, loc='upper center', 
-           bbox_to_anchor=(0.5, +0.01), ncol=3)
-
-# Set X axis ticks
-ax2.set_xticks(redd_agree_stats['Year']) 
-ax2.set_xticklabels(redd_agree_stats['Year'], rotation=45)
-
-plt.tight_layout(rect=[0, 0.01, 1, 1])
-plt.show()
+# Define function to plot spatial agreement statistics
+def spatagree_plot(datasetlist, linestyles, upperylim, lowerylim, colors, labels):
+    """
+    The following is created with help from ChatGPT, especially the diagonal lines
+    """
+    
+    # Create a figure and two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 8), 
+                                   gridspec_kw={'height_ratios': [0.8, 1]})
+    
+    # Plot data on the first subplot
+    for data, line in zip(datasetlist, linestyles):
+        data.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
+                               'Agree_Deforested'], kind='line', ax=ax1, 
+                                legend=False, color=colors, linestyle=line)
+    
+    # Set boundaries of first subplot
+    ax1.set_ylim(upperylim, 100) 
+    ax1.grid(True, linestyle='--')
+    ax1.set_ylabel('Percentage of Pixels in AOI (%)')
+    ax1.spines['bottom'].set_visible(False) 
+    
+    # Plot data on the second subplot
+    for data, line in zip(datasetlist, linestyles):
+        data.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
+                               'Agree_Deforested'], kind='line', ax=ax2, 
+                                legend=False, color=colors, linestyle=line)
+        
+    # Set boundaries of second subplot
+    ax2.set_ylim(0, lowerylim)
+    ax2.grid(True, linestyle='--')
+    ax2.set_xlabel('Year')
+    ax2.set_ylabel('Percentage of Pixels in AOI (%)')
+    ax2.spines['top'].set_visible(False)
+    
+    # Add diagonal lines to indicate axes breaks
+    d = .015  
+    kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
+    ax1.plot((-d, +d), (-d, +d), **kwargs)  
+    ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs) 
+    
+    kwargs.update(transform=ax2.transAxes) 
+    ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  
+    ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  
+    
+    # Create legend for both subplots
+    lines, _ = ax1.get_legend_handles_labels()
+    
+    # Add legend
+    fig.legend(lines, labels, loc='upper center', 
+               bbox_to_anchor=(0.5, +0.01), ncol=3)
+    
+    # Set X axis ticks
+    ax2.set_xticks(redd_agree_stats['Year']) 
+    ax2.set_xticklabels(redd_agree_stats['Year'], rotation=45)
+    
+    plt.tight_layout(rect=[0, 0.01, 1, 1])
+    plt.show()
 
 
+# Define reusable parameters for plotting
+datasetlist = [aoi_agree_stats, redd_agree_stats, nonredd_agree_stats, 
+               grnp_agree_stats]
+colors = ['green', 'orange', 'red']
+linestyles = ["-", "--", "dashdot"]
+labels = ['AOI Agreement on Not Deforested', 
+          'AOI Disagreement on Deforested', 
+          'AOI Agreement on Deforested',
+          'REDD+ Agreement on Not Deforested', 
+          'REDD+ Disagreement on Deforested', 
+          'REDD+ Agreement on Deforested',
+          'Non-REDD+ Agreement on Not Deforested', 
+          'Non-REDD+ Disagreement on Deforested', 
+          'Non-REDD+ Agreement on Deforested',
+          'GRNP Agreement on Not Deforested', 
+          'GRNP Disagreement on Deforested', 
+          'GRNP Agreement on Deforested']
 
-############################################################################
+# Plot statistics for whole AOI
+spatagree_plot([datasetlist[0]], linestyles[0], 94, 3, colors, labels[0:3])
 
+# Plot statistics for REDD+ and non-REDD+
+spatagree_plot(datasetlist[1:3], linestyles[0:2], 90, 5, colors, labels[3:9])
 
-# PLOT STATISTICS FOR AGREEMENT IN REDD+, NON-REDD+, AND GRNP (FOR REFERENCE)
-
-
-############################################################################
-# Create a figure and two subplots
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 8), 
-                               gridspec_kw={'height_ratios': [0.8, 1]})
-
-# Plot REDD+ data in the upper subplot (for the range 90% and above)
-redd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax1, legend=False, color=['green', 
-                                            'orange', 'red'], linestyle='-')
-# Plot non-REDD+ data in the upper subplot
-nonredd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                      'Agree_Deforested'], 
-                         kind='line', ax=ax1, legend=False, color=['green', 
-                                            'orange', 'red'], linestyle='--')
-# Plot grnp_agree_stats data in the upper subplot
-grnp_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax1, legend=False, color=['#1f77b4', 
-                                        '#4f83cc', '#86a8e7'], linestyle='-')
-
-ax1.set_ylim(90, 100) 
-ax1.grid(True, linestyle='--')
-ax1.set_ylabel('Percentage of Pixels in AOI (%)')
-ax1.spines['bottom'].set_visible(False)
-
-# Plot REDD+ data in the lower subplot (for the range below 5%)
-redd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax2, legend=False, color=['green', 
-                                            'orange', 'red'], linestyle='-')
-# Plot non-REDD+ data in the lower subplot
-nonredd_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                      'Agree_Deforested'], 
-                         kind='line', ax=ax2, legend=False, color=['green', 
-                                            'orange', 'red'], linestyle='--')
-# Plot grnp_agree_stats data in the lower subplot
-grnp_agree_stats.plot(x='Year', y=['Agree_Undisturbed', 'Disagree', 
-                                   'Agree_Deforested'], 
-                      kind='line', ax=ax2, legend=False, color=['#1f77b4', 
-                                        '#4f83cc', '#86a8e7'], linestyle='-')
-
-ax2.set_ylim(0, 5) 
-ax2.grid(True, linestyle='--')
-ax2.set_xlabel('Year')
-ax2.set_ylabel('Percentage of Pixels in AOI (%)')
-ax2.spines['top'].set_visible(False) 
-
-# Add diagonal lines to indicate the break between axes
-d = .015  
-kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-ax1.plot((-d, +d), (-d, +d), **kwargs)  
-ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs) 
-
-kwargs.update(transform=ax2.transAxes) 
-ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs) 
-ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  
-
-# Create a single legend for all datasets, positioned below the x-axis
-lines, _ = ax1.get_legend_handles_labels()
-
-# Custom labels for the legend
-custom_labels = ['REDD+ Agreement on Not Deforested', 
-                 'REDD+ Disagreement on Deforested', 
-                 'REDD+ Agreement on Deforested',
-                 'Non-REDD+ Agreement on Not Deforested', 
-                 'Non-REDD+ Disagreement on Deforested', 
-                 'Non-REDD+ Agreement on Deforested',
-                 'GRNP Agreement on Not Deforested', 
-                 'GRNP Disagreement on Deforested', 
-                 'GRNP Agreement on Deforested']
-
-# Add the legend
-fig.legend(lines, custom_labels, loc='upper center', 
-           bbox_to_anchor=(0.5, +0.01), ncol=3)
-
-# Set X axis ticks
-ax2.set_xticks(redd_agree_stats['Year'])
-ax2.set_xticklabels(redd_agree_stats['Year'], rotation=45)
-
-plt.tight_layout(rect=[0, 0.01, 1, 1])
-plt.show()
+# Plot statistics for REDD+, non-REDD+, and GRNP
+spatagree_plot(datasetlist[1:], linestyles, 90, 5, colors, labels[3:]) 
 
 
 
@@ -493,7 +382,7 @@ Examples on conducting McNemar's test with Python found in:
 https://www.geeksforgeeks.org/how-to-perform-mcnemars-test-in-python/
 
 """
-# Create contingency tables
+# Define function to create contingency tables from agreement layers
 def contingency_table(image):
     # Mask out NoData (255) values
     valid_pixels = image[image != 255]
@@ -504,87 +393,50 @@ def contingency_table(image):
     count_7 = np.sum(valid_pixels == 7) # only TMF says deforestation
     count_8 = np.sum(valid_pixels == 8) # agreement on deforestation
     
-    # Create contingency matrix
+    # Create contingency table
     matrix = [[count_8, count_6], 
               [count_7, count_5]]
 
     return matrix
 
-
-### MCNEMAR'S FOR AOI AGREEMENT
-# Create contingency matrices for AOI agreement
-agree_matrices = []
-
-for var, year in zip(agreements, years):
-    data = locals()[var]
-    matrix = contingency_table(data)
-    agree_matrices.append(matrix)
-
-# Show the DataFrame
-print(agree_matrices)
-
-# Run McNemar's test on every contingency matrix
-mcnemar_results = []
-
-# Perform McNemar test for each matrix and store the results
-for matrix in agree_matrices:
-    result = mcnemar(matrix)
-    mcnemar_results.append({'statistic': result.statistic, 
-                            'pvalue': result.pvalue})
+# Define function to calculate McNemar's statistic
+def mcnemar_df(agreement_arrs, yearrange):
+    # Create empty list to store contingency tables
+    contingency_tables = []
     
-# Save in a dataframe
-mcnemar_df = pd.DataFrame(mcnemar_results, index=years)
-print(mcnemar_df)
-
-
-### MCNEMAR'S FOR REDD+ AGREEMENT
-# Create contingency matrices for AOI agreement
-redd_agree_matrices = []
-
-for var, year in zip(redd_agreement, years):
-    matrix = contingency_table(var)
-    redd_agree_matrices.append(matrix)
-
-# Show the DataFrame
-print(redd_agree_matrices)
-
-# Run McNemar's test on every contingency matrix
-redd_mcnemar_results = []
-
-# Perform McNemar test for each matrix and store the results
-for matrix in redd_agree_matrices:
-    result = mcnemar(matrix)
-    redd_mcnemar_results.append({'statistic': result.statistic, 
-                                 'pvalue': result.pvalue})
+    # Create contingency tables for each agreement raster
+    for var in agreement_arrs:
+        matrix = contingency_table(var)
+        contingency_tables.append(matrix)
     
-# Save in a dataframe
-redd_mcnemar_df = pd.DataFrame(redd_mcnemar_results, index=years)
-print(redd_mcnemar_df)
-
-
-### MCNEMAR'S FOR NON-REDD+ AGREEMENT
-# Create contingency matrices for AOI agreement
-nonredd_agree_matrices = []
-
-for var, year in zip(nonredd_agreement, years):
-    matrix = contingency_table(var)
-    nonredd_agree_matrices.append(matrix)
-
-# Show the DataFrame
-print(nonredd_agree_matrices)
-
-# Run McNemar's test on every contingency matrix
-nonredd_mcnemar_results = []
-
-# Perform McNemar test for each matrix and store the results
-for matrix in nonredd_agree_matrices:
-    result = mcnemar(matrix)
-    nonredd_mcnemar_results.append({'statistic': result.statistic, 
-                                    'pvalue': result.pvalue})
+    # Create empty list to store McNemar statistics
+    mcnemar_results = []
     
-# Save in a dataframe
-nonredd_mcnemar_df = pd.DataFrame(nonredd_mcnemar_results, index=years)
-print(nonredd_mcnemar_df)
+    # Calculate McNemar statistic on each contingency table
+    for matrix in contingency_tables:
+        result = mcnemar(matrix)
+        mcnemar_results.append({'statistic': result.statistic, 
+                                'pvalue': result.pvalue})
+    
+    # Convert list to dataframe
+    mcnemar_df = pd.DataFrame(mcnemar_results, index=yearrange)
+    
+    # Print results
+    print(mcnemar_df)
+    
+    return mcnemar_df
+    
+# Calculate McNemar's statistic for AOI agreements
+aoi_mcnemar = mcnemar_df(aoi_agreement, years)
+
+# Calculate McNemar's statistic for REDD+ agreements
+redd_mcnemar = mcnemar_df(redd_agreement, years)
+
+# Calculate McNemar's statistic for non-REDD+ agreements
+nonredd_mcnemar = mcnemar_df(nonredd_agreement, years)
+
+# Calculate McNemar's statistic for GRNP agreements
+grnp_mcnemar = mcnemar_df(grnp_agreement, years)
 
 
 
@@ -595,53 +447,86 @@ print(nonredd_mcnemar_df)
 
 
 ############################################################################
-### RESULTS FOR THE WHOLE AOI
-plt.figure(figsize=(10, 6))
-plt.plot(mcnemar_df.index, mcnemar_df['statistic'], linestyle='-', 
-         color='#5B9BD5')
+# Define function to plot McNemar results
+def mcnemar_plot(datasetlist, colors, labels):
+    plt.figure(figsize=(10, 6))
+    
+    for data, color, label in zip(datasetlist, colors, labels):
+        plt.plot(data.index, data['statistic'], linestyle="-", color=color, 
+                 label=label)
+    
+    # Add axes labels
+    plt.xlabel('Year')
+    plt.ylabel('McNemar Statistic')
+    plt.xticks(datasetlist[0].index)  # Show all years as ticks
+    
+    # Add gridlines
+    plt.grid(linestyle='--')
+    
+    # Add legend
+    plt.legend()
 
-# Adding labels and title
-plt.xlabel('Year')
-plt.ylabel('McNemar Statistic')
-plt.xticks(mcnemar_df.index)  # Show all years as ticks
-plt.grid(linestyle='--')  # Add gridlines
-plt.show()
+    # Display the plot
+    plt.show()
 
+# Define reusable plotting parameters
+datasetlist = [aoi_mcnemar, redd_mcnemar, nonredd_mcnemar, grnp_mcnemar]
+colors = ["brown", "dodgerblue", "darkgreen"]
+labels = ["AOI", "REDD+", "Non-REDD+", "GRNP"]
 
-### RESULTS FOR REDD+ / NON-REDD+ VILLAGES
-plt.figure(figsize=(10, 6))
+# Plot McNemar results for the whole AOI
+mcnemar_plot([datasetlist[0]], [colors[1]], [labels[0]])
 
-# Plot REDD+ McNemar statistics
-plt.plot(redd_mcnemar_df.index, redd_mcnemar_df['statistic'], linestyle='-', 
-         color='#5B9BD5', label='REDD+')
+# Plot McNemar results for REDD+ and non-REDD+ villages
+mcnemar_plot(datasetlist[1:3], colors[0:2], labels[1:3])
 
-# Plot non-REDD+ McNemar statistics
-plt.plot(nonredd_mcnemar_df.index, nonredd_mcnemar_df['statistic'], 
-         linestyle='--', color='#ED7D31', label='Non-REDD+')
-
-# Highlight the first point in non-REDD+ with a red dot
-plt.plot(nonredd_mcnemar_df.index[0], nonredd_mcnemar_df['statistic'].iloc[0], 
-         'ro', label='Statistically insignificant McNemar results')
-
-# Adding labels, title, and legend
-plt.xlabel('Year')
-plt.ylabel('McNemar Statistic')
-plt.title('McNemar Statistic Comparison: REDD+ vs Non-REDD+')
-plt.xticks(redd_mcnemar_df.index)
-plt.grid(linestyle='--')
-
-# Add legend to differentiate the lines
-plt.legend()
-
-# Display the plot
-plt.show()
+# Plot McNemar results of REDD+, nonREDD+, and GRNP
+mcnemar_plot(datasetlist[1:], colors, labels[1:])
 
 
 
 ############################################################################
 
 
-# COHEN'S KAPPA
+# RECLASSIFY ALL BINARY LAYERS TO 1, 2, NODATA
+
+
+############################################################################
+"""
+To calculate Cohen's Kappa (next processing step), each dataset must have the 
+same values. This preliminary step ensures each deforestation array has 
+comparable values of 1 (not deforested), 2 (deforested), and nodata
+"""
+# Reclassify GFC lossyear array with 1, 2, and numpy nodata
+gfc_simpbin = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
+valcheck(gfc_simpbin[1], "gfc simple binary")
+
+# Save each gfc simple binary raster to drive
+gfc_simpbin_files = filestack_write(gfc_simpbin, years, rasterio.uint8, 
+                                    "gfc_simple_binary")
+
+# Reclassify TMF deforestation and degradation array with 1, 2, and numpy nodata
+tmf_simpbin = binary_reclass(tmf_defordegra, years, 2, 1, nodata_val)
+valcheck(tmf_simpbin[1], "tmf simple binary")
+
+# Save each tmf simple binary raster to drive
+tmf_simpbin_files = filestack_write(tmf_simpbin, years, rasterio.uint8, 
+                                    "tmf_simple_binary")
+
+# Clip reclassified GFC binary arrays to REDD+, non-REDD+, and GRNP area
+gfc_redd_simpbin, gfc_nonredd_simpbin, gfc_grnp_simpbin = filestack_clip_multi(
+    gfc_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
+
+# Clip reclassified TMF binary arrays to REDD+, non-REDD+, and GRNP area
+tmf_redd_simpbin, tmf_nonredd_simpbin, tmf_grnp_simpbin = filestack_clip_multi(
+    tmf_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
+
+
+
+############################################################################
+
+
+# CALCULATE COHEN'S KAPPA
 
 
 ############################################################################
@@ -651,30 +536,96 @@ means complete agreement; zero or lower means chance agreement."
 From: https://scikit-learn.org/1.5/modules/generated/sklearn.metrics.cohen_kappa_score.html
 
 """
+# Define function for calculating Cohen's Kappa
+def cohen_kappa(arrlist1, arrlist2, nodataval):    
+    # Create empty list to store Kappa values
+    kappa_results = []
+    
+    for arr1, arr2 in zip(arrlist1, arrlist2):
+        # Convert both arrays to float
+        arr1 = arr1.astype(float)
+        arr2 = arr2.astype(float)
+        
+        # Replace nodata value with np.nodata
+        arr1[arr1 == nodataval] = np.nan
+        arr2[arr2 == nodataval] = np.nan
+        
+        # Create nodata mask
+        mask = ~np.isnan(arr1) & ~np.isnan(arr2)
+        
+        # Filter arrays to remove NaN pixels
+        filtered_arr1 = arr1[mask]
+        filtered_arr2 = arr2[mask]
+        
+        # Calculate Cohen's Kappa
+        kappa = cohen_kappa_score(filtered_arr1, filtered_arr2)
+        
+        # Store results in list
+        kappa_results.append(kappa)
 
-# Create copies of the original arrays
-gfc_copy = np.copy(gfc_binary_2013).astype(float)
-tmf_copy = np.copy(tmf_binary_2013).astype(float)
+    return kappa_results
 
-# Replace 255 with NaN in gfc_copy
-gfc_copy[gfc_copy == 255] = np.nan
+# Calculate Cohen's Kappa per year in the AOI
+aoi_kappa = cohen_kappa(gfc_simpbin, tmf_simpbin, nodata_val)
 
-# Replace 255 with NaN in tmf_copy
-tmf_copy[tmf_copy == 255] = np.nan
+# Calculate Cohen's Kappa for REDD+ villages
+redd_kappa = cohen_kappa(gfc_redd_simpbin, tmf_redd_simpbin, nodata_val)
 
-# Convert 4 to 1 and 6 to 2 in tmf_copy
-tmf_copy[tmf_copy == 4] = 1
-tmf_copy[tmf_copy == 6] = 2
+# Calculate Cohen's Kappa for non-REDD+ villages
+nonredd_kappa = cohen_kappa(gfc_nonredd_simpbin, tmf_nonredd_simpbin, nodata_val)
 
-# Remove NaNs for Kappa calculation
-mask = ~np.isnan(gfc_copy) & ~np.isnan(tmf_copy)
-filtered_gfc = gfc_copy[mask]
-filtered_tmf = tmf_copy[mask]
+# Calculate Cohen's Kappa for GRNP
+grnp_kappa = cohen_kappa(gfc_grnp_simpbin, tmf_grnp_simpbin, nodata_val)
 
-# Calculate Cohen's Kappa
-kappa = cohen_kappa_score(filtered_gfc, filtered_tmf)
+# Calculate Cohen's Kappa for whole 2013-2023 range
+multiyear_kappa = cohen_kappa([gfc_lossyear], [tmf_defordegra], nodata_val)
 
-print(f"Cohen's Kappa: {kappa}")
+
+
+############################################################################
+
+
+# PLOT COHEN'S KAPPA
+
+
+############################################################################
+# Define function to plot Cohen's Kappa
+def cohen_plot(datasetlist, yearrange, colors, labels):
+    # Initialize figure
+    plt.figure(figsize=(12, 6))
+    
+    for yvals, color, label in zip(datasetlist, colors, labels):
+        # Plot results for yearly Kappa values
+        plt.plot(yearrange, yvals, linestyle='-', color=color, label=label)
+
+    # Add axes ticks and labels
+    plt.xticks(years)
+    plt.xlabel('Year')
+    plt.ylabel("Cohen's Kappa")
+        
+    # Add gridlines
+    plt.grid(linestyle='--')
+
+    # Add title
+    plt.title("Cohen's Kappa for GFC and TMF data")
+    
+    # Add legend
+    plt.legend()
+
+    # Show plot
+    plt.show()
+
+# Define reusable plot parameters
+datasetlist = [aoi_kappa, redd_kappa, nonredd_kappa, grnp_kappa]
+colors = ["brown", "dodgerblue", "darkgreen"]
+labels = ["AOI", "REDD+", "Non-REDD+", "GRNP"]
+
+# Plot Cohen's Kappa for AOI
+cohen_plot([datasetlist[0]], years, [colors[1]], [labels[0]])
+
+# Plot Cohen's Kappa for REDD+, non-REDD+, and GRNP areas
+cohen_plot(datasetlist[1:], years, colors, labels[1:])
+
 
 
 ############################################################################
