@@ -1081,3 +1081,30 @@ plt.show()
 #     print(f"Binary reclassification for TMF succeeded. Original values are \
 #           {orig_vals} and new values are {binary_vals}")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# with rasterio.open(output_filepath) as src:
+#     strat_arr = src.read(1)
+#     transform = src.transform
+
+# grnp_mask = geometry_mask([geom for geom in polygons.geometry],
+#                      transform=transform,
+#                      invert=True,  # True to keep the pixels outside the polygon
+#                      out_shape=strat_arr.shape)
+
+# strat_arr_nogrnp = np.where(mask, strat_arr, np.nan)
+
