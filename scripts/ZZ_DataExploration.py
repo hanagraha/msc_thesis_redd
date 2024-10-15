@@ -1108,3 +1108,109 @@ plt.show()
 
 # strat_arr_nogrnp = np.where(mask, strat_arr, np.nan)
 
+
+
+
+
+
+
+
+
+
+
+
+# # Define function to convert pixel counts to proportional area
+# def pix_to_area(stat_df, pixel_area, redd_area, nonredd_area):
+    
+#     # Multiply pixel counts by pixel size to get area
+#     area_df = stat_df * pixel_area
+    
+#     # Divide redd+ counts by redd+ area
+#     area_df.loc["REDD+"] = area_df.loc["REDD+"] / redd_area
+    
+#     # Divide non-redd+ counts by non-redd+ area
+#     area_df.loc["Non-REDD+"] = area_df.loc["Non-REDD+"] / nonredd_area
+
+#     return area_df
+
+# # Define function to calcualte yearly deforestation per region
+# def redd_zonal_stats(polys, tif_list, yearrange):
+    
+#     # Create empty dictionary to hold yearly deforestation in REDD+ villages
+#     data = {'REDD+': [], 'Non-REDD+': []}
+    
+#     # Iterate over each tif file
+#     for file in tif_list:
+        
+#         # Calculate zonal statistics
+#         stats = zonal_stats(polys, file, stats="count", nodata=nodata_val)
+        
+#         # Add redd+ statistics to redd+ list
+#         data['REDD+'].append(stats[1]['count'])
+        
+#         # Add non-redd+ statistics to non-redd+ list
+#         data['Non-REDD+'].append(stats[0]['count']) 
+    
+#     # Convert dictionary to dataframe
+#     defor_df = pd.DataFrame(data, index=yearrange).transpose()
+        
+#     return defor_df
+
+
+# # Calculate GFC deforestation per REDD+/Non-REDD+ areas
+# gfc_defor_stats = defor_zonal_stats(villages, gfc_lossyear_paths, years)
+
+# # Calculate yearly deforestation for TMF
+# tmf_defor_stats = defor_zonal_stats(villages, tmf_defordegra_paths, years)
+
+# # Calculate yearly filtered deforestation for GFC
+# gfc_filtered_stats = defor_zonal_stats(villages, gfc_filtered_files, years)
+
+# # Calculate yearly filtered deforestation for TMF
+# tmf_filtered_stats = defor_zonal_stats(villages, tmf_filtered_files, years)
+
+# # Convert GFC statistics to proportional area
+# gfc_defor_areas = pix_to_area(gfc_defor_stats, pixel_area, redd_area, 
+#                               nonredd_area)
+
+# # Convert TMF statistics to proportional area
+# tmf_defor_areas = pix_to_area(tmf_defor_stats, pixel_area, redd_area, 
+#                               nonredd_area)
+
+# # Convert filtered GFC statistics to proportional area
+# gfc_filtered_areas = pix_to_area(gfc_filtered_stats, pixel_area, redd_area, 
+#                                  nonredd_area)
+
+# # Convert filtered TMF statistics to proportional area
+# tmf_filtered_areas = pix_to_area(tmf_filtered_stats, pixel_area, redd_area, 
+#                                  nonredd_area)
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
