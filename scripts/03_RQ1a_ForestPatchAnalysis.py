@@ -22,7 +22,7 @@ from rasterstats import zonal_stats
 import matplotlib.pyplot as plt
 from scipy.ndimage import label
 import time
-
+import matplotlib.ticker as ticker
 
 
 
@@ -203,7 +203,7 @@ def filestack_write(arraylist, yearrange, dtype, fileprefix):
     
     return filelist
 
-# Remove small forest patches from GFC arrays
+# Remove small forest patches from GFC arrays (takes ~33min)
 gfc_filtered_arrs = patch_filter(gfc_lossyear_arrs, years, 9)
 
 # Write filtered GFC arrays to file
@@ -270,6 +270,12 @@ def multi_zonal_stats(polylist, polynames, tif_list, yearrange, arealist):
         
     return stats_df, area_df
 
+# To avoid re-running the filtering code, get the files here:
+gfc_filtered_files = [f"data/intermediate/gfc_patch9_{year}.tif" for 
+                      year in years]
+tmf_filtered_files = [f"data/intermediate/tmf_patch9_{year}.tif" for 
+                      year in years]
+
 # Polygons of interest for zonal statistics
 zones = [villages.loc[1], villages.loc[0], villages_merged.loc[0], aoi.loc[0]]
 
@@ -295,6 +301,12 @@ gfc_filtered_stats, gfc_filtered_area = multi_zonal_stats(zones, names,
 tmf_filtered_stats, tmf_filtered_area = multi_zonal_stats(zones, names, 
                                     tmf_filtered_files, years, areas)
 
+# Calculate difference between GFC and TMF deforestation 
+gfc_tmf_diff = gfc_defor_area - tmf_defor_area
+
+# Calculate difference between GFC and TMF deforestation after filtering
+filt_gfc_tmf_diff = gfc_filtered_area - tmf_filtered_area
+
 
 
 ############################################################################
@@ -305,21 +317,45 @@ tmf_filtered_stats, tmf_filtered_area = multi_zonal_stats(zones, names,
 
 ############################################################################
 # Define function to plot deforestation rates
-def defor_rate_plot(df_list, colors, labels):
+def defor_rate_lines(df_list, series, colors, labels, title):
     
     # Initialize plot figure
     plt.figure(figsize=(10, 6))
+        
+    # Initialize empty list to hold data
+    df_data = []
     
-    # Iterate over each dataframe
-    for df, col, lab in zip(df_list, colors, labels):
+    # Iterate over dataframes
+    for df in df_list:
+        
+        # Iterate over zones (rows) of interest
+        for zone in series:
+            
+            # Get row data from that zone
+            row_data = df.loc[zone]
+        
+            # Add row data to dataframe data
+            df_data.append(row_data)
+    
+    # Check minimum value in dataset
+    min_value = min([df.min() for df in df_data])
+    
+    # Conditional statement if any values are less than 0
+    if min_value < 0:
+        
+        # Add black horizontal line at y=0
+        plt.axhline(0, color='black', linestyle='--', linewidth=1)
+
+    # Iterate over data in list
+    for df, col, lab in zip(df_data, colors, labels):
         plt.plot(years, df, color = col, label = lab)
 
     # Add axes labels
     plt.xlabel('Year')
-    plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area')
+    plt.ylabel('% of Deforestation Pixels Per Area')
     
     # Add title
-    plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
+    plt.title(title)
     
     # Add legend
     plt.legend()
@@ -335,72 +371,115 @@ def defor_rate_plot(df_list, colors, labels):
     
     plt.show()
 
+def defor_rate_bars(df_list, series, colors, labels, title):
+    
+    # Initialize plot figure
+    plt.figure(figsize=(12, 6))
+        
+    # Initialize empty list to hold data
+    df_data = []
+    
+    # Iterate over dataframes
+    for df in df_list:
+        
+        # Iterate over zones (rows) of interest
+        for zone in series:
+            
+            # Get row data from that zone
+            row_data = df.loc[zone]
+        
+            # Add row data to dataframe data
+            df_data.append(row_data)
+    
+    # Check minimum value in dataset
+    min_value = min([df.min() for df in df_data])
+    
+    # Conditional statement if any values are less than 0
+    if min_value < 0:
+        
+        # Add black horizontal line at y=0
+        plt.axhline(0, color='black', linestyle='--', linewidth=1)
+        
+    # Set width of bars
+    bar_width = 0.3 
+    
+    # Set position of bars
+    x_positions = np.arange(len(years)) 
+
+    # Iterate over data in list and plot bars
+    for i, (df, col, lab) in enumerate(zip(df_data, colors, labels)):
+        
+        # Offset the bars for each dataset to avoid overlap
+        plt.bar(x_positions + i * bar_width, df, color=col, width=bar_width, label=lab)
+
+    # Add axes labels
+    plt.xlabel('Year')
+    plt.ylabel('GFC - TMF Deforestation %')
+    
+    # Add title
+    plt.title(title)
+    
+    # Add legend
+    plt.legend()
+
+    # Add gridlines
+    ax = plt.gca()
+    
+    # Add major ticks every 0.005 units
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.005))
+    
+    # Add gridlines for major ticks
+    ax.grid(True, which='major', axis='y', linestyle='--', color='gray')
+    
+    # Rotate x ticks for readability
+    plt.xticks(x_positions + bar_width * (len(df_data) - 1) / 2, years, rotation=45)
+    
+    # Adjust layout for spacing
+    plt.tight_layout()
+    
+    # Show plot
+    plt.show()
+
 # Define reusable parameters for plotting
-df_list = [gfc_defor_areas.loc['REDD+'], tmf_defor_areas.loc['REDD+'], 
-           gfc_filtered_areas.loc["REDD+"], tmf_filtered_areas.loc["REDD+"], 
-           gfc_defor_areas.loc['Non-REDD+'], tmf_defor_areas.loc['Non-REDD+'], 
-           gfc_filtered_areas.loc["Non-REDD+"], tmf_filtered_areas.loc["Non-REDD+"]]
+data = [gfc_defor_area, tmf_defor_area, gfc_filtered_area, tmf_filtered_area, 
+        gfc_tmf_diff, filt_gfc_tmf_diff]
 
 colors = ["#8B0000", "#D2691E", "#228B22", "#4682B4"]
 
-labels = ["GFC Deforestation in REDD+ Villages", 
-          "TMF Deforestation and Degradation in REDD+ Villages", 
-          "GFC Deforestation > 0.81ha in REDD+ Villages", 
-          "TMF Deforestation and Degradation > 0.81ha in REDD+ Villages", 
-          "GFC Deforestation in Non-REDD+ Villages", 
-          "TMF Deforestation and Degradation in Non-REDD+ Villages", 
-          "GFC Deforestation > 0.81ha in Non-REDD+ Villages", 
-          "TMF Deforestation and Degradation > 0.81ha in Non-REDD+ Villages"]
+series = ['REDD+', 'Non-REDD+', 'All Villages', 'AOI']
 
-# Plot GFC and TMF datasets for REDD+ Villages
-defor_rate_plot(df_list[:4], colors, labels[:4])
+# Plot GFC data for all zones
+title = "GFC Deforestation Area"
+labels = ["REDD+", "Non-REDD+", "All Villages", "AOI"]
+defor_rate_lines([data[0]], series, colors, labels, title)
 
-# Plot GFC and TMF datasets for Non-REDD+ Villages
-defor_rate_plot(df_list[4:], colors, labels[4:])
+# Plot GFC and TMF data for village areas
+title = "GFC and TMF Deforestation in Village Area"
+labels = ["Unfiltered GFC Deforestation", "Unfiltered TMF Deforestation",
+          "Filtered GFC Deforestation (min patch size = 9)", 
+          "Filtered TMF Deforestation (min patch size = 9)"]
+defor_rate_lines(data[:4], [series[2]], colors, labels, title)
 
+# Plot dataset differences for REDD+, Non-REDD+, unfiltered, filtered (line)
+title = "Difference between GFC and TMF Deforestation Area"
+labels = ["Unfiltered REDD+ Deforestation", 
+          "Unfiltered Non-REDD+ Deforestation", 
+          "Filtered REDD+ Deforestation", 
+          "Filtered Non-REDD+ Deforestation"]
+defor_rate_lines(data[4:], series[0:2], colors, labels, title)
 
+# Plot dataset differences for REDD+, Non-REDD+, unfiltered, filtered (bar)
+defor_rate_bars(data[4:], series[0:2], colors, labels, title)
 
-############################################################################
+# Plot dataset differences for AOI with unfiltered and filtered data (bar)
+labels = ["Unfiltered Deforestation for AOI", 
+          "Filtered Deforestation for AOI (min patch size = 9)"]
+defor_rate_bars(data[4:], [series[3]], colors, labels, title)
 
-
-# ESTIMATE PATCH SIZE FOR OPTIMAL COMPARABILITY
-
-
-############################################################################
-# Calculate difference between GFC and TMF deforestation 
-gfc_tmf_diff = gfc_defor_areas - tmf_defor_areas
-
-# Calculate difference between GFC and TMF deforestation after filtering
-filt_gfc_tmf_diff = gfc_filtered_areas - tmf_filtered_areas
-
-# Data list
-df_list = [gfc_tmf_diff.loc["REDD+"], gfc_tmf_diff.loc["Non-REDD+"], 
-           filt_gfc_tmf_diff.loc["REDD+"], filt_gfc_tmf_diff.loc["Non-REDD+"]]
-labels = ["Difference in Unfiltered REDD+ % Deforestation Area", 
-          "Difference in Unfiltered Non-REDD+ % Deforestation Area", 
-          "Difference in Filtered REDD+ % Deforestation Area", 
-          "Difference in Filtered Non-REDD+ % Deforestation Area"]
-
-# Plot differences
-defor_rate_plot(df_list, colors, labels)
-
-# Iterate over different patch sizes
-for size in range(2,56):
-    
-    # Filter GFC array 
-    gfc_filtered_arrs = patch_filter(gfc_lossyear_arrs, years, size)
-    
-    # Filter TMF array
-    tmf_filtered_arrs = patch_filter(tmf_defordegra_arrs, years, size)
-    
-    # 
-
-
-
-
-
-
-
+# Plot dataset differences for AOI with unfiltered and filtered data (bar)
+labels = ["Unfiltered Deforestation for All Villages", 
+          "Filtered Deforestation for All Villages (min patch size = 9)"]
+defor_rate_bars(data[4:], [series[2]], colors, labels, title)
 
 
 
