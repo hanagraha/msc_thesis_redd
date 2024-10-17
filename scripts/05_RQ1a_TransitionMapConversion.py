@@ -77,16 +77,20 @@ def read_files(pathlist):
             
     return arrlist, profile
 
-# Define file paths for annual tmf rasters
+# Define file paths for tmf deforestation and degradation rasters
 tmf_defordegra_paths = [f"data/intermediate/tmf_defordegra_{year}.tif" for 
                       year in years]
-
-# Define file path for tmf transition raster
-tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
 
 # Define file path for tmf annual change rasters
 tmf_annual_paths = [f"data/jrc_preprocessed/tmf_AnnualChange_{year}_fm.tif" for 
                     year in years]
+
+# Define file path for gfc lossyear
+gfc_lossyear_paths = [f"data/intermediate/gfc_lossyear_{year}.tif" for 
+                      year in years]
+
+# Define file path for tmf transition raster
+tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
 
 # Read defordegra rasters
 tmf_defordegra_arrs, profile = read_files(tmf_defordegra_paths)
@@ -94,21 +98,49 @@ tmf_defordegra_arrs, profile = read_files(tmf_defordegra_paths)
 # Read annual change rasters
 tmf_annual_arrs, profile2 = read_files(tmf_annual_paths)
 
+# Read lossyear rasters
+gfc_lossyear_arrs, profile3 = read_files(gfc_lossyear_paths)
+
 # Read tmf transition map
 with rasterio.open(tmf_trans_file) as tmf:
     tmf_trans = tmf.read(1)
+    
+# Dictionary of tmf annual change classes (from tmf data manual)
+annchange_dict = {
+    1: "Undisturbed tropical moist forest",
+    2: "Degraded tropical moist forest",
+    3: "Deforested land",
+    4: "Tropical moist forest regrowth",
+    5: "Permanent and seasonal water",
+    6: "Other land cover"
+}
+    
+# Dictionary of tmf transition map classes (from tmf data manual)
+transmap_dict = {
+    10: "Undisturbed tropical moist forest", 
+    20: "Degraded tropical moist forest", 
+    30: "Forest regrowth", 
+    41: "Deforested land - plantations", 
+    42: "Deforested land - water bodies", 
+    43: "Deforested land - other", 
+    50: "Deforestation/degradation ongoing (2021-2023)", 
+    60: "Permanent and seasonal water", 
+    70: "Other land cover"
+}
 
 
 
 ############################################################################
 
 
-# EXPLORE TMF TRANSITION MAP
+# COMVERT TMF TRANSITION RASTER TO ANNUAL DATA
 
 
 ############################################################################
 # Define function to create attribute table
 def att_table(arr, expected_classes=None):
+    
+    # Extract unique values and pixel counts
     unique_values, pixel_counts = np.unique(arr, return_counts=True)
     
     # Create a DataFrame with unique values and pixel counts
@@ -119,48 +151,40 @@ def att_table(arr, expected_classes=None):
     if expected_classes is not None:
         
         # Reindex DataFrame to include all expected_classes
-        attributes = attributes.set_index("Class").reindex(expected_classes, fill_value=0)
+        attributes = attributes.set_index("Class").reindex(expected_classes, 
+                                                           fill_value=0)
         
         # Reset index to have Class as a column again
         attributes.reset_index(inplace=True)
-
+        
+    # Switch rows and columns of dataframe
     attributes = attributes.transpose()
     
     return attributes
 
-# Identify unique values and counts
-trans_attributes = att_table(tmf_trans)
+# Define function to create annual data from a single-layer array
+def arr2ann(annual_arrlist, ref_arr, yearrange):
+    
+    # Create empty list to hold reclassified annual arrays
+    ann_arrs = []
+    
+    # Iterate over annual arrays and years
+    for arr, year in zip(annual_arrlist, yearrange):
+        
+        # Copy array
+        reclass_arr = np.copy(arr)
+        
+        # Create mask for defordegra pixels in that year
+        mask = reclass_arr == year
+        
+        # Replace defordegra pixels with transition map values
+        reclass_arr[mask] = ref_arr[mask]
+        
+        # Add reclassified array to list
+        ann_arrs.append(reclass_arr)
+        
+    return ann_arrs
 
-"""
-NOTE: the value "0" exists in the transition map. This value is present in the 
-raw data and is not described in the TMF data manual. Because it has a limited 
-coverage, the value "0" pixels will excluded from the following analysis
-"""
-
-# Exclude 0 values
-trans_attributes = trans_attributes.drop(columns = trans_attributes.columns[
-    trans_attributes.loc['Class'] == 0])
-
-# TMF class labels from data manual
-tmf_trans_labels = ['Undisturbed tropical moist forest', 
-                    'Degraded tropical moist forest',
-                    'Forest regrowth',
-                    'Deforested land - plantations',
-                    'Deforested land - water bodies',
-                    'Deforested land - other',
-                    'Ongoing deforestation/degradation',
-                    'Permanent and seasonal water',
-                    'Other land cover']
-
-
-
-############################################################################
-
-
-# RECLASSIFY ANNUAL DEFORDEGRA RASTERS
-
-
-############################################################################
 # Define function to write a list of arrays to file
 def filestack_write(arraylist, yearrange, dtype, fileprefix):
     
@@ -191,42 +215,25 @@ def filestack_write(arraylist, yearrange, dtype, fileprefix):
     
     return filelist
 
-# Create empty list to store new arrays
-defordegra_reclass = []
+# Identify unique values and counts
+trans_attributes = att_table(tmf_trans)
 
-# Iterate over each array
-for arr, year in zip(tmf_defordegra_arrs, years):
-    
-    # Copy array
-    reclass_arr = np.copy(arr)
-    
-    # Create mask for defordegra pixels in that year
-    mask = reclass_arr == year
-    
-    # Replace defordegra pixels with transition map values
-    reclass_arr[mask] = tmf_trans[mask]
-    
-    # Add reclassified array to list
-    defordegra_reclass.append(reclass_arr)
+"""
+NOTE: the value "0" exists in the transition map. This value is present in the 
+raw data and is not described in the TMF data manual. Because it has a limited 
+coverage, the value "0" pixels will excluded from the following analysis
+"""
+
+# Exclude 0 values
+trans_attributes = trans_attributes.drop(columns = trans_attributes.columns[
+    trans_attributes.loc['Class'] == 0])
+
+# Reclassify transition map to annual data
+trans_annual = arr2ann(tmf_defordegra_arrs, tmf_trans, years)
     
 # Write reclassified arrays to file
-tmf_annual_trans_files = filestack_write(defordegra_reclass, years, 
+trans_annual_files = filestack_write(trans_annual, years, 
                                          rasterio.uint8, "annual_trans")
-    
-# Expected list of classes
-class_list = [20.0, 30.0, 41.0, 43.0, 50.0, 255.0]
-
-# Create empty list to store attribute tables
-annual_trans_atts = []
-
-# Iterate over each reclassified array
-for arr in defordegra_reclass:
-    
-    # Create attribute table
-    att = att_table(arr, class_list)
-    
-    # Add attribute table to list
-    annual_trans_atts.append(att)
     
 
 
@@ -277,10 +284,25 @@ def class_ts(attributes_list, yearrange):
 
     return ts
 
+# Expected list of classes
+class_list = [20.0, 30.0, 41.0, 43.0, 50.0, 255.0]
+
+# Create empty list to store annual transition attributes
+annual_trans_atts = []
+
+# Iterate over each annual transition array
+for arr in trans_annual:
+    
+    # Create attribute table
+    att = att_table(arr, class_list)
+    
+    # Add attribute table to list
+    annual_trans_atts.append(att)
+
 # Create time series of annual transition attributes
 trans_ts = class_ts(annual_trans_atts, years)
 
-# Create empty list to store attribute tables
+# Create empty list to store annual change attributes
 annual_atts = []
 
 # Iterate over each annual change array
@@ -305,14 +327,15 @@ annual_ts = class_ts(annual_atts, years)
 
 ############################################################################
 # Define function to plot deforestation rates
-def trans_ts_plot(ts, yearrange, colors, labels, title):
+def multiclass_ts_plot(ts, yearrange, colors, class_dict, title):
     
     # Initialize plot figure
     plt.figure(figsize=(10, 6))
 
     # Iterate over data in list
-    for val, col, lab in zip(ts.columns, colors, labels):
-        plt.plot(yearrange, ts[val], color = col, label = lab)
+    for val, col in zip(ts.columns, colors):
+        label = class_dict.get(val)
+        plt.plot(yearrange, ts[val], color = col, label = label)
 
     # Add axes labels
     plt.xlabel('Year')
@@ -335,103 +358,170 @@ def trans_ts_plot(ts, yearrange, colors, labels, title):
     
     plt.show()
 
-            
 # Define reusable plotting parameters
 colors = ['#A0522D', '#6B8E23', '#B8860B', '#CD853F', '#708090', '#708090']
-labels= ["Degraded TMF", "Forest Regrowth", "Deforested Land - Plantations", 
-         "Deforested Land - Other", "Ongoing Deforestation/Degradation (2020-2023)", "other"]
 
-# # Example plot
-# plt.bar([1, 2, 3, 4, 5], [10, 20, 15, 30, 25], color=colors)
-# plt.show()
+# Plot annual transition map classes
+multiclass_ts_plot(trans_ts, years, colors, transmap_dict,
+              "Deforestation Rates for Yearly TMF Transition Map Data")
 
-# Plot transition map classes
-trans_ts_plot(trans_ts, years, colors, labels, 
-              "Deforestation Rates for Yearly Transition Map Data")
-
-trans_ts_plot(annual_ts, years, colors, labels, 
+# Plot annual change map
+multiclass_ts_plot(annual_ts, years, colors, annchange_dict, 
               "Deforestation Rates for Annual Change Data")
 
-# Assuming annual_ts and trans_ts are your two DataFrames
-
-# Concatenate the two DataFrames along the columns
-combined_df = pd.concat([annual_ts, trans_ts], axis=1)
-
-# Optionally, rename columns to avoid confusion
-combined_df.columns = list(annual_ts.columns) + list(trans_ts.columns)
-
-# Display the combined DataFrame
-print(combined_df)
 
 
 ############################################################################
 
 
-# PLOT ANNUAL CHANGE RASTERS
+# CONVERT GFC LOSSYEAR AND TMF DEFORDEGRA TO TIME SERIES DATA
 
 
 ############################################################################
-
-annual_pixels = {value: [] for value in range(1, 7)}
-
-# Iterate over each .tif file and count pixel values from 1-6
-for file in tmf_annual_paths:
-    with rasterio.open(file) as src:
-        raster_data = src.read(1)
+# Define function to create time series data from gfc lossyear and tmf defordegra
+def multiyear_ts(arr_list, yearrange):
+    
+    # Create empty dictionary
+    year_defor = {}
+    
+    # Iterate over each year
+    for year in yearrange:
         
-        # Count the number of pixels for each value (1 to 6)
-        for value in range(1, 7):
-            pixel_count = np.sum(raster_data == value)
-            annual_pixels[value].append(pixel_count)
+        # Create dictionary to store deforestation pixels per year
+        year_defor[year] = []
+    
+    # Iterate over each array and year
+    for arr, year in zip(arr_list, yearrange):
+        
+        # Extract number of year pixels
+        defor_pixels = np.sum(arr == year)
+        
+        # Add pixel count to list
+        year_defor[year].append(defor_pixels)
+        
+    # Convert dictionary to dataframe
+    ts = pd.DataFrame(year_defor).transpose()
+    
+    return ts
 
-# Convert pixel counts to a DataFrame
-tmf_annual_df = pd.DataFrame(annual_pixels, index=years)
+# Create time series from gfc lossyear
+lossyear_ts = multiyear_ts(gfc_lossyear_arrs, years)
 
-# Define colors for each pixel value
-colors = {
-    1: (0/255, 90/255, 0/255),      # Undisturbed tropical moist forest
-    2: (100/255, 155/255, 35/255),  # Degraded tropical moist forest
-    3: (255/255, 135/255, 15/255),  # Deforested land
-    4: (210/255, 250/255, 60/255),  # Tropical moist forest regrowth
-    5: (0/255, 140/255, 190/255),   # Permanent and seasonal water
-    6: (211/255, 211/255, 211/255)   # Other land cover
-}
+# Create time series from tmf defordegra
+defordegra_ts = multiyear_ts(tmf_defordegra_arrs, years)
+    
 
-# Define labels for pixel values
-labels = {
-    1: "Undisturbed tropical moist forest",
-    2: "Degraded tropical moist forest",
-    3: "Deforested land",
-    4: "Tropical moist forest regrowth",
-    5: "Permanent and seasonal water",
-    6: "Other land cover"
-}
+############################################################################
 
-# Plot the stacked bar chart
-fig, ax = plt.subplots(figsize=(10, 6))
 
-# Plot each pixel value as a stack in the bar chart
-bottom = np.zeros(len(years))
-for value in range(1, 7):
-    ax.bar(years, tmf_annual_df[value], bottom=bottom, color=colors[value], 
-           label=labels[value])
-    bottom += tmf_annual_df[value]
+# RECLASSIFY TRANSITION AND ANNUAL CHANGE CLASSES FOR COMPARABILITY
 
-# Customize the plot
-ax.set_xlabel('Year')
-ax.set_ylabel('Number of Pixels')
-ax.set_title('TMF Annual Change from 2013-2023 in Gola REDD+ AOI')
 
-# Set x-ticks to show every year
-ax.set_xticks(years)  # Set tick marks for each year
-ax.set_xticklabels(years)  # Label them with the year values
+############################################################################
+# Reclassify transition map time series
+"""
+Trans combination strategy 1: All deforestation and degradation classes will 
+be summed together and regrowth will be subtracted.
+"""
+trans_defor = trans_ts[20.0] + trans_ts[41.0] + trans_ts[43.0] + \
+    trans_ts[50.0] - trans_ts[30.0]
+    
+# Convert series to dataframe
+trans_defor = pd.DataFrame(trans_defor)
+    
+"""
+Trans combination strategy 2: Don't subtract regrowth
+"""
+trans_defor2 = trans_ts[20.0] + trans_ts[41.0] + trans_ts[43.0] + \
+    trans_ts[50.0]
 
-ax.legend(title='Land Cover Types', loc='lower left')
+# Convert series to dataframe
+trans_defor2 = pd.DataFrame(trans_defor2)
 
-# Show the plot
-plt.tight_layout()
-plt.show()
+"""
+Trans combination strategy 3: add regrowth
+"""
+trans_defor3 = trans_ts[20.0] + trans_ts[41.0] + trans_ts[43.0] + \
+    trans_ts[50.0] + trans_ts[30.0]
 
+# Convert series to dataframe
+trans_defor3 = pd.DataFrame(trans_defor3)
+
+# Reclassify annual change time series
+"""
+The degraded and deforested tropical moist forest classes will be summed. The
+regrowth class will be subtracted. Other classes will be ignored. 
+"""
+ann_defor = annual_ts[3]
+
+# Convert series to dataframe
+ann_defor = pd.DataFrame(ann_defor)
+
+
+
+############################################################################
+
+
+# PLOT DEFORESTATION RATES
+
+
+############################################################################
+# Define function to plot deforestation rates
+def defor_ts_plot(ts_list, yearrange, colors, labels):
+    
+    # Initialize plot figure
+    plt.figure(figsize=(12, 6))
+    
+    # Iterate over data in list
+    for ts, col, lab in zip(ts_list, colors, labels):
+        plt.plot(yearrange, ts, color = col, label = lab)
+
+    # Add axes labels
+    plt.xlabel('Year')
+    plt.ylabel('# of Deforestation Pixels')
+    
+    # Add title
+    plt.title("Deforestation Rates from TMF and GFC Datasets")
+    
+    # Add legend
+    plt.legend()
+
+    # Add gridlines
+    plt.grid(linestyle='--')
+    
+    # Rotate x ticks for readability
+    plt.xticks(yearrange, rotation=45)
+    
+    # Adjust layout for spacing
+    plt.tight_layout()
+    
+    plt.show()
+
+# Define reusable parameters for plotting
+ts_list = [ann_defor, trans_defor, defordegra_ts, lossyear_ts]
+colors = ['#A0522D', '#6B8E23', '#B8860B', '#708090']
+labels = ["TMF Annual Change", "TMF Transition - Main Classes", 
+          "TMF Deforestation and Degradation Year", "GFC Lossyear"]
+
+# Plot GFC lossyear and TMF defordegra
+defor_ts_plot(ts_list[2:], years, colors[2:], labels[2:])
+
+# Plot deforestation for all TMF datasets
+defor_ts_plot(ts_list[:3], years, colors[:3], labels[:3])
+
+# Plot TMF and GFC datasets
+defor_ts_plot(ts_list[1:], years, colors[1:], labels[1:])
+
+# Define new list
+ts_list = [trans_defor, trans_defor2, trans_defor3, defordegra_ts, lossyear_ts]
+colors = ['#8B4513', '#D2B48C', '#556B2F', '#CD5C5C', '#4682B4']
+labels = ["TMF transition map (regrowth subtracted)", 
+          "TMF transition map (regrowth ignored)", 
+          "TMF transition map (regrowth added)",
+          "TMF deforestation and degradation year", "GFC lossyear"]
+
+# Plot combinations for GFC comparability
+defor_ts_plot(ts_list, years, colors, labels)
 
 
 
