@@ -483,6 +483,168 @@ defor_rate_bars(data[4:], [series[2]], colors, labels, title)
 
 
 
+############################################################################
+
+
+# CLUSTER FOREST PATCHES
+
+
+############################################################################
+# Define function that creates forest patch layer
+def patch_label(arr_list, yearrange, nodata_val):
+    
+    # Note start time to track operation duration
+    start_time = time.time()
+    
+    # Create empty list to hold labeled arrays
+    labeled_arrs = []
+    
+    # Iterate through each array and year
+    for arr, year in zip(arr_list, yearrange):
+    
+        # Create true/false mask
+        mask = arr == year
+        
+        # Label clusters in array
+        labeled_array, num_features = label(mask)
+        
+        # Copy array to store clusters
+        cluster_size_array = np.full_like(arr, nodata_val, dtype=np.int32)
+        
+        # Iterate through each labeled cluster
+        for clust in range(1, num_features + 1):
+            
+            # Calculate the number of pixels in the cluster
+            clust_size = np.sum(labeled_array == clust)
+            
+            # Replace all pixels in the cluster with the cluster size
+            cluster_size_array[labeled_array == clust] = clust_size
+        
+        # Add the labeled array (with cluster sizes) to the list
+        labeled_arrs.append(cluster_size_array)
+        
+        # Print statement for status
+        print(f"Labeled array for {year}")
+    
+    # Note end time to track operation duration
+    end_time = time.time()
+    
+    # Calculate operation duration
+    elapsed_time = end_time - start_time
+    
+    print(f"Operation took {elapsed_time:.6f} seconds")
+    
+    return labeled_arrs
+
+def patch_size_labeling(arr_list, yearrange, nodata_val, output_tif_paths):
+    
+    # Note start time to track operation duration
+    start_time = time.time()
+    
+    # Iterate through each array and year
+    for arr, year, output_path in zip(arr_list, yearrange, output_tif_paths):
+    
+        # Create a mask where pixels are not NoData (255) and are part of the year we're processing
+        mask = (arr != nodata_val) & (arr != 0)
+        
+        # Label clusters in the valid mask
+        labeled_array, num_features = label(mask)
+        
+        # Initialize an output array with NoData values
+        cluster_size_array = np.full_like(arr, nodata_val, dtype=np.int32)
+        
+        # Process each cluster
+        for clust in range(1, num_features + 1):
+            # Calculate the number of pixels in the cluster
+            clust_size = np.sum(labeled_array == clust)
+            
+            # Assign the cluster size to all pixels in the cluster
+            cluster_size_array[labeled_array == clust] = clust_size
+        
+        # Save the result to a new TIFF file
+        with rasterio.open(output_path, 'w', driver='GTiff', 
+                           height=arr.shape[0], width=arr.shape[1], count=1, 
+                           dtype=cluster_size_array.dtype) as dst:
+            dst.write(cluster_size_array, 1)
+        
+        # Print statement for status
+        print(f"Labeled array for {year} saved to {output_path}")
+    
+    # Note end time to track operation duration
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Operation took {elapsed_time:.6f} seconds")
+    
+    return
+
+test = patch_size_labeling([arr_list], [2013], nodata_val, "data/gfc_test_2013.tif")
+
+
+# try doing it myself
+def patch_labels(arr_list, yearrange, min_patch_size):
+    
+    # Note start time to track operation duration
+    start_time = time.time()
+    
+    # Create empty list to hold filtered arrays
+    filtered_arrs = []
+    
+    # Iterate through each array and year
+    for arr, year in zip(arr_list, yearrange):
+    
+        # Create true/false mask
+        mask = arr == year
+        
+        # Label clusters in array
+        labeled_array, num_features = label(mask)
+        
+        # Iterate through each labeled cluster
+        for clust in range(1, num_features + 1):
+            
+            # Calculate number of pixels in cluster
+            clust_size = np.sum(labeled_array == clust)
+            
+            # If clusters don't meet threshold, convert to NoData
+            if clust_size < min_patch_size:
+                arr[labeled_array == clust] = nodata_val
+        
+        # Add filtered array to list
+        filtered_arrs.append(arr)    
+        
+        # Print statement for status
+        print(f"Filtered array for {year}")
+    
+    # Note end time to track operation duration
+    end_time = time.time()
+    
+    # Calculate operation duration
+    elapsed_time = end_time - start_time
+    
+    print(f"Operation took {elapsed_time:.6f} seconds")
+    
+    return filtered_arrs
+
+# testing variables
+arr_list = gfc_lossyear_arrs[1:3]
+yearrange = years
+
+# download test
+gfc_filtered_files = filestack_write(labeled_arrs, [2013, 2014], 
+                                     rasterio.uint32, "gfc_testclust")
+
+
+# Label forest clusters in GFC arrays
+gfc_cluster_arrs = patch_label(gfc_lossyear_arrs, years, nodata_val)
+
+# Write clustered GFC arrays to file
+gfc_filtered_files = filestack_write(gfc_filtered_arrs, years, 
+                                     rasterio.uint16, "gfc_patch9")
+
+
+
+
+
+
 
 
 
