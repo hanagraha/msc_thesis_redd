@@ -21,6 +21,7 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.mask import mask
 from rasterio.merge import merge
 import shutil
+import numpy as np
 
 
 
@@ -68,6 +69,17 @@ else:
 
 
 ############################################################################
+"""
+Imagery from 2013-2015, 2016, and 2017-2023 are read separately because each 
+group requires different pre-processing steps. 
+
+2013-2015 imagery is from RapidEye and does not require tile connecting
+2016 imagery is from both RapidEye and PlanetScope, and requires compositing
+2017-2023 imagery is from PlanetScope and requires tile connecting
+
+All datasets will be reprojected and clipped
+"""
+
 # Define function to extract tif filepaths in subfolder
 def folder_tifs(years):
     
@@ -118,12 +130,21 @@ ps_years = range(2017, 2024)
 # Define PlanetScope filepaths (2018-2023)
 ps_2017_2023_pathdict = folder_tifs(ps_years)
 
+# Define path for 2016 rapideye imagery
+re_2016 = "data/planet_raw/2016/RapidEye/composite.tif"
+
+# Define path for 2016 planetscope imagery
+ps_2016 = "data/planet_raw/2016/PlanetScope/composite.tif"
+
+# Create list for 2016 imagery
+re_ps_2016 = [re_2016, ps_2016]
+
 
 
 ############################################################################
 
 
-# CONNECT PLANETSCOPE TILES
+# CONNECT RASTER TILES (ONLY NEEDED FOR PLANETSCOPE BASEMAPS)
 
 
 ############################################################################
@@ -195,7 +216,7 @@ ps_pathlist = connect_tiles(ps_years, ps_2017_2023_pathdict, "Composite",
 ############################################################################
 
 
-# REPROJECT PLANET RASTERS
+# REPROJECT RASTERS (ALL)
 
 
 ############################################################################
@@ -204,6 +225,8 @@ start time: 5:36 (one image took 3min)
 end time: 5:56
 
 approx 20min for planetscope
+
+2016 start 4:26, end 4:27 for one 4:36 for two??
 """
 
 # Define function to reproject raster
@@ -264,12 +287,148 @@ re_proc_files = reproject_raster(re_pathlist, epsg_string, out_dir, re_years,
 ps_proc_files = reproject_raster(ps_pathlist, epsg_string, out_dir, ps_years, 
                                  nodata_val)
 
+# Reproject 2016 imagery
+lab2016 = ["2016re", "2016ps"]
+proc_2016 = reproject_raster(re_ps_2016, epsg_string, temp_folder, lab2016, 
+                             nodata_val)
+
 
 
 ############################################################################
 
 
-# CLIP PLANET RASTERS
+# RESAMPLE RASTERS (ONLY NEEDED FOR 2016 DATA)
+
+
+############################################################################
+"""
+Resample PlanetScope imagery to match pixel size of RapidEye
+start time: 4:08 end 4:09
+"""
+
+# Define function to resample one array to match pixel size of other
+def arr_resample(arr1path, arr2path, outfilename, outdir):
+    
+    # Read first array (reference)
+    with rasterio.open(arr1path) as src1:
+        
+        # Get metadata of first array
+        profile = src1.profile
+        
+        # Get the transform and dimensions of first array
+        dst_transform = src1.transform
+        dst_width = src1.width
+        dst_height = src1.height
+
+    # Read second array (array to resample)
+    with rasterio.open(arr2path) as src2:
+        
+        # Read the data from the second TIFF
+        data = src2.read(
+            
+            # Match shape of first array
+            out_shape=(src2.count, dst_height, dst_width),
+            
+            # Use bilinear resampling (good for RGB)
+            resampling=Resampling.bilinear
+        )
+
+        # Adjust metadata to match first array
+        profile.update(
+            transform=dst_transform,
+            width=dst_width,
+            height=dst_height
+        )
+        
+        # Define output filepath
+        outfilepath = os.path.join(outdir, outfilename)
+
+        # Save resampled array
+        with rasterio.open(outfilepath, 'w', **profile) as dst:
+            dst.write(data)
+
+    # Print statement
+    print(f"Resampled array saved to {outfilepath}")
+    
+    return outfilepath
+
+# Define output filename
+outfilename = 'HighRes_2016ps_Resampled.tif'
+
+# Resample planetscope array to rapideye array
+rs_resamp_2016 = arr_resample(proc_2016[0], proc_2016[1], outfilename, 
+                              temp_folder)
+
+
+
+############################################################################
+
+
+# OVERLAY IMAGER (ONLY NEEDED FOR 2016 DATA)
+
+
+############################################################################
+"""
+start time: 4:10, end time 4:10
+"""
+
+# Define function to overlay two arrays
+def arr_overlay(tif1_path, tif2_path, outfilename, out_dir):
+    
+    # Read tif files
+    with rasterio.open(tif1_path) as src1, rasterio.open(tif2_path) as src2:
+        
+        # Ensure the dimensions and number of bands match between the two files
+        assert src1.shape == src2.shape
+        assert src1.count == src2.count  # Number of bands should be the same (3 bands: R, G, B)
+    
+        # Create empty array to store combined result
+        combined = np.zeros((src1.count, src1.height, src1.width), 
+                            dtype=src1.dtypes[0])
+        
+        # Iterate over each band
+        for band in range(1, src1.count + 1):
+            
+            # Read band data
+            arr1 = src1.read(band)
+            arr2 = src2.read(band)
+    
+            # Take pixel value from array 2 when array 1 = 0
+            combined_band = np.where(arr1 == 0, arr2, arr1)
+            
+            # If both arrays have pixel value 0, remain 0
+            combined_band = np.where((arr1 == 0) & (arr2 == 0), 0, combined_band)
+    
+            # Store the combined result
+            combined[band - 1] = combined_band
+    
+        # Use profile from first tif file
+        profile = src1.profile
+        
+        # Define output path
+        output_filepath = os.path.join(out_dir, outfilename)
+        
+        # Write combined array to drive
+        with rasterio.open(output_filepath, 'w', **profile) as dst:
+            dst.write(combined)
+    
+    # Print statement
+    print(f"Combined .tif saved as {outfilename}")
+    
+    return output_filepath
+
+# Define output filename for 2016 rasters
+outfilename = "HighRes_2016.tif"
+
+# Combine 2016 rasters
+comb_2016 = arr_overlay(proc_2016[0], rs_resamp_2016, outfilename, out_dir)
+
+
+
+############################################################################
+
+
+# CLIP PLANET RASTERS (ALL)
 
 
 ############################################################################
@@ -277,6 +436,10 @@ ps_proc_files = reproject_raster(ps_pathlist, epsg_string, out_dir, ps_years,
 start time: 5:58
 end time: 6:00
 for planetscope
+
+start 4:38
+end 4:40
+for 2016
 """
 
 # Define function to clip rasters
@@ -326,6 +489,9 @@ clip_raster(re_proc_files, aoi_geom, nodata_val)
 
 # Clip planetscope imagery
 clip_raster(ps_proc_files, aoi_geom, nodata_val)
+
+# Clip 2016 imagery
+clip_raster([comb_2016], aoi_geom, nodata_val)
 
 
 
