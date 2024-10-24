@@ -18,11 +18,11 @@ import geopandas as gpd
 import pandas as pd
 import os
 import numpy as np
-from rasterstats import zonal_stats
 import matplotlib.pyplot as plt
 from scipy.ndimage import label
 import time
-import matplotlib.ticker as ticker
+import seaborn as sns
+from matplotlib.ticker import MultipleLocator
 
 
 
@@ -90,11 +90,18 @@ gfc_lossyear_paths = [f"data/intermediate/gfc_lossyear_{year}.tif" for
 tmf_defordegra_paths = [f"data/intermediate/tmf_defordegra_{year}.tif" for 
                       year in years]
 
+# Define file paths for agreement rasters
+agreement_files = [f"data/intermediate/agreement_gfc_combtmf_{year}.tif" for 
+                   year in years]
+
 # Read GFC rasters 
 gfc_lossyear_arrs, profile = read_files(gfc_lossyear_paths)
 
 # Read TMF rasters
 tmf_defordegra_arrs, profile = read_files(tmf_defordegra_paths)
+
+# Read agreement rasters
+agreement_arrs, profile_agr = read_files(agreement_files)
 
 # Read village polygons
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
@@ -117,381 +124,12 @@ villages_merged = villages.dissolve()
 ############################################################################
 
 
-# REMOVE SMALL DEFORESTATION PATCHES
+# CLUSTER GFC AND TMF DEFORESTATION PATCHES
 
 
 ############################################################################
 """
-Note: this segment takes ~ 1 hour 33 minutes to run!!
-"""
-# Define function to check values of array
-def valcheck(array, dataname):
-    uniquevals = np.unique(array)
-    print(f"Unique values in the {dataname} are {uniquevals}")
-
-# Define function to remove small patches of deforestation
-def patch_filter(arr_list, yearrange, min_patch_size):
-    
-    # Note start time to track operation duration
-    start_time = time.time()
-    
-    # Create empty list to hold filtered arrays
-    filtered_arrs = []
-    
-    # Iterate through each array and year
-    for arr, year in zip(arr_list, yearrange):
-    
-        # Create true/false mask
-        mask = arr == year
-        
-        # Label clusters in array
-        labeled_array, num_features = label(mask)
-        
-        # Iterate through each labeled cluster
-        for clust in range(1, num_features + 1):
-            
-            # Calculate number of pixels in cluster
-            clust_size = np.sum(labeled_array == clust)
-            
-            # If clusters don't meet threshold, convert to NoData
-            if clust_size < min_patch_size:
-                arr[labeled_array == clust] = nodata_val
-        
-        # Add filtered array to list
-        filtered_arrs.append(arr)    
-        
-        # Print statement for status
-        print(f"Filtered array for {year}")
-    
-    # Note end time to track operation duration
-    end_time = time.time()
-    
-    # Calculate operation duration
-    elapsed_time = end_time - start_time
-    
-    print(f"Operation took {elapsed_time:.6f} seconds")
-    
-    return filtered_arrs
-
-# Define function to write a list of arrays to file
-def filestack_write(arraylist, yearrange, dtype, fileprefix):
-    
-    # Create empty list to store output filepaths
-    filelist = []
-    
-    # Save each array to drive
-    for var, year in zip(arraylist, yearrange):
-        
-        # Adapt file datatype
-        data = var.astype(dtype)
-        
-        # Define file name and path
-        output_filename = f"{fileprefix}_{year}.tif"
-        output_filepath = os.path.join(out_dir, output_filename)
-        
-        # Update profile with dtype string
-        profile['dtype'] = data.dtype.name
-        
-        # Write array to file
-        with rasterio.open(output_filepath, "w", **profile) as dst:
-            dst.write(data, 1)
-            
-        # Append filepath to list
-        filelist.append(output_filepath)
-        
-        print(f"{output_filename} saved to file")
-    
-    return filelist
-
-# Remove small forest patches from GFC arrays (takes ~33min)
-gfc_filtered_arrs = patch_filter(gfc_lossyear_arrs, years, 9)
-
-# Write filtered GFC arrays to file
-gfc_filtered_files = filestack_write(gfc_filtered_arrs, years, 
-                                     rasterio.uint16, "gfc_patch9")
-
-# Remove small forest patches from TMF arrays (start 1:47, end 2:45)
-tmf_filtered_arrs = patch_filter(tmf_defordegra_arrs, years, 9)
-
-# Write filtered TMF arrays to file
-tmf_filtered_files = filestack_write(tmf_filtered_arrs, years, 
-                                     rasterio.uint16, "tmf_patch9")
-
-
-
-############################################################################
-
-
-# EXTRACT YEARLY DEFORESTATION FOR REDD+/NON-REDD+ VILLAGE GROUPS
-
-
-############################################################################
-# Define function to calculate areas of polygons (in ha)
-def poly_area(polylist):
-    area_list = []
-    for poly in polylist:
-        poly_area = poly.geometry.area / 10000
-        area_list.append(poly_area)
-    
-    return area_list
-
-# Define function to calculate zonal statistic per image and polygon
-def multi_zonal_stats(polylist, polynames, tif_list, yearrange, arealist):
-    
-    # Create empty list to hold statistics
-    stats_df = pd.DataFrame(index=yearrange).transpose()
-    
-    # Iterate over each polygon file
-    for poly, name in zip(polylist, polynames):
-        
-        # Create empty dictionary to store statistics
-        data = {f"{name}": []}
-                
-        # Iterate over each file
-        for file in tif_list:
-            
-            # Calculate zonal statistics for that polygon
-            stats = zonal_stats(poly, file, stats="count", nodata=nodata_val)
-            
-            # Add statistics to dictionary
-            data[f"{name}"].append(stats[0]['count'])
-        
-        # Convert dictionary to dataframe
-        data_df = pd.DataFrame(data, index=yearrange).transpose()
-        
-        # Add statistics dataframes to list
-        stats_df = pd.concat([stats_df, data_df])
-        
-    # Multiply pixel counts by pixel size to get area
-    area_df = stats_df * pixel_area
-    
-    # Divide each row by respective area
-    area_df = area_df.div(arealist, axis=0)
-        
-    return stats_df, area_df
-
-# To avoid re-running the filtering code, get the files here:
-gfc_filtered_files = [f"data/intermediate/gfc_patch9_{year}.tif" for 
-                      year in years]
-tmf_filtered_files = [f"data/intermediate/tmf_patch9_{year}.tif" for 
-                      year in years]
-
-# Polygons of interest for zonal statistics
-zones = [villages.loc[1], villages.loc[0], villages_merged.loc[0], aoi.loc[0]]
-
-# List of polygon names
-names = ["REDD+", "Non-REDD+", "All Villages", "AOI"]
-
-# Calculate area of each polygon
-areas = poly_area(zones)
-
-# Calculate zonal statistics with GFC data
-gfc_defor_stats, gfc_defor_area = multi_zonal_stats(zones, names, 
-                                    gfc_lossyear_paths, years, areas)
-
-# Calculate zonal statistics with TMF data
-tmf_defor_stats, tmf_defor_area = multi_zonal_stats(zones, names, 
-                                    tmf_defordegra_paths, years, areas)
-
-# Calculate zonal statistics with filtered GFC data
-gfc_filtered_stats, gfc_filtered_area = multi_zonal_stats(zones, names, 
-                                    gfc_filtered_files, years, areas)
-
-# Calcualte zonal statistics with filtered TMF data
-tmf_filtered_stats, tmf_filtered_area = multi_zonal_stats(zones, names, 
-                                    tmf_filtered_files, years, areas)
-
-# Calculate difference between GFC and TMF deforestation 
-gfc_tmf_diff = gfc_defor_area - tmf_defor_area
-
-# Calculate difference between GFC and TMF deforestation after filtering
-filt_gfc_tmf_diff = gfc_filtered_area - tmf_filtered_area
-
-
-
-############################################################################
-
-
-# PLOT DEFORESTATION RATES
-
-
-############################################################################
-# Define function to plot deforestation rates
-def defor_rate_lines(df_list, series, colors, labels, title):
-    
-    # Initialize plot figure
-    plt.figure(figsize=(10, 6))
-        
-    # Initialize empty list to hold data
-    df_data = []
-    
-    # Iterate over dataframes
-    for df in df_list:
-        
-        # Iterate over zones (rows) of interest
-        for zone in series:
-            
-            # Get row data from that zone
-            row_data = df.loc[zone]
-        
-            # Add row data to dataframe data
-            df_data.append(row_data)
-    
-    # Check minimum value in dataset
-    min_value = min([df.min() for df in df_data])
-    
-    # Conditional statement if any values are less than 0
-    if min_value < 0:
-        
-        # Add black horizontal line at y=0
-        plt.axhline(0, color='black', linestyle='--', linewidth=1)
-
-    # Iterate over data in list
-    for df, col, lab in zip(df_data, colors, labels):
-        plt.plot(years, df, color = col, label = lab)
-
-    # Add axes labels
-    plt.xlabel('Year')
-    plt.ylabel('% of Deforestation Pixels Per Area')
-    
-    # Add title
-    plt.title(title)
-    
-    # Add legend
-    plt.legend()
-
-    # Add gridlines
-    plt.grid(linestyle='--')
-    
-    # Rotate x ticks for readability
-    plt.xticks(years, rotation=45)
-    
-    # Adjust layout for spacing
-    plt.tight_layout()
-    
-    plt.show()
-
-def defor_rate_bars(df_list, series, colors, labels, title):
-    
-    # Initialize plot figure
-    plt.figure(figsize=(12, 6))
-        
-    # Initialize empty list to hold data
-    df_data = []
-    
-    # Iterate over dataframes
-    for df in df_list:
-        
-        # Iterate over zones (rows) of interest
-        for zone in series:
-            
-            # Get row data from that zone
-            row_data = df.loc[zone]
-        
-            # Add row data to dataframe data
-            df_data.append(row_data)
-    
-    # Check minimum value in dataset
-    min_value = min([df.min() for df in df_data])
-    
-    # Conditional statement if any values are less than 0
-    if min_value < 0:
-        
-        # Add black horizontal line at y=0
-        plt.axhline(0, color='black', linestyle='--', linewidth=1)
-        
-    # Set width of bars
-    bar_width = 0.3 
-    
-    # Set position of bars
-    x_positions = np.arange(len(years)) 
-
-    # Iterate over data in list and plot bars
-    for i, (df, col, lab) in enumerate(zip(df_data, colors, labels)):
-        
-        # Offset the bars for each dataset to avoid overlap
-        plt.bar(x_positions + i * bar_width, df, color=col, width=bar_width, label=lab)
-
-    # Add axes labels
-    plt.xlabel('Year')
-    plt.ylabel('GFC - TMF Deforestation %')
-    
-    # Add title
-    plt.title(title)
-    
-    # Add legend
-    plt.legend()
-
-    # Add gridlines
-    ax = plt.gca()
-    
-    # Add major ticks every 0.005 units
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.005))
-    
-    # Add gridlines for major ticks
-    ax.grid(True, which='major', axis='y', linestyle='--', color='gray')
-    
-    # Rotate x ticks for readability
-    plt.xticks(x_positions + bar_width * (len(df_data) - 1) / 2, years, rotation=45)
-    
-    # Adjust layout for spacing
-    plt.tight_layout()
-    
-    # Show plot
-    plt.show()
-
-# Define reusable parameters for plotting
-data = [gfc_defor_area, tmf_defor_area, gfc_filtered_area, tmf_filtered_area, 
-        gfc_tmf_diff, filt_gfc_tmf_diff]
-
-colors = ["#8B0000", "#D2691E", "#228B22", "#4682B4"]
-
-series = ['REDD+', 'Non-REDD+', 'All Villages', 'AOI']
-
-# Plot GFC data for all zones
-title = "GFC Deforestation Area"
-labels = ["REDD+", "Non-REDD+", "All Villages", "AOI"]
-defor_rate_lines([data[0]], series, colors, labels, title)
-
-# Plot GFC and TMF data for village areas
-title = "GFC and TMF Deforestation in Village Area"
-labels = ["Unfiltered GFC Deforestation", "Unfiltered TMF Deforestation",
-          "Filtered GFC Deforestation (min patch size = 9)", 
-          "Filtered TMF Deforestation (min patch size = 9)"]
-defor_rate_lines(data[:4], [series[2]], colors, labels, title)
-
-# Plot dataset differences for REDD+, Non-REDD+, unfiltered, filtered (line)
-title = "Difference between GFC and TMF Deforestation Area"
-labels = ["Unfiltered REDD+ Deforestation", 
-          "Unfiltered Non-REDD+ Deforestation", 
-          "Filtered REDD+ Deforestation", 
-          "Filtered Non-REDD+ Deforestation"]
-defor_rate_lines(data[4:], series[0:2], colors, labels, title)
-
-# Plot dataset differences for REDD+, Non-REDD+, unfiltered, filtered (bar)
-defor_rate_bars(data[4:], series[0:2], colors, labels, title)
-
-# Plot dataset differences for AOI with unfiltered and filtered data (bar)
-labels = ["Unfiltered Deforestation for AOI", 
-          "Filtered Deforestation for AOI (min patch size = 9)"]
-defor_rate_bars(data[4:], [series[3]], colors, labels, title)
-
-# Plot dataset differences for AOI with unfiltered and filtered data (bar)
-labels = ["Unfiltered Deforestation for All Villages", 
-          "Filtered Deforestation for All Villages (min patch size = 9)"]
-defor_rate_bars(data[4:], [series[2]], colors, labels, title)
-
-
-
-############################################################################
-
-
-# CLUSTER FOREST PATCHES
-
-
-############################################################################
-"""
-GFC: 3577.453431 seconds
+GFC: 3577.453431 seconds, TMF: 4317.610226 seconds, Agreement: 
 """
 # Define function that clusters and labels deforestation (takes 5min for 1 array)
 def patch_label(arr_list, yearrange, nodata_val):
@@ -539,29 +177,584 @@ def patch_label(arr_list, yearrange, nodata_val):
     
     return labeled_arrs
 
-# Cluster GFC forests
+# Define function to check values of array
+def valcheck(array, dataname):
+    uniquevals = np.unique(array)
+    print(f"Unique values in the {dataname} are {uniquevals}")
+
+# Define function to write a list of arrays to file
+def filestack_write(arraylist, yearrange, dtype, fileprefix):
+    
+    # Create empty list to store output filepaths
+    filelist = []
+    
+    # Save each array to drive
+    for var, year in zip(arraylist, yearrange):
+        
+        # Adapt file datatype
+        data = var.astype(dtype)
+        
+        # Define file name and path
+        output_filename = f"{fileprefix}_{year}.tif"
+        output_filepath = os.path.join(out_dir, output_filename)
+        
+        # Update profile with dtype string
+        profile['dtype'] = data.dtype.name
+        
+        # Write array to file
+        with rasterio.open(output_filepath, "w", **profile) as dst:
+            dst.write(data, 1)
+            
+        # Append filepath to list
+        filelist.append(output_filepath)
+        
+        print(f"{output_filename} saved to file")
+    
+    return filelist
+
+# Cluster gfc forests
 gfc_forclust = patch_label(gfc_lossyear_arrs, years, nodata_val)
 
-# Write GFC clusters to file
-gfc_forclust_files = filestack_write(gfc_forclust, years, rasterio.uint32, "gfc_forclust")
+# Write gfc clusters to file
+gfc_forclust_files = filestack_write(gfc_forclust, years, rasterio.uint32, 
+                                     "gfc_forclust")
 
-# Cluster TMF forests
+# Cluster tmf forests
 tmf_forclust = patch_label(tmf_defordegra_arrs, years, nodata_val)
 
-# Write TMF clusters to file
-tmf_forclust_files = filestack_write(tmf_forclust, years, rasterio.uint32, "tmf_forclust")
+# Write tmf clusters to file
+tmf_forclust_files = filestack_write(tmf_forclust, years, rasterio.uint32, 
+                                     "tmf_forclust")
 
 
-
-# started 5:02 end 5:14, one array done in 10min next at 5:24
 
 ############################################################################
 
 
-# STATISTICS ON FOREST PATCHES
+# CLUSTER SPATIAL AGREEMENT PATCHES
 
 
 ############################################################################
+"""
+Agreement: 10min per year, start 3:42 estimate 5:30 end 4 done at 4:27
+5601.917588 seconds (93min, approx 1.5 hours)
+"""
+# Define function to cluster agreement and disagreement deforestation areas
+def agpatch_label(arr_list, yearrange, nodata_val):
+    
+    # Note start time to track operation duration
+    start_time = time.time()
+    
+    # Create empty lists to hold labeled arrays for each mask
+    labeled_arrs_8 = [] 
+    labeled_arrs_67 = [] 
+    
+    # Iterate through each array and year
+    for arr, year in zip(arr_list, yearrange):
+    
+        # Mask 1: deforestation agreement pixels
+        mask_8 = (arr == 8)
+        
+        # Mask 2: deforestation disagreement pixels
+        mask_67 = (arr == 6) | (arr == 7)
+        
+        # Label agreement pixel clusters
+        labeled_array_8, num_features_8 = label(mask_8)
+        
+        # Label disagreement pixel clusters
+        labeled_array_67, num_features_67 = label(mask_67)
+        
+        # Create NoData array for agreement clusters
+        cluster_size_array_8 = np.full_like(arr, nodata_val, dtype=np.int32)
+        
+        # Create NoData array for disagreement clusters
+        cluster_size_array_67 = np.full_like(arr, nodata_val, dtype=np.int32)
+        
+        # Iterate over each agreement cluster
+        for clust in range(1, num_features_8 + 1):
+            
+            # Calculate number of pixels in cluster
+            clust_size_8 = np.sum(labeled_array_8 == clust)
+            
+            # Assign cluster size to all pixels in cluster
+            cluster_size_array_8[labeled_array_8 == clust] = clust_size_8
+        
+        # Iterate over each disagreement cluster
+        for clust in range(1, num_features_67 + 1):
+            
+            # Calculate number of pixels in cluster
+            clust_size_67 = np.sum(labeled_array_67 == clust)
+            
+            # Assign cluster size to all pixels in cluster
+            cluster_size_array_67[labeled_array_67 == clust] = clust_size_67
+        
+        # Add labeled agreement clusters to list
+        labeled_arrs_8.append(cluster_size_array_8)
+        
+        # Add labeled disagreement clusters to list
+        labeled_arrs_67.append(cluster_size_array_67)
+        
+        # Print statement for status
+        print(f"Labeled arrays for {year}: Mask 8 and Mask 6 or 7")
+    
+    # Note end time to track operation duration
+    end_time = time.time()
+    
+    # Calculate operation duration
+    elapsed_time = end_time - start_time
+    
+    print(f"Operation took {elapsed_time:.6f} seconds")
+    
+    # Return both sets of labeled arrays
+    return labeled_arrs_8, labeled_arrs_67
+
+# Cluster spatial agreement arrays
+agree_clust, disagree_clust = agpatch_label(agreement_arrs, years, nodata_val)
+
+# Write agreement clusters to file
+agree_clust_files = filestack_write(agree_clust, years, rasterio.uint32, 
+                                    "agree_forclust")
+
+# Write disagreement clusters to file
+disagree_clust_files = filestack_write(disagree_clust, years, rasterio.uint32, 
+                                       "disagree_forclust")
+
+
+
+############################################################################
+
+
+# (RE-) READ CLUSTERED FILES
+
+
+############################################################################
+"""
+This is so the clustering functions do not have to be re-run to execute
+subsequent code
+"""
+# Define file paths for clustered gfc rasters
+gfc_forclust_paths = [f"data/intermediate/gfc_forclust_{year}.tif" for 
+                      year in years]
+
+# Define file paths for clustered tmf rasters
+tmf_forclust_paths = [f"data/intermediate/tmf_forclust_{year}.tif" for 
+                      year in years]
+
+# Define file paths for clustered agreement rasters
+agree_forclust_paths = [f"data/intermediate/agree_forclust_{year}.tif" for 
+                        year in years]
+
+# Define file paths for clustered disagreement rasters
+disagree_forclust_paths = [f"data/intermediate/disagree_forclust_{year}.tif" 
+                           for year in years]
+
+# Read gfc rasters 
+gfc_forclust_arrs, profile = read_files(gfc_forclust_paths)
+
+# Read tmf rasters
+tmf_forclust_arrs, profile = read_files(tmf_forclust_paths)
+
+# Read agreement rasters
+agree_forclust_arrs, agprofile = read_files(agree_forclust_paths)
+
+# Read disagreement rasters
+disagree_forclust_arrs, agprofile = read_files(disagree_forclust_paths)
+
+
+
+############################################################################
+
+
+# CREATE BOX PLOTS OF DEFORESTATION PATCH SIZES
+
+
+############################################################################
+# Define function to create attribute tables
+def att_table(arr_list, expected_classes = None, nodata = None):
+    
+    # Create empty list to hold dataframes
+    att_tables = []
+    
+    # Iterate over each array
+    for arr in arr_list:
+        
+        if nodata is not None:
+            unique_values, pixel_counts = np.unique(arr[arr != nodata], 
+                                                    return_counts=True)
+        else:
+            unique_values, pixel_counts = np.unique(arr, return_counts=True)
+        
+        # Create a DataFrame with unique values and pixel counts
+        attributes = pd.DataFrame({"Class": unique_values, 
+                                   "Frequency": pixel_counts})
+        
+        # If expected_classes is provided, run the following:
+        if expected_classes is not None:
+            
+            # Reindex DataFrame to include all expected_classes
+            attributes = attributes.set_index("Class").reindex(expected_classes, 
+                                                               fill_value=0)
+            
+            # Reset index to have Class as a column again
+            attributes.reset_index(inplace=True)
+            
+        # Switch rows and columns of dataframe
+        attributes = attributes.transpose()
+        
+        # Add attributes to list
+        att_tables.append(attributes)
+    
+    return att_tables
+
+# Define function to restructure attribute tables for boxplots
+def boxplot_dat(df_list, yearrange):
+    
+    # Create empty list to hold data
+    boxplot_data = []
+
+    # Iterate over each DataFrame (yearly data)
+    for df, year in zip(df_list, years):
+        
+        # Extract class and frequency
+        classes = df.iloc[0].values
+        frequencies = df.iloc[1].values  
+        
+        # Create a list of patch sizes based on their frequency
+        for class_size, freq in zip(classes, frequencies):
+            
+            # Append each class size 'freq' times to the boxplot_data
+            boxplot_data.extend([(class_size, year)] * freq)  
+
+    # Convert to list to dataframe
+    boxplot_df = pd.DataFrame(boxplot_data, columns=['Patch Size', 'Year'])
+    
+    return boxplot_df
+
+# Define function to plot data in boxplot
+def forclust_bxplt(boxplot_dflist, titles):
+    
+    # Initialize a new DataFrame to hold all data
+    combined_df = pd.DataFrame()
+
+    # Iterate over each dataframe
+    for df, title in zip(boxplot_dflist, titles):
+        
+        # Add dataset column
+        df['Dataset'] = title
+        
+        # Combine with overall dataframe
+        combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    # Initialize figure
+    plt.figure(figsize=(14, 10))
+
+    # Plot boxplot data
+    sns.boxplot(x='Year', y='Patch Size', hue='Dataset', data=combined_df, 
+                width = 0.7)
+
+    # Edit y tickmarks
+    plt.yticks(range(0, 801, 100))
+    
+    # Add y major gridlines
+    plt.grid(axis='y', which='major', color='gray', linestyle='--', 
+             linewidth=0.5)
+    
+    # Set locations for minor gridlines
+    plt.gca().yaxis.set_minor_locator(MultipleLocator(50))
+    
+    # Add y minor gridlines
+    plt.grid(axis='y', which='minor', color='lightgray', linestyle=':', 
+             linewidth=0.5)
+
+    # Add title
+    plt.title('Distribution of Deforestation Patch Sizes by Year')
+
+    # Add axes labels
+    plt.xlabel('Year')
+    plt.ylabel('Deforestation Patch Sizes (# Pixels)')
+
+    # Rotate x tickmarks for readability
+    plt.xticks(rotation=45)
+
+    # Show plot
+    plt.show()
+
+# Create attribute table for gfc clustered forest
+gfc_forclust_atts = att_table(gfc_forclust_arrs, nodata = nodata_val)
+
+# Create attribute table for tmf clustered forest
+tmf_forclust_atts = att_table(tmf_forclust_arrs, nodata = nodata_val)
+
+# Create attribute table for agreement clusters
+agree_forclust_atts = att_table(agree_forclust_arrs, nodata = nodata_val)
+
+# Create attribute table for disagreement clusters
+disagree_forclust_atts = att_table(disagree_forclust_arrs, nodata = nodata_val)
+
+# Create boxplot data for gfc clustered forest
+gfc_boxplot_df = boxplot_dat(gfc_forclust_atts, years)
+
+# Create boxplot data for tmf clustered forest
+tmf_boxplot_df = boxplot_dat(tmf_forclust_atts, years)
+
+# Create boxplot with gfc and tmf data
+forclust_bxplt([gfc_boxplot_df, tmf_boxplot_df], ["GFC Deforestation", 
+                                                  "TMF Deforestation"])
+
+
+
+############################################################################
+
+
+# CALCULATE AGREEMENT STATISTICS BY FOREST PATCH SIZE
+
+
+############################################################################
+# Define function to calculate zonal statistics with spatial agreement
+def patch_agreement(forclust_arrlist, agreement_arrlist, nodataval):
+    
+    # Create list to hold statistics per year
+    annual_cluststats = []
+    
+    # Iterate over each array
+    for clustarr, agree in zip(forclust_arrlist, agreement_arrlist):
+        
+        # Calculate number of unique clusters labels
+        clustnum = np.unique(clustarr[clustarr != nodataval])
+        
+        # Create empty list to store zonal stats
+        zone_stats = []
+        
+        # Iterate over each unique cluster
+        for clust in clustnum:
+            
+            # Create mask for pixels in cluster
+            clustmask = (clustarr == clust)
+            
+            # Extract agreement values
+            clust_agree = agree[clustmask]
+            
+            # Calculate count of each agreement type
+            count_6 = np.sum(clust_agree == 6) # only gfc deforestation
+            count_7 = np.sum(clust_agree == 7) # only tmf deforestation
+            count_8 = np.sum(clust_agree == 8) # agreement on deforestation
+            
+            # Calculate agreement/ disagreement ratio
+            if count_8 != 0:
+                ratio = (count_6 + count_7) / count_8
+            else:
+                ratio = 0
+            
+            # Append results
+            zone_stats.append({
+                'Patch Size': clust, 
+                'Disagreement': count_6 + count_7, 
+                'Agreement': count_8, 
+                'Disagreement Ratio': ratio})
+            
+            # Convert to dataframe
+            cluster_agstats = pd.DataFrame(zone_stats).transpose()
+        
+        # Append statistics to list
+        annual_cluststats.append(cluster_agstats)
+            
+    return annual_cluststats
+
+# Define function to plot cluster statistics
+def clust_scatplot(clust_statlist, yearrange, dataname):
+    
+    # Initialize figure
+    plt.figure(figsize=(10, 6))
+    
+    # Iterate over each dataframe
+    for df, year in zip(clust_statlist, yearrange):
+        
+        # Plot ratio and patch size
+        plt.scatter(df.loc['Patch Size'], df.loc['Disagreement Ratio'], 
+                    label = year, s=10)
+    
+    # Add axes labels
+    plt.xlabel("Forest Patch Size (# Pixels)")
+    plt.ylabel("Disagreement/Agreement Ratio")
+    
+    # Add title
+    plt.title(f"Disagreement to Agreement Ratio by {dataname} Deforestation Patches (2013-2023)")
+              
+    # Add legend
+    plt.legend(title="Year")
+    
+    # Show plot
+    plt.tight_layout()
+    plt.show()
+
+# Calculate cluster statistics for gfc
+gfc_cluststats = patch_agreement(gfc_forclust_arrs, agreement_arrs, nodata_val)
+
+# Calculate cluster statistics for tmf
+tmf_cluststats = patch_agreement(tmf_forclust_arrs, agreement_arrs, nodata_val)
+
+# Plot gfc cluster statistics
+clust_scatplot(gfc_cluststats, years, "GFC")
+
+# Plot tmf cluster statistics
+clust_scatplot(tmf_cluststats, years, "TMF")
+
+
+
+############################################################################
+
+
+# BIN AGREEMENT AND DISAGREEMENT CLUSTER SIZES
+
+
+############################################################################
+# Define function to bin cluster sizes from dataframe
+def bin_clusts(df_list, bins_list, bin_labels):
+
+    # Create empty list to hold the binned frequencies
+    binned_frequencies = []
+    
+    # Iterate through each DataFrame
+    for df in df_list:
+        
+        # Create empty list for frequency sum 
+        df_binned_freq = []
+        
+        # Iterate through each bin (min_patch_size, max_patch_size)
+        for min_patch, max_patch in bins_list:
+            
+            # Create a mask to select patch sizes within the current bin range
+            mask = (df.iloc[0] >= min_patch) & (df.iloc[0] < max_patch)
+            
+            # Sum the frequencies corresponding to patch sizes in this bin range
+            bin_freq_sum = df.iloc[1][mask].sum()
+            
+            # Append the summed frequency for this bin to the list
+            df_binned_freq.append(bin_freq_sum)
+        
+        # Append the binned frequencies for this DataFrame to the overall list
+        binned_frequencies.append(df_binned_freq)
+    
+    # Convert the binned frequencies to a new DataFrame with bin labels as columns
+    result_df = pd.DataFrame(binned_frequencies, columns=bin_labels)
+    
+    return result_df
+
+# Define bin ranges (min_patch_size, max_patch_size)
+bins = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7,8), (8,9), (9,10),
+        (10,20), (20,40), (40,80), (80,160), (160,320), (320,640)]
+
+# Define bin labels
+bin_labels = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10-20', '20-40', 
+              '40-80', '80-160', '160-320', '320-640']
+    
+
+bins = [(1, 10), (10,50), (50,100), (100,200), (200,600)]
+
+# Define bin labels
+bin_labels = ['1-10', '10-50', '50-100', '100-200', '200-600']
+
+# Bin agreement clusters
+agree_binned = bin_clusts(agree_forclust_atts, bins, bin_labels)
+
+# Bin disagreement clusters
+disagree_binned = bin_clusts(disagree_forclust_atts, bins, bin_labels)
+
+# Calculate agreement/disagreement ratios
+agratio_binned = agree_binned / (disagree_binned + agree_binned)
+
+# Replace na values with 0
+agratio_binned_cleaned = agratio_binned.fillna(0)
+
+
+
+############################################################################
+
+
+# PLOT 
+
+
+############################################################################
+# Define function to create line plot
+def agratio_plot(df, yearrange):
+
+    # Initiate figure
+    plt.figure(figsize=(10,6))
+    
+    # Iterate over each column (series)
+    for lab in df.columns:
+        
+        # Plot series as line graph
+        plt.plot(years, df[lab], label=f"{lab} Pixels")
+
+    # Add axes labels
+    plt.xlabel('Year')
+    plt.ylabel('Proportion of Agreement')
+    
+    # Add title
+    plt.title('Spatial Agreement between GFC and TMF by Deforestation Patch Size')
+    
+    # Add tickmarks
+    plt.xticks(years)
+    
+    # Add legend
+    plt.legend(title='Deforestation Patches', loc='lower left')
+    
+    # Add gridlines
+    plt.grid(True)
+    
+    # Show plot
+    plt.tight_layout()
+    plt.show()
+    
+# Plot agreement ratios for different deforestation patches
+agratio_plot(agratio_binned_cleaned, years)
+
+
+
+############################################################################
+
+
+# IDENTIFY PATCH SIZE FOR MAXIMUM AGREEMENT 
+
+
+############################################################################
+# # Define function to find maximum frequency in multiple dataframes
+# def max_freq(df_list, yearrange):
+    
+#     # Create empty list to hold results
+#     yearly_maxes = []
+    
+#     # Iterate over each DataFrame
+#     for df, year in zip(df_list, yearrange):
+        
+#         # Extract patch sizes
+#         patch_sizes = df.iloc[0, :]
+        
+#         # Extract frequencies
+#         frequencies = df.iloc[1, :]
+        
+#         # Find index of maximum frequency
+#         max_freqindex = frequencies.idxmax()
+        
+#         # Find patch size of maximum frequency
+#         max_patchsize = patch_sizes[max_freqindex]
+        
+#         # Append maximum patch size to list
+#         yearly_maxes.append(max_patchsize)
+        
+#     # Create dataframe
+#     max_patchsize = pd.DataFrame({
+#         'Year': list(yearrange), 
+#         'Patch Size': yearly_maxes})
+
+#     return max_patchsize
+
+# # Calculate maximum agreement patchsize
+# agree_max = max_freq(agratio_binned_cleaned, years)
+
+# # Calculate maximum disagreement patchsize
+# disagree_max = max_freq(disagree_forclust_atts, years)
 
 
 
