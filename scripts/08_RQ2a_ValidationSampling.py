@@ -360,8 +360,62 @@ shp_write(sample_points, "validation_points_geometry.shp", val_dir)
     
 
 
+############################################################################
+
+
+# EXTRACT DATASET VALUES PER SAMPLE POINT
+
+
+############################################################################
+# Define function to extract raster values per point
+def extract_val(points_gdf, tiflist, tifnames):
+    
+    # Copy points gdf
+    gdf = points_gdf.copy()
+    
+    # Iterate over each tif file
+    for tif, name in zip(tiflist, tifnames):
+        
+        # Create empty list to store pixel values
+        pix_vals = []
+        
+        # Read tif file
+        with rasterio.open(tif) as src:
+        
+            # Iterate over each point
+            for pnt in gdf.geometry:
+                
+                # Get row and column indices
+                row, col = src.index(pnt.x, pnt.y)
+                
+                # Extract pixel value at point location
+                pix_val = src.read(1)[row, col]
+                
+                # Append pixel value to list
+                pix_vals.append(pix_val)
+            
+        # Add new column to geodataframe
+        gdf[name] = pix_vals
+        
+    return gdf
+
+# Define function to save gdf as csv
+
+
+# Define tiflist
+tif1 = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+tif2 = "data/intermediate/tmf_defordegra_year.tif" 
+tif3 = "data/intermediate/gfc_tmf_sensitive_early.tif"
+tiflist = [tif1, tif2, tif3]
+tifnames = ['gfc', 'tmf', 'comb_se']
+
+# Extract raster values
+valpoints = extract_val(sample_points, tiflist, tifnames)
 
 
 
+# Convert the geometry to WKT format
+valpoints['geometry'] = valpoints['geometry'].apply(lambda geom: geom.wkt)
 
-
+# Save the GeoDataFrame as a CSV file
+valpoints.to_csv("data/validation/test_gdf.csv", index=False)

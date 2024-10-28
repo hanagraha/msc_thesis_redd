@@ -14,17 +14,11 @@ Created on Fri Oct 25 10:23:05 2024
 ############################################################################
 
 import os
-import glob
 import rasterio
-import numpy as np
 import geopandas as gpd
-from rasterio.features import geometry_mask
-from shapely.geometry import Point
 import matplotlib.pyplot as plt
-from rasterio.plot import show
 from shapely.geometry import box
 from rasterio.mask import mask
-from rasterio.transform import from_origin
 from matplotlib.patches import Rectangle
 
 
@@ -63,37 +57,11 @@ years = range(2013, 2024)
 
 
 ############################################################################
-# Define function to read list of paths
-def read_files(pathlist):
-    
-    # Create empty list to hold arrays
-    arrlist = []
-    
-    # Iterate over each filepath
-    for path in pathlist:
-        
-        # Read file
-        with rasterio.open(path) as rast:
-            data = rast.read()
-            profile = rast.profile
-            transform = rast.transform
-            
-        # Add array to list
-        arrlist.append(data)
-            
-    return arrlist, profile, transform
-
 # Define file paths for validation rasters
 planet_paths = [f"data/validation/HighRes_{year}.tif" for year in years]
 
-# Read validation rasters
-planet_arrs, profile, transform = read_files(planet_paths)
-
 # Read validation points
 valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
-
-# Convert shape (3, 16870, 20342) to (16870, 20342, 3) for plt.imshow()
-planet_rgb_arrs = [arr.transpose(1, 2, 0) for arr in planet_arrs]
 
 
 
@@ -240,10 +208,10 @@ def pnt_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     plt.show()
 
 # Create frames for each validation point
-val_frames = point_frame(valpoints, 1000)
+val_frames = point_frame(valpoints, 700)
 
 # Plot for defined point
-pnt_plot(planet_paths, val_frames, 3, 30)
+pnt_plot(planet_paths, val_frames, 500, 30)
 
 
 
