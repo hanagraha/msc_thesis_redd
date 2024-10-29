@@ -732,7 +732,7 @@ This segment combines multi-year tmf deforestation and degradation data.
 
 Expected runtime: <1min
 """
-# Define function to combine deforestation and degradation year
+# Define function to combine two rasters with same structure
 def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
     
     # Read both rasters
@@ -744,22 +744,34 @@ def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
         
         # Get profile of one raster
         profile = src1.profile
-        
+    
     # Only use data within yearrange
     rast1 = np.where((rast1 < min(yearrange)) | (rast1 > max(yearrange)), 
                      nodata_val, rast1)
     rast2 = np.where((rast2 < min(yearrange)) | (rast2 > max(yearrange)), 
                      nodata_val, rast2)
     
-    # Create masks for each raster
-    rast1mask = rast1 == nodata_val
-    rast2mask = rast2 == nodata_val
+    # Create nodata masks for each raster
+    rast1nodata = rast1 == nodata_val
+    rast2nodata = rast2 == nodata_val
     
-    # Take maximum value between both rasters, ignoring nodata
-    combined_data = np.where(rast1mask, rast2, np.where(rast2mask, 
-                             rast1, np.maximum(rast1, rast2)))
+    # Combine data with conditions
+    combined_data = np.where(
+        
+        # For pixels where both datasets have data
+        ~rast1nodata & ~rast2nodata, 
+        
+        # Take minimum of the two rasters (earlier year)
+        np.minimum(rast1, rast2), 
+        
+        # For leftover pixels where raster 1 has data, use raster 1 data
+        np.where(~rast1nodata, rast1, \
+                 
+                 # Otherwise where raster 2 has data, use raster 2 data
+                 np.where(~rast2nodata, rast2, nodata_val))  
+    )
     
-    # Create filepath
+    # Define filepath
     output_path = os.path.join(outdir, filename)
     
     # Write file to drive
@@ -768,45 +780,15 @@ def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
         
     print(f"Combined raster saved to {output_path}")
         
-    return combined_data
+    return output_path
     
 # Combine tmf deforestation and degradation year
-defordegra = rast_comb(tmf_deforyear_file, tmf_degrayear_file, years, 
-                       nodata_val, tmf_processed_folder, 
-                       "tmf_DeforDegraYear_fm.tif")
+defordegra_file = rast_comb(tmf_deforyear_file, tmf_degrayear_file, years, 
+                            nodata_val, tmf_processed_folder, 
+                            "tmf_defordegrayear_fm.tif")
 
-
-    
-# Combine TMF deforestation and degradation year maps
-with rasterio.open(tmf_deforyear) as src1, rasterio.open(tmf_degrayear) as src2:
-    tmf_defor = src1.read(1)  
-    tmf_degra = src2.read(1)
-    profile = src1.profile
-    
-    # Only use TMF data from 2013-2023 (exclude 1984-2012)
-    tmf_defor = np.where((tmf_defor >= 1984) & (tmf_defor <= 2012), 
-                         nodata_val, tmf_defor)
-    tmf_degra = np.where((tmf_degra >= 1984) & (tmf_degra <= 2012), 
-                         nodata_val, tmf_degra)
-
-    # Handling NoData values
-    defor_mask = tmf_defor == nodata_val
-    degra_mask = tmf_degra == nodata_val
-
-    # Combine the data (e.g., taking the max value between the two, ignoring NoData)
-    combined_data = np.where(defor_mask, tmf_degra, np.where(degra_mask, 
-                             tmf_defor, np.maximum(tmf_defor, tmf_degra)))
-    
-    tmf_comb_filename = "data/intermediate/tmf_defordegra_year.tif"
-    
-    with rasterio.open(tmf_comb_filename, 'w', **profile) as dst:
-        dst.write(combined_data, 1)
-
-print(f"Combined raster saved to {tmf_comb_filename}")
-
-# View unique values to check
-comb_vals = np.unique(combined_data)
-print(f"Values in agreement map are {comb_vals}")
+# Separate multi-year defordegra year raster into single year rasters
+annsplit_rast(defordegra_file, years, tmf_processed_folder)
 
 
 
