@@ -10,15 +10,21 @@ To reproduce results, first create the environment using the thesisenv.yaml file
 
 **01_DataDownload.py** no inputs. downloads raster data from web. outputs raw hansen and jrc tif files from 2013-2023. 
 
-**02_PreProcessing.py** inputs all raw hansen and jrc tif files, village and grnp polygons. 
+**02_DeforestationData_PreProcessing.py** input: all raw hansen and jrc tif files, village and grnp polygons. output: preprocessed hansen and jrc, singleyear lossyear, singleyear deforestation, singleyear degradation, multiyear defordegra, singleyear defordegra
 
-**03_RQ1a_DeforestationRateComparison.py**
+**03_PlanetData_PreProcessing.py** input: planet tifs, villages, grnp, output: planet tifs
 
-**04_RQ1a_ForestPatchAnalysis.py**
+**04_RQ1a_DeforestationRateComparison.py** input: singleyear lossyear, singleyear deforestation, singleyear degradation, annual change, transition map main classes, villages, grnp
 
-**04_RQ1b_SpatialAgreement.py**
+**05_RQ1a_TransitionMapConversion.py** input: singleyear defordegra, annual chance, singleyear lossyear, transition map main classes
 
-**05_RQ2a_DeforestationValidation.py** inputs spatial agreement tif files and grnp polygon. outputs sample point coordinates shapefile. 
+**06_RQ1b_SpatialAgreement_DeforestationPixels.py** input: multiyear lossyear, gfc_tmf_combyear (?? - should be defordegra?), villages, grnp, output: singleyear agreement_gfc_combtmf, singleyear gfc_simple_binary, singleyear tmf_simple_binary, multiyear gfc_tmf_sensitive_early
+
+**07_RQ1b_SpatialAgreement_DeforestationPatches.py** input: singleyear lossyear, singleyear defordegra, singleyear agreement, villages, grnp, output: singleyear gfc forclust, singleyear tmf forclust, singleyear agreement clusters, singleyear disagreement clusters, 
+
+**08_RQ2a_ValidationSampling.py** input: singleyear agreement, grnp, villages. output: stratification tif, validation points shp, 
+
+**09_RQ2a_ValidationLabelling.py** input: planet tifs, valpoints shp, 
 
 ## Authors and acknowledgment
 All scripts are created by Hannah Graham, with help from supervisors Dr. Nandika Tsendbazar and Dr. Maarten Voors. 
