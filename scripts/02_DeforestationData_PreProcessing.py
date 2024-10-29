@@ -745,7 +745,7 @@ This segment combines multi-year tmf deforestation and degradation data.
 Expected runtime: <1min
 """
 # Define function to combine two rasters with same structure
-def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
+def rast_comb(rastpath1, rastpath2, nodata_val, outdir, filename):
     
     # Read both rasters
     with rasterio.open(rastpath1) as src1, rasterio.open(rastpath2) as src2:
@@ -757,11 +757,11 @@ def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
         # Get profile of one raster
         profile = src1.profile
     
-    # Only use data within yearrange
-    rast1 = np.where((rast1 < min(yearrange)) | (rast1 > max(yearrange)), 
-                     nodata_val, rast1)
-    rast2 = np.where((rast2 < min(yearrange)) | (rast2 > max(yearrange)), 
-                     nodata_val, rast2)
+    # Exclude data outside range
+    rast1 = np.where((rast1 >= 1984) & (rast1 <= 2012), 
+                         nodata_val, rast1)
+    rast2 = np.where((rast2 >= 1984) & (rast2 <= 2012), 
+                         nodata_val, rast2)
     
     # Create nodata masks for each raster
     rast1nodata = rast1 == nodata_val
@@ -795,7 +795,13 @@ def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
     return output_path
     
 # Combine tmf deforestation and degradation year
-defordegra_file = rast_comb(tmf_fm_files[11], tmf_fm_files[12], years, 
+defordegra_file = rast_comb(tmf_fm_files[11], tmf_fm_files[12], 
+                            nodata_val, tmf_processed_folder, 
+                            "tmf_defordegrayear_fm.tif")
+
+file1 = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
+file2 = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
+defordegra_file = rast_comb(file1, file2, 
                             nodata_val, tmf_processed_folder, 
                             "tmf_defordegrayear_fm.tif")
 

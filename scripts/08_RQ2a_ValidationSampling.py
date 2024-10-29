@@ -193,7 +193,7 @@ Agreement arrays per year are merged into a single stratification array using
 the reclassification key defined below. A total of 23, non-overlapping strata 
 should cover the new array. 
 
-Note: execution time for this segment is ~15min start 11:02
+Note: execution time for this segment is ~15min start 2:38
 """
 def create_reclass_key(class1, class2, num_dicts):
     

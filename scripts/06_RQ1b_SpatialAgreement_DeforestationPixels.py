@@ -47,6 +47,9 @@ nodata_val = 255
 # Set output directory
 out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 
+# Define study range years
+years = range(2013, 2024)
+
 
 
 ############################################################################
@@ -56,9 +59,39 @@ out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 
 
 ############################################################################
+def read_files(pathlist):
+    
+    # Create empty list to hold arrays
+    arrlist = []
+    
+    # Iterate over each filepath
+    for path in pathlist:
+        
+        # Read file
+        with rasterio.open(path) as rast:
+            data = rast.read(1)
+            profile = rast.profile
+            
+            # Add array to list
+            arrlist.append(data)
+            
+    return arrlist, profile
+
 # Raster data filepaths
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-tmf_defordegra_file = "data/intermediate/gfc_tmf_combyear.tif"
+tmf_defordegra_file = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
+
+# gfc lossyear filepaths
+gfc_annual_files = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif"
+                    for year in years]
+
+tmf_annual_files = [f"data/jrc_preprocessed/tmf_defordegrayear_fm_{year}.tif"
+                    for year in years]
+
+gfc_arrs, gfc_profile = read_files(gfc_annual_files)
+
+tmf_arrs, tmf_profile = read_files(tmf_annual_files)
+
 
 # Read raster data
 with rasterio.open(gfc_lossyear_file) as gfc:
@@ -93,9 +126,6 @@ grnp_geom = grnp.geometry
 
 
 ############################################################################
-# Define study range years
-years = range(2013, 2024)
-
 # Define function to reclassify multi-year array to binary single-year arrays
 def binary_reclass(yeardata, yearrange, class1, class2, nodata):
     binary_list = []
@@ -128,18 +158,20 @@ valcheck(tmf_binary_arrs[1], "tmf binary array")
 
 
 ############################################################################
-# Create empty list to store agreement layers
-aoi_agreement = []
-
-# Add binary maps together per year 
-for gfc, tmf, year in zip(gfc_binary_arrs, tmf_binary_arrs, years):
-    agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
-                         gfc + tmf)
-    aoi_agreement.append(agreement)
-    print(f"Spatial agreement map created for {year}")
+# Define function to create attribute table
+def att_table(arr):
     
-# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
-valcheck(aoi_agreement[1], "aoi spatial agreement")
+    # Extract unique values and pixel counts
+    unique_values, pixel_counts = np.unique(arr, return_counts=True)
+    
+    # Create a DataFrame with unique values and pixel counts
+    attributes = pd.DataFrame({"Class": unique_values, 
+                               "Frequency": pixel_counts})
+    
+    # Switch rows and columns of dataframe
+    attributes = attributes.transpose()
+    
+    return attributes
 
 # Define function to save a list of files by year
 def filestack_write(arraylist, yearrange, dtype, fileprefix):
@@ -169,10 +201,6 @@ def filestack_write(arraylist, yearrange, dtype, fileprefix):
     
     return filelist
 
-# Save each agreement raster to drive
-agreement_files = filestack_write(aoi_agreement, years, rasterio.uint8, 
-                                  "agreement_gfc_combtmf")
-
 # Define function for clipping stack of agreement rasters
 def filestack_clip(array_files, yearrange, geometry, nodataval):
     clipped_list = []
@@ -185,12 +213,60 @@ def filestack_clip(array_files, yearrange, geometry, nodataval):
     print(f"Clipping complete for {filenum} files")
     return clipped_list
 
+# Define function to clip agreement rasters to multiple geometries
 def filestack_clip_multi(array_files, yearrange, geom1, geom2, geom3, nodataval):
     redd_clip = filestack_clip(array_files, yearrange, geom1, nodataval)
     nonredd_clip = filestack_clip(array_files, yearrange, geom2, nodataval)
     grnp_clip = filestack_clip(array_files, yearrange, geom3, nodataval)
     
     return redd_clip, nonredd_clip, grnp_clip
+
+# Create empty list to store agreement layers
+aoi_agreement = []
+
+# Add binary maps together per year 
+for gfc, tmf, year in zip(gfc_binary_arrs, tmf_binary_arrs, years):
+    agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
+                         gfc + tmf)
+    aoi_agreement.append(agreement)
+    print(f"Spatial agreement map created for {year}")
+    
+    
+    
+# Create empty list to store agreement layers
+aoi_agreement = []
+
+for gfc, tmf, year in zip(gfc_arrs, tmf_arrs, years):
+    # Create masks for NoData values
+    gfc_mask = gfc == nodata_val
+    tmf_mask = tmf == nodata_val
+    
+    # Initialize the agreement array
+    agreement = np.empty_like(gfc)  # Create an empty array of the same shape as gfc
+    
+    # Fill the agreement array based on the conditions
+    agreement[gfc_mask & tmf_mask] = nodata_val  # Both are NoData
+    agreement[~gfc_mask & tmf_mask] = 6  # Only gfc has data
+    agreement[gfc_mask & ~tmf_mask] = 7  # Only tmf has data
+    agreement[~gfc_mask & ~tmf_mask] = 8  # Both have data
+
+    aoi_agreement.append(agreement)
+    print(f"Spatial agreement map created for {year}")
+    
+    
+# Check values for spatial agreement (should be 5, 6, 7, 8, 255)
+valcheck(aoi_agreement[1], "aoi spatial agreement")
+
+# Save each agreement raster to drive
+agreement_files = filestack_write(aoi_agreement, years, rasterio.uint8, 
+                                  "agreement_gfc_combtmf")
+
+# save binary files
+tmf_binary_files = filestack_write(tmf_binary_arrs, years, rasterio.uint8,
+                                   "tmf_binary")
+
+gfc_binary_files = filestack_write(gfc_binary_arrs, years, rasterio.uint8,
+                                   "gfc_binary")
 
 # Clip agreement rasters to REDD+, non-REDD+, and GRNP area
 redd_agreement, nonredd_agreement, grnp_agreement = filestack_clip_multi(
@@ -357,7 +433,7 @@ labels = ['AOI Agreement on Not Deforested',
 spatagree_plot([datasetlist[0]], linestyles[0], 94, 3, colors, labels[0:3])
 
 # Plot statistics for REDD+ and non-REDD+
-spatagree_plot(datasetlist[1:3], linestyles[0:2], 90, 5, colors, labels[3:9])
+spatagree_plot(datasetlist[1:3], linestyles[0:2], 75, 15, colors, labels[3:9])
 
 # Plot statistics for REDD+, non-REDD+, and GRNP
 spatagree_plot(datasetlist[1:], linestyles, 90, 5, colors, labels[3:]) 
