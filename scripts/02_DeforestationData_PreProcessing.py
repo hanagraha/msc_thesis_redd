@@ -10,6 +10,8 @@ this file takes outputs from the 01_DataDownload.py file: 2 GFC rasters and 15
 TMF rasters. It also uses 1 shapefile and 1 geojson that are found in the 
 GIT repository.
 
+Expected execution time: ~6min
+
 """
 
 ############################################################################
@@ -27,7 +29,6 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.mask import mask
 import pandas as pd
 import numpy as np
-import glob
 import shutil
 
 
@@ -622,6 +623,9 @@ gfc_tmf_baseforest2012, gfc_tmf_profile2012 = custom_forbase(gfc_baseforest_path
 def formask_rasts(rastpathlist, baselineforest, nodata_val, outdir, 
                   orig_rastpathlist, suffix):
     
+    # Create empty list to store filepaths
+    fm_files = []
+    
     # Iterate over files
     for path, name in zip(rastpathlist, orig_rastpathlist):
         
@@ -634,28 +638,33 @@ def formask_rasts(rastpathlist, baselineforest, nodata_val, outdir,
             # Get metadata
             file_meta = rast.meta
             
-            # Apply forestmask
-            masked_data = np.where(baselineforest != nodata_val, file_data,
-                                   nodata_val)
+        # Apply forestmask
+        masked_data = np.where(baselineforest != nodata_val, file_data,
+                               nodata_val)
+        
+        # Define output filepath
+        output_path = os.path.join(outdir, os.path.basename(name) 
+                                   .replace(".tif", f"_{suffix}.tif"))
+        
+        # Write masked file to drive
+        with rasterio.open(output_path, 'w', **file_meta) as dst:
+            dst.write(masked_data, 1)
             
-            # Define output filepath
-            output_path = os.path.join(outdir, os.path.basename(name) 
-                                       .replace(".tif", f"_{suffix}.tif"))
+        # Append path to list
+        fm_files.append(output_path)
             
-            # Write masked file to drive
-            with rasterio.open(output_path, 'w', **file_meta) as dst:
-                dst.write(masked_data, 1)
-                
-            # Print statement
-            print(f"Masked file saved as: {output_path}")
+        # Print statement
+        print(f"Masked file saved as: {output_path}")
+        
+    return fm_files
 
 # Mask gfc files to gfc baseline 2012
-formask_rasts(gfc_clipped_files, gfc_baseforest2012, nodata_val, 
-              gfc_processed_folder, gfc_files, "fm")
+gfc_fm_files = formask_rasts(gfc_clipped_files, gfc_baseforest2012, nodata_val, 
+                             gfc_processed_folder, gfc_files, "fm")
 
 # Mask tmf files to gfc baseline 2012
-formask_rasts(tmf_resamp_files, gfc_baseforest2012, nodata_val, 
-              tmf_processed_folder, tmf_files, "fm")
+tmf_fm_files = formask_rasts(tmf_resamp_files, gfc_baseforest2012, nodata_val, 
+                             tmf_processed_folder, tmf_files, "fm")
 
 
 
@@ -676,6 +685,9 @@ Expected runtime: <1min
 """
 # Define function to split multi-year rasters into single years
 def annsplit_rast(rastpath, yearrange, outdir):
+    
+    # Create empty list to hold output paths
+    ann_files = []
     
     # Read raster
     with rasterio.open(rastpath) as rast:
@@ -700,22 +712,22 @@ def annsplit_rast(rastpath, yearrange, outdir):
         with rasterio.open(output_path, 'w', **profile) as dst:
             dst.write(year_mask.astype(rasterio.float32), 1)
         
+        # Add output path to list
+        ann_files.append(output_path)
+        
         # Print statement
         print(f"Single-year file created for {output_path}")
-
-# Define multiyear filepaths
-gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-tmf_deforyear_file = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
-tmf_degrayear_file = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
+    
+    return ann_files
 
 # Split gfc lossyear
-annsplit_rast(gfc_lossyear_file, years, gfc_processed_folder)
+gfc_ann_lossyear = annsplit_rast(gfc_fm_files[0], years, gfc_processed_folder)
 
 # Split tmf deforestation year
-annsplit_rast(tmf_deforyear_file, years, tmf_processed_folder)
+tmf_ann_deforyear = annsplit_rast(tmf_fm_files[11], years, tmf_processed_folder)
 
 # Split tmf degradation year
-annsplit_rast(tmf_degrayear_file, years, tmf_processed_folder)
+tmf_ann_degrayear = annsplit_rast(tmf_fm_files[12], years, tmf_processed_folder)
         
 
 
@@ -783,12 +795,146 @@ def rast_comb(rastpath1, rastpath2, yearrange, nodata_val, outdir, filename):
     return output_path
     
 # Combine tmf deforestation and degradation year
-defordegra_file = rast_comb(tmf_deforyear_file, tmf_degrayear_file, years, 
+defordegra_file = rast_comb(tmf_fm_files[11], tmf_fm_files[12], years, 
                             nodata_val, tmf_processed_folder, 
                             "tmf_defordegrayear_fm.tif")
 
 # Separate multi-year defordegra year raster into single year rasters
-annsplit_rast(defordegra_file, years, tmf_processed_folder)
+tmf_ann_defordegra = annsplit_rast(defordegra_file, years, tmf_processed_folder)
+
+
+
+############################################################################
+
+
+# CONVERT TMF TRANSITION RASTER TO ANNUAL DATA
+
+
+############################################################################
+# Define function to read multiple rasters
+def read_files(pathlist):
+    
+    # Create empty list to hold arrays
+    arrlist = []
+    
+    # Iterate over each filepath
+    for path in pathlist:
+        
+        # Read file
+        with rasterio.open(path) as rast:
+            data = rast.read(1)
+            profile = rast.profile
+            
+            # Add array to list
+            arrlist.append(data)
+            
+    return arrlist, profile
+
+# Define function to create attribute table
+def att_table(arr, expected_classes=None):
+    
+    # Extract unique values and pixel counts
+    unique_values, pixel_counts = np.unique(arr, return_counts=True)
+    
+    # Create a DataFrame with unique values and pixel counts
+    attributes = pd.DataFrame({"Class": unique_values, 
+                               "Frequency": pixel_counts})
+    
+    # If expected_classes is provided, run the following:
+    if expected_classes is not None:
+        
+        # Reindex DataFrame to include all expected_classes
+        attributes = attributes.set_index("Class").reindex(expected_classes, 
+                                                           fill_value=0)
+        
+        # Reset index to have Class as a column again
+        attributes.reset_index(inplace=True)
+        
+    # Switch rows and columns of dataframe
+    attributes = attributes.transpose()
+    
+    return attributes
+
+# Define function to create annual data from a single-layer array
+def arr2ann(annual_arrlist, ref_arr, yearrange):
+    
+    # Create empty list to hold reclassified annual arrays
+    ann_arrs = []
+    
+    # Iterate over annual arrays and years
+    for arr, year in zip(annual_arrlist, yearrange):
+        
+        # Copy array
+        reclass_arr = np.copy(arr)
+        
+        # Create mask for defordegra pixels in that year
+        mask = reclass_arr == year
+        
+        # Replace defordegra pixels with transition map values
+        reclass_arr[mask] = ref_arr[mask]
+        
+        # Add reclassified array to list
+        ann_arrs.append(reclass_arr)
+        
+    return ann_arrs
+
+# Define function to write a list of arrays to file
+def filestack_write(arraylist, yearrange, profile, dtype, fileprefix, out_dir):
+    
+    # Create empty list to store output filepaths
+    filelist = []
+    
+    # Save each array to drive
+    for var, year in zip(arraylist, yearrange):
+        
+        # Adapt file datatype
+        data = var.astype(dtype)
+        
+        # Define file name and path
+        output_filename = f"{fileprefix}_{year}.tif"
+        output_filepath = os.path.join(out_dir, output_filename)
+        
+        # Update profile with dtype string
+        profile['dtype'] = data.dtype.name
+        
+        # Write array to file
+        with rasterio.open(output_filepath, "w", **profile) as dst:
+            dst.write(data, 1)
+            
+        # Append filepath to list
+        filelist.append(output_filepath)
+        
+        print(f"{output_filename} saved to file")
+    
+    return filelist
+
+# Read defordegra rasters
+tmf_defordegra_arrs, profile = read_files(tmf_ann_defordegra)
+
+# Read tmf transition map
+with rasterio.open(tmf_fm_files[13]) as tmf:
+    tmf_trans = tmf.read(1)
+    
+# Identify unique values and counts
+trans_attributes = att_table(tmf_trans)
+
+"""
+NOTE: the value "0" exists in the transition map. This value is present in the 
+raw data and is not described in the TMF data manual. Because it has a limited 
+coverage, the value "0" pixels will excluded from the following analysis
+"""
+
+# Exclude 0 values
+trans_attributes = trans_attributes.drop(columns = trans_attributes.columns[
+    trans_attributes.loc['Class'] == 0])
+
+# Reclassify transition map to annual data
+trans_annual = arr2ann(tmf_defordegra_arrs, tmf_trans, years)
+    
+# Write reclassified arrays to file
+trans_annual_files = filestack_write(trans_annual, years, profile, 
+                                     rasterio.uint8, "tmf_transition_main_fm", 
+                                     tmf_processed_folder)
 
 
 

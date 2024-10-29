@@ -3,6 +3,8 @@
 Created on Wed Oct 16 12:51:42 2024
 
 @author: hanna
+
+Expected execution time: <1min
 """
 
 ############################################################################
@@ -78,19 +80,20 @@ def read_files(pathlist):
     return arrlist, profile
 
 # Define file paths for tmf deforestation and degradation rasters
-tmf_defordegra_paths = [f"data/intermediate/tmf_defordegra_{year}.tif" for 
-                      year in years]
+tmf_defordegra_paths = [f"data/jrc_preprocessed/tmf_defordegrayear_fm_{year}.tif" 
+                        for year in years]
 
 # Define file path for tmf annual change rasters
 tmf_annual_paths = [f"data/jrc_preprocessed/tmf_AnnualChange_{year}_fm.tif" for 
                     year in years]
 
-# Define file path for gfc lossyear
-gfc_lossyear_paths = [f"data/intermediate/gfc_lossyear_{year}.tif" for 
+# Define file path for tmf transition raster
+tmf_trans_paths = [f"data/jrc_preprocessed/tmf_transition_main_fm_{year}.tif" for 
                       year in years]
 
-# Define file path for tmf transition raster
-tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
+# Define file path for gfc lossyear
+gfc_lossyear_paths = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif" for 
+                      year in years]
 
 # Read defordegra rasters
 tmf_defordegra_arrs, profile = read_files(tmf_defordegra_paths)
@@ -98,12 +101,11 @@ tmf_defordegra_arrs, profile = read_files(tmf_defordegra_paths)
 # Read annual change rasters
 tmf_annual_arrs, profile2 = read_files(tmf_annual_paths)
 
+# Read annual transition rasters
+trans_annual, profile3 = read_files(tmf_trans_paths)
+
 # Read lossyear rasters
 gfc_lossyear_arrs, profile3 = read_files(gfc_lossyear_paths)
-
-# Read tmf transition map
-with rasterio.open(tmf_trans_file) as tmf:
-    tmf_trans = tmf.read(1)
     
 # Dictionary of tmf annual change classes (from tmf data manual)
 annchange_dict = {
@@ -133,7 +135,7 @@ transmap_dict = {
 ############################################################################
 
 
-# COMVERT TMF TRANSITION RASTER TO ANNUAL DATA
+# CREATE TIME SERIES DATA FOR PLOTTING
 
 
 ############################################################################
@@ -162,88 +164,6 @@ def att_table(arr, expected_classes=None):
     
     return attributes
 
-# Define function to create annual data from a single-layer array
-def arr2ann(annual_arrlist, ref_arr, yearrange):
-    
-    # Create empty list to hold reclassified annual arrays
-    ann_arrs = []
-    
-    # Iterate over annual arrays and years
-    for arr, year in zip(annual_arrlist, yearrange):
-        
-        # Copy array
-        reclass_arr = np.copy(arr)
-        
-        # Create mask for defordegra pixels in that year
-        mask = reclass_arr == year
-        
-        # Replace defordegra pixels with transition map values
-        reclass_arr[mask] = ref_arr[mask]
-        
-        # Add reclassified array to list
-        ann_arrs.append(reclass_arr)
-        
-    return ann_arrs
-
-# Define function to write a list of arrays to file
-def filestack_write(arraylist, yearrange, dtype, fileprefix):
-    
-    # Create empty list to store output filepaths
-    filelist = []
-    
-    # Save each array to drive
-    for var, year in zip(arraylist, yearrange):
-        
-        # Adapt file datatype
-        data = var.astype(dtype)
-        
-        # Define file name and path
-        output_filename = f"{fileprefix}_{year}.tif"
-        output_filepath = os.path.join(out_dir, output_filename)
-        
-        # Update profile with dtype string
-        profile['dtype'] = data.dtype.name
-        
-        # Write array to file
-        with rasterio.open(output_filepath, "w", **profile) as dst:
-            dst.write(data, 1)
-            
-        # Append filepath to list
-        filelist.append(output_filepath)
-        
-        print(f"{output_filename} saved to file")
-    
-    return filelist
-
-# Identify unique values and counts
-trans_attributes = att_table(tmf_trans)
-
-"""
-NOTE: the value "0" exists in the transition map. This value is present in the 
-raw data and is not described in the TMF data manual. Because it has a limited 
-coverage, the value "0" pixels will excluded from the following analysis
-"""
-
-# Exclude 0 values
-trans_attributes = trans_attributes.drop(columns = trans_attributes.columns[
-    trans_attributes.loc['Class'] == 0])
-
-# Reclassify transition map to annual data
-trans_annual = arr2ann(tmf_defordegra_arrs, tmf_trans, years)
-    
-# Write reclassified arrays to file
-trans_annual_files = filestack_write(trans_annual, years, 
-                                         rasterio.uint8, "annual_trans")
-    
-
-
-############################################################################
-
-
-# CREATE TIME SERIES DATA FOR PLOTTING
-
-
-############################################################################
 # Define function to create time series per class
 def class_ts(attributes_list, yearrange):
     

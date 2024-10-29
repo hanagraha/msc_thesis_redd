@@ -3,6 +3,8 @@
 Created on Mon Sep 23 17:56:10 2024
 
 @author: hanna
+
+Expected execution time: <1min
 """
 
 ############################################################################
@@ -42,6 +44,9 @@ print("New Working Directory:", os.getcwd())
 # Set nodata value
 nodata_val = 255
 
+# Define year range
+years = list(range(2013, 2024))
+
 
 
 ############################################################################
@@ -51,22 +56,36 @@ nodata_val = 255
 
 
 ############################################################################
+# Define gfc lossyear paths
+gfc_lossyear_paths = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif" 
+                      for year in range(2013, 2024)]
 
-### RASTER DATA
-gfc_lossyear_paths = [f"data/intermediate/gfc_lossyear_{year}.tif" for 
-                      year in range(2013, 2024)]
-tmf_deforyear_paths = [f"data/intermediate/tmf_DeforestationYear_{year}.tif" 
+# Define tmf deforestation year paths
+tmf_deforyear_paths = [f"data/jrc_preprocessed/tmf_DeforestationYear_fm_{year}.tif" 
                        for year in range(2013, 2024)]
-tmf_degrayear_paths = [f"data/intermediate/tmf_DegradationYear_{year}.tif" 
+
+# Define tmf degradation year paths
+tmf_degrayear_paths = [f"data/jrc_preprocessed/tmf_DegradationYear_fm_{year}.tif" 
                        for year in range(2013, 2024)]
+
+# Define tmf annual change paths
 tmf_annual_paths = [f"data/jrc_preprocessed/tmf_AnnualChange_{year}_fm.tif" for 
                     year in range(2013,2024)]
 
-### POLYGON DATA
+# Define tmf transition map path
+tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
+
+# Read tmf transition map
+with rasterio.open(tmf_trans_file) as tmf:
+    tmf_trans = tmf.read(1)
+
+# Read villages data
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
+
+# Read grnp data
 grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 
-# Create AOI
+# Create aoi
 aoi = (gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True))
        .dissolve()[['geometry']])
 
@@ -89,8 +108,6 @@ villages = villages.reset_index()
 
 
 ############################################################################
-years = list(range(2013, 2024))
-
 # Create a dictionary to store the pixel counts for each value (1-6) per year
 annual_pixels = {value: [] for value in range(1, 7)}
 
@@ -161,11 +178,7 @@ plt.show()
 
 
 ############################################################################
-### READ FILE UNIQUE VALUES
-tmf_trans_file = "data/jrc_preprocessed/tmf_TransitionMap_MainClasses_fm.tif"
-with rasterio.open(tmf_trans_file) as tmf:
-    tmf_trans = tmf.read(1)
-
+# Extract unique values
 unique_values, pixel_counts = np.unique(tmf_trans, return_counts=True)
 
 """
