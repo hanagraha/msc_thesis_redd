@@ -221,39 +221,52 @@ def filestack_clip_multi(array_files, yearrange, geom1, geom2, geom3, nodataval)
     
     return redd_clip, nonredd_clip, grnp_clip
 
-# Create empty list to store agreement layers
-aoi_agreement = []
+# Define function to create spatial agreement maps
+def spatagree(arrlist1, arrlist2, nd_overlap=False):
+    
+    # Create empty list to store agreement layers
+    aoi_agreement = []
+    
+    # Ignoring pixels where tmf has nodata but gfc has data
+    if nd_overlap == False:
+        
+        # Iterate over arrays
+        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
+            
+            # Add binary arrays together 
+            agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
+                                 gfc + tmf)
+            
+            # Add array to list
+            aoi_agreement.append(agreement)
+    
+    else:
+        
+        # Iterate over arrays
+        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
+            
+            # Create agreement array with conditions
+            agreement = np.where(
+                
+                # Condition 1: Both gfc and tmf are NoData
+                (gfc == nodata_val) & (tmf == nodata_val), nodata_val,
+                
+                # Condition 2: gfc is NoData, tmf is not NoData
+                np.where((gfc == nodata_val) & (tmf != nodata_val), 10,
+                
+                         # Condition 3: tmf is NoData, gfc is not NoData
+                         np.where((tmf == nodata_val) & (gfc != nodata_val), 20,
+                                  
+                                  # Condition 4: Both gfc and tmf have valid data
+                                  gfc + tmf)))
+            
+            aoi_agreement.append(agreement)
+    
+    return aoi_agreement
 
-# Add binary maps together per year 
-for gfc, tmf, year in zip(gfc_binary_arrs, tmf_binary_arrs, years):
-    agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
-                         gfc + tmf)
-    aoi_agreement.append(agreement)
-    print(f"Spatial agreement map created for {year}")
-    
-    
-    
-# Create empty list to store agreement layers
-aoi_agreement = []
+# Create spatial agreement layer for gfc and tmf
+aoi_agreement = spatagree(gfc_binary_arrs, tmf_binary_arrs)
 
-for gfc, tmf, year in zip(gfc_arrs, tmf_arrs, years):
-    # Create masks for NoData values
-    gfc_mask = gfc == nodata_val
-    tmf_mask = tmf == nodata_val
-    
-    # Initialize the agreement array
-    agreement = np.empty_like(gfc)  # Create an empty array of the same shape as gfc
-    
-    # Fill the agreement array based on the conditions
-    agreement[gfc_mask & tmf_mask] = nodata_val  # Both are NoData
-    agreement[~gfc_mask & tmf_mask] = 6  # Only gfc has data
-    agreement[gfc_mask & ~tmf_mask] = 7  # Only tmf has data
-    agreement[~gfc_mask & ~tmf_mask] = 8  # Both have data
-
-    aoi_agreement.append(agreement)
-    print(f"Spatial agreement map created for {year}")
-    
-    
 # Check values for spatial agreement (should be 5, 6, 7, 8, 255)
 valcheck(aoi_agreement[1], "aoi spatial agreement")
 
