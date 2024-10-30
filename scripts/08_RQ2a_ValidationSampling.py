@@ -40,8 +40,11 @@ print("New Working Directory:", os.getcwd())
 # Set nodata value
 nodata_val = 255
 
-# Set output directory
+# Define output directory
 out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+
+# Define output directory
+val_dir = os.path.join("data", "validation")
 
 # Set year range
 years = range(2013, 2024)
@@ -81,6 +84,12 @@ def read_files(pathlist):
 # Define agreement filepaths
 agreement_filepaths = [f"data/intermediate/agreement_gfc_combtmf_{year}.tif"
                        for year in years]
+
+# Define gfc lossyear filepath
+gfc_lossyear_path = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+
+# Define tmf defordegra filepath
+tmf_defordegra_path = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
 
 # Read agreement files
 agreement_arrs, profile, transform = read_files(agreement_filepaths)
@@ -193,7 +202,7 @@ Agreement arrays per year are merged into a single stratification array using
 the reclassification key defined below. A total of 23, non-overlapping strata 
 should cover the new array. 
 
-Note: execution time for this segment is ~15min start 2:38
+Note: execution time for this segment is ~15min
 """
 def create_reclass_key(class1, class2, num_dicts):
     
@@ -352,9 +361,6 @@ def shp_write(gdf, filename, out_dir):
 # Create sample points from stratified array
 sample_points = strat_sample(nogrnp_stratarr, 22, transform, profile)
 
-# Define output directory
-val_dir = os.path.join("data", "validation")
-
 # Write sample points to file
 shp_write(sample_points, "validation_points_geometry.shp", val_dir)
     
@@ -400,22 +406,30 @@ def extract_val(points_gdf, tiflist, tifnames):
     return gdf
 
 # Define function to save gdf as csv
+def write_csv(gdf, out_dir, outfilename):
+    
+    # Convert the geometry to WKT format
+    gdf['geometry'] = gdf['geometry'].apply(lambda geom: geom.wkt)
+    
+    # Define output path
+    outfilepath = os.path.join(out_dir, f"{outfilename}.csv")
 
+    # Save the GeoDataFrame as a CSV file
+    gdf.to_csv(outfilepath, index=True)
+    
+    # Print statement
+    print(f"File saved to {outfilepath}")
 
-# Define tiflist
-tif1 = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-tif2 = "data/intermediate/tmf_defordegra_year.tif" 
-tif3 = "data/intermediate/gfc_tmf_sensitive_early.tif"
-tiflist = [tif1, tif2, tif3]
-tifnames = ['gfc', 'tmf', 'comb_se']
+# Define list of rasters
+tiflist = [gfc_lossyear_path, tmf_defordegra_path]
+
+# Define names of rasters
+tifnames = ['gfc', 'tmf']
 
 # Extract raster values
 valpoints = extract_val(sample_points, tiflist, tifnames)
 
+# Write points to file
+write_csv(valpoints, val_dir, "validation_points_labelling")
 
 
-# Convert the geometry to WKT format
-valpoints['geometry'] = valpoints['geometry'].apply(lambda geom: geom.wkt)
-
-# Save the GeoDataFrame as a CSV file
-valpoints.to_csv("data/validation/test_gdf.csv", index=False)
