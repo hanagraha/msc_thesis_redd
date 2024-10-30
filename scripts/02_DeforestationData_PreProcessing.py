@@ -322,8 +322,8 @@ with rasterio.open(gfc_clipped_files[0], 'w', **gfc_clipped_meta[0]) as dest:
     dest.write(gfc_lossyear_new)
     
 print(f"Reclassification Complete for {gfc_clipped_files[0]}")
-    
-    
+
+
     
 ############################################################################
 
@@ -590,7 +590,7 @@ have data
 
 ############################################################################
 # Define gfc lossyear raster
-gfc_lossyear = np.squeeze(gfc_clipped_rasts[0], axis=0)
+gfc_lossyear = np.squeeze(gfc_lossyear_new, axis=0)
 
 # Define gfc baseline forest filepath
 gfc_baseforest_path = "data/temp/gfc_baselineforest.tif"
@@ -615,16 +615,19 @@ gfc_tmf_baseforest2012, gfc_tmf_profile2012 = custom_forbase(gfc_baseforest_path
 ############################################################################
 
 
-# APPLY GFC 2012 FOREST MASK
+# APPLY FOREST MASK AND ONLY KEEP 2013-2023 DATA
 
 
 ############################################################################ 
 # Define function to apply forest mask to raster data
-def formask_rasts(rastpathlist, baselineforest, nodata_val, outdir, 
+def formask_rasts(rastpathlist, baselineforest, nodata_val, yearrange, outdir, 
                   orig_rastpathlist, suffix):
     
     # Create empty list to store filepaths
     fm_files = []
+    
+    # Create empty list to store rasters
+    fm_rasts = []
     
     # Iterate over files
     for path, name in zip(rastpathlist, orig_rastpathlist):
@@ -652,19 +655,22 @@ def formask_rasts(rastpathlist, baselineforest, nodata_val, outdir,
             
         # Append path to list
         fm_files.append(output_path)
+        
+        # Append raster to list
+        fm_rasts.append(masked_data)
             
         # Print statement
         print(f"Masked file saved as: {output_path}")
         
-    return fm_files
+    return fm_files, fm_rasts
 
 # Mask gfc files to gfc baseline 2012
-gfc_fm_files = formask_rasts(gfc_clipped_files, gfc_baseforest2012, nodata_val, 
-                             gfc_processed_folder, gfc_files, "fm")
+gfc_fm_files, gfc_fm_rasts = formask_rasts(gfc_clipped_files, 
+    gfc_baseforest2012, nodata_val, years, gfc_processed_folder, gfc_files, "fm")
 
 # Mask tmf files to gfc baseline 2012
-tmf_fm_files = formask_rasts(tmf_resamp_files, gfc_baseforest2012, nodata_val, 
-                             tmf_processed_folder, tmf_files, "fm")
+tmf_fm_files, tmf_fm_rasts = formask_rasts(tmf_resamp_files, gfc_baseforest2012, 
+    nodata_val, years, tmf_processed_folder, tmf_files, "fm")
 
 
 
@@ -728,7 +734,45 @@ tmf_ann_deforyear = annsplit_rast(tmf_fm_files[11], years, tmf_processed_folder)
 
 # Split tmf degradation year
 tmf_ann_degrayear = annsplit_rast(tmf_fm_files[12], years, tmf_processed_folder)
+    
+
+
+############################################################################
+
+
+# FILTER MULTI-YEAR DATA TO KEEP ONLY 2013-2023
+
+
+############################################################################
+# Define function to filter raster data by year range
+def ann_filter(rastpathlist, yearrange, nodata_val):
+    
+    # Iterate over each path
+    for path in rastpathlist:
         
+        # Read raster
+        with rasterio.open(path) as rast:
+            
+            # Extract raster data
+            data = rast.read(1)
+            
+            # Extract metadata
+            profile = rast.profile
+            
+        # Remove years outside of yearrange
+        data[(data > 0) & (data < min(yearrange))] = nodata_val
+        
+        # Write data to file, overriding original
+        with rasterio.open(path, 'w', **profile) as dst:
+            dst.write(data, 1)
+            
+        print(f"Filtered raster data saved to {path}")
+
+# Filter gfc data
+ann_filter([gfc_fm_files[0]], years, nodata_val)
+
+# Filter tmf data
+ann_filter(tmf_fm_files[11:13], years, nodata_val)
 
 
 ############################################################################
@@ -756,31 +800,25 @@ def rast_comb(rastpath1, rastpath2, nodata_val, outdir, filename):
         
         # Get profile of one raster
         profile = src1.profile
-    
-    # Exclude data outside range
-    rast1 = np.where((rast1 >= 1984) & (rast1 <= 2012), 
-                         nodata_val, rast1)
-    rast2 = np.where((rast2 >= 1984) & (rast2 <= 2012), 
-                         nodata_val, rast2)
-    
-    # Create nodata masks for each raster
-    rast1nodata = rast1 == nodata_val
-    rast2nodata = rast2 == nodata_val
-    
+
     # Combine data with conditions
     combined_data = np.where(
         
-        # For pixels where both datasets have data
-        ~rast1nodata & ~rast2nodata, 
+        # Condition 1: Both rasters have deforestation data (not nodata and not 0)
+        (rast1 != nodata_val) & (rast2 != nodata_val) & (rast1 != 0) & (rast2 != 0),
         
         # Take minimum of the two rasters (earlier year)
         np.minimum(rast1, rast2), 
         
-        # For leftover pixels where raster 1 has data, use raster 1 data
-        np.where(~rast1nodata, rast1, \
+        # Condition 2: If only raster 1 is valid (not nodata and not 0)
+        np.where((rast1 != nodata_val) & (rast1 != 0), rast1,
+        
+                 # Condition 3: If only raster 2 is valid (not nodata and not 0)
+                 np.where((rast2 != nodata_val) & (rast2 != 0), rast2,
                  
-                 # Otherwise where raster 2 has data, use raster 2 data
-                 np.where(~rast2nodata, rast2, nodata_val))  
+                          # Otherwise use NoData
+                          nodata_val)
+        )
     )
     
     # Define filepath
@@ -792,18 +830,12 @@ def rast_comb(rastpath1, rastpath2, nodata_val, outdir, filename):
         
     print(f"Combined raster saved to {output_path}")
         
-    return output_path
+    return output_path, combined_data
     
 # Combine tmf deforestation and degradation year
-defordegra_file = rast_comb(tmf_fm_files[11], tmf_fm_files[12], 
-                            nodata_val, tmf_processed_folder, 
-                            "tmf_defordegrayear_fm.tif")
-
-file1 = "data/jrc_preprocessed/tmf_DeforestationYear_fm.tif"
-file2 = "data/jrc_preprocessed/tmf_DegradationYear_fm.tif"
-defordegra_file = rast_comb(file1, file2, 
-                            nodata_val, tmf_processed_folder, 
-                            "tmf_defordegrayear_fm.tif")
+defordegra_file, defordegra_rast = rast_comb(tmf_fm_files[11], tmf_fm_files[12], 
+                                             nodata_val, tmf_processed_folder, 
+                                             "tmf_defordegrayear_fm.tif")
 
 # Separate multi-year defordegra year raster into single year rasters
 tmf_ann_defordegra = annsplit_rast(defordegra_file, years, tmf_processed_folder)
@@ -835,31 +867,6 @@ def read_files(pathlist):
             arrlist.append(data)
             
     return arrlist, profile
-
-# Define function to create attribute table
-def att_table(arr, expected_classes=None):
-    
-    # Extract unique values and pixel counts
-    unique_values, pixel_counts = np.unique(arr, return_counts=True)
-    
-    # Create a DataFrame with unique values and pixel counts
-    attributes = pd.DataFrame({"Class": unique_values, 
-                               "Frequency": pixel_counts})
-    
-    # If expected_classes is provided, run the following:
-    if expected_classes is not None:
-        
-        # Reindex DataFrame to include all expected_classes
-        attributes = attributes.set_index("Class").reindex(expected_classes, 
-                                                           fill_value=0)
-        
-        # Reset index to have Class as a column again
-        attributes.reset_index(inplace=True)
-        
-    # Switch rows and columns of dataframe
-    attributes = attributes.transpose()
-    
-    return attributes
 
 # Define function to create annual data from a single-layer array
 def arr2ann(annual_arrlist, ref_arr, yearrange):
