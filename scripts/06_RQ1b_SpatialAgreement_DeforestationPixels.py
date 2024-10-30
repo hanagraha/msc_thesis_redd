@@ -274,13 +274,6 @@ valcheck(aoi_agreement[1], "aoi spatial agreement")
 agreement_files = filestack_write(aoi_agreement, years, rasterio.uint8, 
                                   "agreement_gfc_combtmf")
 
-# save binary files
-tmf_binary_files = filestack_write(tmf_binary_arrs, years, rasterio.uint8,
-                                   "tmf_binary")
-
-gfc_binary_files = filestack_write(gfc_binary_arrs, years, rasterio.uint8,
-                                   "gfc_binary")
-
 # Clip agreement rasters to REDD+, non-REDD+, and GRNP area
 redd_agreement, nonredd_agreement, grnp_agreement = filestack_clip_multi(
     agreement_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
@@ -735,8 +728,11 @@ product's detection
 gfc_lossyear = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
 tmf_defordegra = "data/intermediate/tmf_defordegra_year.tif"
 
+gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+tmf_defordegra_file = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
+
 # Combine TMF and GFC maps
-with rasterio.open(gfc_lossyear) as src1, rasterio.open(tmf_defordegra) as src2:
+with rasterio.open(gfc_lossyear_file) as src1, rasterio.open(tmf_defordegra_file) as src2:
     gfc = src1.read(1)  
     tmf = src2.read(1) 
     profile = src1.profile
