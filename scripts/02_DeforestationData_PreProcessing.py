@@ -747,6 +747,9 @@ tmf_ann_degrayear = annsplit_rast(tmf_fm_files[12], years, tmf_processed_folder)
 # Define function to filter raster data by year range
 def ann_filter(rastpathlist, yearrange, nodata_val):
     
+    # Create empty list to hold filtered data
+    filtered_arrs = []
+    
     # Iterate over each path
     for path in rastpathlist:
         
@@ -765,14 +768,19 @@ def ann_filter(rastpathlist, yearrange, nodata_val):
         # Write data to file, overriding original
         with rasterio.open(path, 'w', **profile) as dst:
             dst.write(data, 1)
-            
+        
+        # Append new data to list
+        filtered_arrs.append(data)
+        
         print(f"Filtered raster data saved to {path}")
+        
+    return filtered_arrs
 
 # Filter gfc data
-ann_filter([gfc_fm_files[0]], years, nodata_val)
+gfc_filtered = ann_filter([gfc_fm_files[0]], years, nodata_val)
 
 # Filter tmf data
-ann_filter(tmf_fm_files[11:13], years, nodata_val)
+tmf_filtered = ann_filter(tmf_fm_files[11:13], years, nodata_val)
 
 
 ############################################################################
@@ -804,23 +812,24 @@ def rast_comb(rastpath1, rastpath2, nodata_val, outdir, filename):
     # Combine data with conditions
     combined_data = np.where(
         
-        # Condition 1: Both rasters have deforestation data (not nodata and not 0)
+        # Condition 1: Both rasters have non-0, non-nodata values (take minimum)
         (rast1 != nodata_val) & (rast2 != nodata_val) & (rast1 != 0) & (rast2 != 0),
+        np.minimum(rast1, rast2),
         
-        # Take minimum of the two rasters (earlier year)
-        np.minimum(rast1, rast2), 
+        # Condition 2: Only raster 1 has a non-0, non-nodata value
+        np.where((rast1 != nodata_val) & (rast1 != 0) & ((rast2 == nodata_val) | (rast2 == 0)), rast1,
         
-        # Condition 2: If only raster 1 is valid (not nodata and not 0)
-        np.where((rast1 != nodata_val) & (rast1 != 0), rast1,
-        
-                 # Condition 3: If only raster 2 is valid (not nodata and not 0)
-                 np.where((rast2 != nodata_val) & (rast2 != 0), rast2,
-                 
-                          # Otherwise use NoData
-                          nodata_val)
+                 # Condition 3: Only raster 2 has a non-0, non-nodata value
+                 np.where((rast2 != nodata_val) & (rast2 != 0) & ((rast1 == nodata_val) | (rast1 == 0)), rast2,
+                          
+                          # Condition 4: If either raster has 0, take 0
+                          np.where((rast1 == 0) | (rast2 == 0), 0,
+                                   
+                                   # Otherwise, assign NoData
+                                   nodata_val)
         )
-    )
-    
+    ))
+
     # Define filepath
     output_path = os.path.join(outdir, filename)
     
