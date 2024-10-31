@@ -436,10 +436,10 @@ labels = ['AOI Agreement on Not Deforested',
           'GRNP Agreement on Deforested']
 
 # Plot statistics for whole AOI
-spatagree_plot([datasetlist[0]], linestyles[0], 94, 3, colors, labels[0:3])
+spatagree_plot([datasetlist[0]], linestyles[0], 90, 5, colors, labels[0:3])
 
 # Plot statistics for REDD+ and non-REDD+
-spatagree_plot(datasetlist[1:3], linestyles[0:2], 75, 15, colors, labels[3:9])
+spatagree_plot(datasetlist[1:3], linestyles[0:2], 90, 8, colors, labels[3:9])
 
 # Plot statistics for REDD+, non-REDD+, and GRNP
 spatagree_plot(datasetlist[1:], linestyles, 90, 5, colors, labels[3:]) 
@@ -713,7 +713,7 @@ cohen_plot(datasetlist[1:], years, colors, labels[1:])
 ############################################################################
 
 
-# CREATE COMBINED AGREEMENT MAPS
+# CREATE SENSITIVE EARLY AGREEMENT MAPS
 
 
 ############################################################################
@@ -722,29 +722,59 @@ The sensitive early combination is defined by Bos et al. (2019) as recording
 the earliest deforestation year between two datasets, regardless of the other
 product's detection
 """
-
-### SENSITIVE EARLY
-# Read relevant datasets
-gfc_lossyear = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-tmf_defordegra = "data/intermediate/tmf_defordegra_year.tif"
-
-gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-tmf_defordegra_file = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
-
-# Combine TMF and GFC maps
-with rasterio.open(gfc_lossyear_file) as src1, rasterio.open(tmf_defordegra_file) as src2:
+# Combine tmf and gfc maps
+with rasterio.open(gfc_lossyear_file) as src1, \
+    rasterio.open(tmf_defordegra_file) as src2:
+    
+    # Extract raster data
     gfc = src1.read(1)  
     tmf = src2.read(1) 
+    
+    # Extract metadata
     profile = src1.profile
 
-    gfc_mask = gfc == nodata_val
-    tmf_mask = tmf == nodata_val
+    # Combine datasets with conditions
+    combined_data = np.where(
+        
+        # Where both datasets have nodata
+        (gfc == nodata_val) & (tmf == nodata_val), nodata_val,
+        np.where(
+            
+            # Where only tmf has data, take tmf
+            gfc == nodata_val, tmf,
+            np.where(
+                
+                # Where only gfc has data, take gfc
+                tmf == nodata_val, gfc,
+                np.where(
+                    
+                    # Where only tmf detects deforestation, take tmf
+                    (gfc == 0) & ((tmf >= min(years)) & (tmf <= max(years))), tmf,  
+                    np.where(
+                        
+                        # Where only gfc detects deforestation, take gfc
+                        (tmf == 0) & ((gfc >= min(years)) & (gfc <= max(years))), gfc,  
+                        np.where(
+                            
+                            # Where both datasets detect deforestation
+                            ((gfc >= min(years)) & (gfc <= max(years))) & \
+                                ((tmf >= min(years)) & (tmf <= max(years))), \
+                                    np.minimum(gfc, tmf),  
+                            np.where(
+                                
+                                # Where both datasets do NOT detect deforestation
+                                (gfc == 0) & (tmf == 0), 0, 
+                                
+                                # Leftover values
+                                nodata_val
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
 
-    # Take minimum value of both datasets, or the value of the other dataset
-    # if pixel value is 255 (nodata)
-    combined_data = np.where(tmf_mask, gfc, np.where(gfc_mask, 
-                             tmf, np.minimum(tmf, gfc)))
-    
     # Define output filename
     gfc_tmf_outfile = "data/intermediate/gfc_tmf_sensitive_early.tif"
 
