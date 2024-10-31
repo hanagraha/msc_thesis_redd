@@ -83,11 +83,11 @@ def read_files(pathlist):
     return arrlist, profile
 
 # Define file paths for annual gfc rasters
-gfc_lossyear_paths = [f"data/intermediate/gfc_lossyear_{year}.tif" for 
+gfc_lossyear_paths = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif" for 
                       year in years]
 
 # Define file paths for annual tmf rasters
-tmf_defordegra_paths = [f"data/intermediate/tmf_defordegra_{year}.tif" for 
+tmf_defordegra_paths = [f"data/jrc_preprocessed/tmf_defordegrayear_fm_{year}.tif" for 
                       year in years]
 
 # Define file paths for agreement rasters
@@ -129,7 +129,7 @@ villages_merged = villages.dissolve()
 
 ############################################################################
 """
-GFC: 3577.453431 seconds, TMF: 4317.610226 seconds, Agreement: 
+GFC: 2312.139471 seconds, TMF: 3726.648931 seconds, Agreement: 
 """
 # Define function that clusters and labels deforestation (takes 5min for 1 array)
 def patch_label(arr_list, yearrange, nodata_val):
@@ -217,14 +217,14 @@ gfc_forclust = patch_label(gfc_lossyear_arrs, years, nodata_val)
 
 # Write gfc clusters to file
 gfc_forclust_files = filestack_write(gfc_forclust, years, rasterio.uint32, 
-                                     "gfc_forclust")
+                                      "gfc_forclust")
 
 # Cluster tmf forests
 tmf_forclust = patch_label(tmf_defordegra_arrs, years, nodata_val)
 
 # Write tmf clusters to file
 tmf_forclust_files = filestack_write(tmf_forclust, years, rasterio.uint32, 
-                                     "tmf_forclust")
+                                      "tmf_forclust")
 
 
 
@@ -346,7 +346,7 @@ agree_forclust_paths = [f"data/intermediate/agree_forclust_{year}.tif" for
 
 # Define file paths for clustered disagreement rasters
 disagree_forclust_paths = [f"data/intermediate/disagree_forclust_{year}.tif" 
-                           for year in years]
+                            for year in years]
 
 # Read gfc rasters 
 gfc_forclust_arrs, profile = read_files(gfc_forclust_paths)
@@ -386,14 +386,14 @@ def att_table(arr_list, expected_classes = None, nodata = None):
         
         # Create a DataFrame with unique values and pixel counts
         attributes = pd.DataFrame({"Class": unique_values, 
-                                   "Frequency": pixel_counts})
+                                    "Frequency": pixel_counts})
         
         # If expected_classes is provided, run the following:
         if expected_classes is not None:
             
             # Reindex DataFrame to include all expected_classes
             attributes = attributes.set_index("Class").reindex(expected_classes, 
-                                                               fill_value=0)
+                                                                fill_value=0)
             
             # Reset index to have Class as a column again
             attributes.reset_index(inplace=True)
@@ -457,14 +457,14 @@ def forclust_bxplt(boxplot_dflist, titles):
     
     # Add y major gridlines
     plt.grid(axis='y', which='major', color='gray', linestyle='--', 
-             linewidth=0.5)
+              linewidth=0.5)
     
     # Set locations for minor gridlines
     plt.gca().yaxis.set_minor_locator(MultipleLocator(50))
     
     # Add y minor gridlines
     plt.grid(axis='y', which='minor', color='lightgray', linestyle=':', 
-             linewidth=0.5)
+              linewidth=0.5)
 
     # Add title
     plt.title('Distribution of Deforestation Patch Sizes by Year')

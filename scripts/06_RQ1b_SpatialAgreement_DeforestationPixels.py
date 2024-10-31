@@ -173,6 +173,49 @@ def att_table(arr):
     
     return attributes
 
+# Define function to create spatial agreement maps
+def spatagree(arrlist1, arrlist2, nd_overlap=False):
+    
+    # Create empty list to store agreement layers
+    aoi_agreement = []
+    
+    # Ignoring pixels where tmf has nodata but gfc has data
+    if nd_overlap == False:
+        
+        # Iterate over arrays
+        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
+            
+            # Add binary arrays together 
+            agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
+                                 gfc + tmf)
+            
+            # Add array to list
+            aoi_agreement.append(agreement)
+    
+    else:
+        
+        # Iterate over arrays
+        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
+            
+            # Create agreement array with conditions
+            agreement = np.where(
+                
+                # Condition 1: Both gfc and tmf are NoData
+                (gfc == nodata_val) & (tmf == nodata_val), nodata_val,
+                
+                # Condition 2: gfc is NoData, tmf is not NoData
+                np.where((gfc == nodata_val) & (tmf != nodata_val), 10,
+                
+                         # Condition 3: tmf is NoData, gfc is not NoData
+                         np.where((tmf == nodata_val) & (gfc != nodata_val), 20,
+                                  
+                                  # Condition 4: Both gfc and tmf have valid data
+                                  gfc + tmf)))
+            
+            aoi_agreement.append(agreement)
+    
+    return aoi_agreement
+
 # Define function to save a list of files by year
 def filestack_write(arraylist, yearrange, dtype, fileprefix):
     # Create empty list to store output filepaths
@@ -221,49 +264,6 @@ def filestack_clip_multi(array_files, yearrange, geom1, geom2, geom3, nodataval)
     
     return redd_clip, nonredd_clip, grnp_clip
 
-# Define function to create spatial agreement maps
-def spatagree(arrlist1, arrlist2, nd_overlap=False):
-    
-    # Create empty list to store agreement layers
-    aoi_agreement = []
-    
-    # Ignoring pixels where tmf has nodata but gfc has data
-    if nd_overlap == False:
-        
-        # Iterate over arrays
-        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
-            
-            # Add binary arrays together 
-            agreement = np.where((gfc == nodata_val) | (tmf == nodata_val), nodata_val, 
-                                 gfc + tmf)
-            
-            # Add array to list
-            aoi_agreement.append(agreement)
-    
-    else:
-        
-        # Iterate over arrays
-        for gfc, tmf in zip(gfc_binary_arrs, tmf_binary_arrs):
-            
-            # Create agreement array with conditions
-            agreement = np.where(
-                
-                # Condition 1: Both gfc and tmf are NoData
-                (gfc == nodata_val) & (tmf == nodata_val), nodata_val,
-                
-                # Condition 2: gfc is NoData, tmf is not NoData
-                np.where((gfc == nodata_val) & (tmf != nodata_val), 10,
-                
-                         # Condition 3: tmf is NoData, gfc is not NoData
-                         np.where((tmf == nodata_val) & (gfc != nodata_val), 20,
-                                  
-                                  # Condition 4: Both gfc and tmf have valid data
-                                  gfc + tmf)))
-            
-            aoi_agreement.append(agreement)
-    
-    return aoi_agreement
-
 # Create spatial agreement layer for gfc and tmf
 aoi_agreement = spatagree(gfc_binary_arrs, tmf_binary_arrs)
 
@@ -288,10 +288,11 @@ valcheck(grnp_agreement[1], "grnp agreement")
 ############################################################################
 
 
-# CALCULATE SPATIAL AGREEMENT STATISTICS
+# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO GFC)
 
 
 ############################################################################
+# Define function to calculate agreement statistics for one image
 def agreestats(image, class1=5, class2=6, class3=7, class4=8):
     # Mask out NoData (255) values
     valid_pixels = image[image != 255]
@@ -315,6 +316,7 @@ def agreestats(image, class1=5, class2=6, class3=7, class4=8):
     
     return perc_5, perc_67, perc_8
 
+# Define function to calculate agreement statistics for multiple images
 def agreestat_summary(imagelist, yearrange):
     # Create an empty list
     agree_stats = []
@@ -347,6 +349,16 @@ nonredd_agree_stats = agreestat_summary(nonredd_agreement, years)
 
 # Calculate summary statistics for GRNP area
 grnp_agree_stats= agreestat_summary(grnp_agreement, years)
+
+
+
+############################################################################
+
+
+# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO DEFORESTATION AREA)
+
+
+############################################################################
 
 
 
