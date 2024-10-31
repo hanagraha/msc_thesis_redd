@@ -91,6 +91,9 @@ gfc_lossyear_path = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
 # Define tmf defordegra filepath
 tmf_defordegra_path = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
 
+# Define sensitive early filepath 
+sensitive_early_path = "data/intermediate/gfc_tmf_sensitive_early.tif"
+
 # Read agreement files
 agreement_arrs, profile, transform = read_files(agreement_filepaths)
 
@@ -421,10 +424,10 @@ def write_csv(gdf, out_dir, outfilename):
     print(f"File saved to {outfilepath}")
 
 # Define list of rasters
-tiflist = [gfc_lossyear_path, tmf_defordegra_path]
+tiflist = [gfc_lossyear_path, tmf_defordegra_path, sensitive_early_path]
 
 # Define names of rasters
-tifnames = ['gfc', 'tmf']
+tifnames = ['gfc', 'tmf', 'se']
 
 # Extract raster values
 valpoints = extract_val(sample_points, tiflist, tifnames)
