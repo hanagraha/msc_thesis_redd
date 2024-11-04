@@ -439,11 +439,11 @@ tmf_nonredd_perc = ((tmf_nonredd_pixels * pixel_area) / nonredd_area)*100
 
 ### PLOT RESULTS
 # Color palatte
-redd_col1 = "#8B0000"  # Dark Red
-redd_col2 = "#D2691E"  # Chocolate
+redd_col1 = "#820300"  # Darker Red
+redd_col2 = "#820300"  # Lighter Red - darker
 
-nonredd_col1 = "#228B22"  # Forest Green
-nonredd_col2 = "#4682B4"  # Steel Blue
+nonredd_col1 = "#4682B4"  # Darker Blue - lighter
+nonredd_col2 = "#4682B4"  # Lighter Blue
 
 plt.figure(figsize=(10, 6))
 
@@ -451,17 +451,19 @@ plt.figure(figsize=(10, 6))
 plt.plot(years, gfc_redd_perc, color=redd_col1,
          label='GFC Deforestation in REDD+ Villages')
 
+# Plot the pixel values for REDD+ villages
+plt.plot(years, tmf_redd_perc, color=redd_col2,
+         label='TMF Deforestation and Degradation in REDD+ Villages', 
+         linestyle = '--')
+
 # Plot the pixel values for non-REDD+ villages
 plt.plot(years, gfc_nonredd_perc, color=nonredd_col1, 
          label='GFC Deforestation in Non-REDD+ Villages')
 
-# Plot the pixel values for REDD+ villages
-plt.plot(years, tmf_redd_perc, color=redd_col2,
-         label='TMF Deforestation and Degradation in REDD+ Villages')
-
 # Plot the pixel values for non-REDD+ villages
 plt.plot(years, tmf_nonredd_perc, color=nonredd_col2,
-         label='TMF Deforestation and Degradation in Non-REDD+ Villages')
+         label='TMF Deforestation and Degradation in Non-REDD+ Villages',
+         linestyle = '--')
 
 # Add labels and title
 plt.xlabel('Year')
@@ -476,6 +478,41 @@ plt.grid(True)
 plt.xticks(rotation=45)  # Rotate x-ticks for better readability
 plt.tight_layout()  # Adjust layout for better spacing
 plt.show()
+
+
+
+############################################################################
+
+
+# DIFFERENCE IN DIFFERENCES ANALYSIS
+
+
+############################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
