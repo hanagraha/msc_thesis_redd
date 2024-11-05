@@ -288,7 +288,7 @@ valcheck(grnp_agreement[1], "grnp agreement")
 ############################################################################
 
 
-# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO GFC)
+# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO AOI)
 
 
 ############################################################################
@@ -355,10 +355,67 @@ grnp_agree_stats= agreestat_summary(grnp_agreement, years)
 ############################################################################
 
 
-# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO DEFORESTATION AREA)
+# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO AOI)
 
 
 ############################################################################
+
+# Define function to calculate agreement statistics for one image
+def rel_agreestats(image, class1=5, class2=6, class3=7, class4=8):
+    # Mask out NoData (255) values
+    valid_pixels = image[image != 255]
+    
+    # Count pixels with values 5, 6, 7, and 8
+    count_5 = np.sum(valid_pixels == class1) # agreement undisturbed
+    count_6 = np.sum(valid_pixels == class2) # only gfc detects deforested
+    count_7 = np.sum(valid_pixels == class3) # only tmf detects deforested
+    count_8 = np.sum(valid_pixels == class4) # agreement deforested
+    
+    # Reclassify counts to agreement and disagreement
+    agreement_undisturbed = count_5
+    disagreement = count_6 + count_7
+    agreement_deforested = count_8
+    
+    # Calculate ratios
+    perc_5 = (agreement_undisturbed / (agreement_undisturbed + disagreement))*100
+    perc_67 = (disagreement / (disagreement + agreement_deforested))*100
+    perc_8 = (agreement_deforested / (disagreement + agreement_deforested))*100
+    
+    return perc_5, perc_67, perc_8
+
+# Define function to create agreement relative statistic summary
+def rel_agreestat_summary(imagelist, yearrange):
+    # Create an empty list
+    agree_stats = []
+    
+    # Calculate statistics for each image
+    for var, year, in zip(imagelist, yearrange):
+        perc_5, perc_67, perc_8 = rel_agreestats(var)
+        
+        # Append results to list as a dictionary
+        agree_stats.append({
+            'Year': year,
+            'Agree_Undisturbed': perc_5,
+            'Disagree': perc_67,
+            'Agree_Deforested': perc_8
+        })   
+    
+    # Convert list to dataframe
+    agree_stats = pd.DataFrame(agree_stats)
+    
+    return agree_stats
+
+# Calculate summary statistics for AOI
+aoi_agree_rel_stats = rel_agreestat_summary(aoi_agreement, years)
+
+# Calculate summary statistics for REDD+ area
+redd_agree_rel_stats = rel_agreestat_summary(redd_agreement, years)
+
+# Calculate summary statistics for non-REDD+ area
+nonredd_agree_rel_stats = rel_agreestat_summary(nonredd_agreement, years)
+
+# Calculate summary statistics for GRNP area
+grnp_agree_rel_stats= rel_agreestat_summary(grnp_agreement, years)
 
 
 
@@ -388,7 +445,7 @@ def spatagree_plot(datasetlist, linestyles, upperylim, lowerylim, colors, labels
     # Set boundaries of first subplot
     ax1.set_ylim(upperylim, 100) 
     ax1.grid(True, linestyle='--')
-    ax1.set_ylabel('Percentage of Pixels in AOI (%)')
+    ax1.set_ylabel('Proportion of Pixels (%)')
     ax1.spines['bottom'].set_visible(False) 
     
     # Plot data on the second subplot
@@ -401,7 +458,7 @@ def spatagree_plot(datasetlist, linestyles, upperylim, lowerylim, colors, labels
     ax2.set_ylim(0, lowerylim)
     ax2.grid(True, linestyle='--')
     ax2.set_xlabel('Year')
-    ax2.set_ylabel('Percentage of Pixels in AOI (%)')
+    ax2.set_ylabel('Proportion of Pixels (%)')
     ax2.spines['top'].set_visible(False)
     
     # Add diagonal lines to indicate axes breaks
@@ -431,7 +488,7 @@ def spatagree_plot(datasetlist, linestyles, upperylim, lowerylim, colors, labels
 
 # Define reusable parameters for plotting
 datasetlist = [aoi_agree_stats, redd_agree_stats, nonredd_agree_stats, 
-               grnp_agree_stats]
+               grnp_agree_stats, redd_agree_rel_stats, nonredd_agree_rel_stats]
 colors = ['green', 'orange', 'red']
 linestyles = ["-", "--", "dashdot"]
 labels = ['AOI Agreement on Not Deforested', 
@@ -452,6 +509,9 @@ spatagree_plot([datasetlist[0]], linestyles[0], 90, 5, colors, labels[0:3])
 
 # Plot statistics for REDD+ and non-REDD+
 spatagree_plot(datasetlist[1:3], linestyles[0:2], 90, 8, colors, labels[3:9])
+
+# Plot relativestatistics for REDD+ and non-REDD+
+spatagree_plot(datasetlist[4:6], linestyles[0:2], 65, 35, colors, labels[3:9])
 
 # Plot statistics for REDD+, non-REDD+, and GRNP
 spatagree_plot(datasetlist[1:], linestyles, 90, 5, colors, labels[3:]) 
@@ -720,6 +780,30 @@ cohen_plot([datasetlist[0]], years, [colors[1]], [labels[0]])
 # Plot Cohen's Kappa for REDD+, non-REDD+, and GRNP areas
 cohen_plot(datasetlist[1:], years, colors, labels[1:])
 
+
+
+############################################################################
+
+
+# CHI SQUARED TEST
+
+
+############################################################################
+from scipy.stats import chi2_contingency
+
+aoi_tab = contingency_table(aoi_agreement[0])
+
+# defining the table
+data = [[207, 282, 241], [234, 242, 232]]
+stat, p, dof, expected = chi2_contingency(aoi_tab)
+
+# interpret p-value
+alpha = 0.05
+print("p value is " + str(p))
+if p <= alpha:
+    print('Dependent (reject H0)')
+else:
+    print('Independent (H0 holds true)')
 
 
 ############################################################################
