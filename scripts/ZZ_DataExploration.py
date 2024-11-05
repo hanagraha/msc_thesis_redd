@@ -1664,4 +1664,30 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 #     print("Shape of GFC Lossyear:", gfc_lossyear_shape)
 
 
+# # Create list of all input data
+# all_inputs = [re_pathlist, re_ps_2016, s_2016]
 
+# # Check epsg of rapid eye imagery
+# for arr in re_pathlist:
+#     epsgcheck(villages, arr)
+    
+# # Check epsg of planetscope imagery
+# for arr in ps_pathlist:
+#     epsgcheck(villages, arr)
+    
+# # Check epsg of 2016 imagery
+# for arr in re_ps_2016:
+#     epsgcheck(villages, arr)
+
+# # Reproject rapideye imagery
+# re_proc_files = reproject_raster(re_pathlist, epsg_string, out_dir, re_years, 
+#                                  nodata_val)
+
+# # Reproject planetscope imagery
+# ps_proc_files = reproject_raster(ps_pathlist, epsg_string, out_dir, ps_years, 
+#                                  nodata_val)
+
+# # Reproject 2016 imagery
+# lab2016 = ["2016re", "2016ps"]
+# proc_2016 = reproject_raster(re_ps_2016, epsg_string, temp_folder, lab2016, 
+#                              nodata_val)

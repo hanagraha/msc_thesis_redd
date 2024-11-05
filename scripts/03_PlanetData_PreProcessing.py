@@ -3,6 +3,8 @@
 Created on Mon Oct 21 10:51:03 2024
 
 @author: hanna
+
+Estimated runtime: start 5:42 end 6:16
 """
 
 ############################################################################
@@ -136,7 +138,7 @@ re_2016 = "data/planet_raw/2016/RapidEye/composite.tif"
 # Define path for 2016 planetscope imagery
 ps_2016 = "data/planet_raw/2016/PlanetScope/composite.tif"
 
-# Create list for 2016 imagery
+# Create list for 2016 planet imagery
 re_ps_2016 = [re_2016, ps_2016]
 
 
@@ -148,13 +150,6 @@ re_ps_2016 = [re_2016, ps_2016]
 
 
 ############################################################################
-"""
-start time: 5:19
-end time: 5:35?
-
-approx 15min for planetscope
-"""
-
 # Define function to create image from tiles
 def connect_tiles(yearrange, tile_dict, file_prefix, out_dir):
     
@@ -219,16 +214,7 @@ ps_pathlist = connect_tiles(ps_years, ps_2017_2023_pathdict, "Composite",
 # REPROJECT RASTERS (ALL)
 
 
-############################################################################
-"""
-start time: 5:36 (one image took 3min)
-end time: 5:56
-
-approx 20min for planetscope
-
-2016 start 4:26, end 4:27 for one 4:36 for two??
-"""
-
+############################################################################ 
 # Define function to reproject raster
 def reproject_raster(raster_pathlist, epsg, out_dir, yearrange, nodata_value):
     
@@ -279,17 +265,79 @@ def reproject_raster(raster_pathlist, epsg, out_dir, yearrange, nodata_value):
             
     return reprojected_rasters
 
-# Reproject rapideye imagery
-re_proc_files = reproject_raster(re_pathlist, epsg_string, out_dir, re_years, 
+# Define function to check epsg with reference epsg
+def epsgcheck_reproj(ref_gdf, pathlist, out_dir, year_labs, nodata_value):
+    
+    # Extract first epsg
+    epsg1 = ref_gdf.crs.to_epsg()
+    
+    # Create reference epsg string
+    epsg_string = f"EPSG:{epsg1}"
+    
+    # Get first image path
+    path = pathlist[0]
+    
+    # Extract epsg for input paths
+    with rasterio.open(path) as rast:
+        epsg2 = rast.meta['crs'].to_epsg()
+        
+    # If epsgs match
+    if epsg1 == epsg2:
+        print(f"Input maches the same EPSG: {epsg1}")
+        
+        # Create empty list to store paths
+        paths = []
+        
+        # Iterate over each path
+        for path, year in zip(pathlist, year_labs):
+            
+            # Read raster data
+            with rasterio.open(path) as rast:
+                
+                # Extract data
+                data = rast.read()
+                meta = rast.meta
+                
+            # Create filename for processed files
+            filename = f"HighRes_{year}.tif"
+            
+            # Create filepath for processed files
+            output_filepath = os.path.join(out_dir, filename)
+                
+            # Write to file
+            with rasterio.open(output_filepath, "w", **meta) as dest:
+                dest.write(data)
+            
+            # Add path to list
+            paths.append(output_filepath)
+            
+            # Print statement
+            print(f"Copied data to {out_dir}")
+        
+        # Write to output directory
+        output = paths
+    
+    # If epsgs don't match
+    else:
+        print(f"Different EPSG codes: Reference has {epsg1}, Input has {epsg2}")
+        
+        # Reproject if necessary
+        output = reproject_raster(pathlist, epsg_string, out_dir, year_labs, 
+                                  nodata_value)
+    
+    return output
+
+# Reproject rapideye imagery (if necessary)
+re_proc_files = epsgcheck_reproj(villages, re_pathlist, out_dir, re_years, 
                                  nodata_val)
 
-# Reproject planetscope imagery
-ps_proc_files = reproject_raster(ps_pathlist, epsg_string, out_dir, ps_years, 
+# Reproject planetscope imagery (if necessary)
+ps_proc_files = epsgcheck_reproj(villages, ps_pathlist, out_dir, ps_years, 
                                  nodata_val)
 
-# Reproject 2016 imagery
+# Reproject 2016 planet imagery (if necessary)
 lab2016 = ["2016re", "2016ps"]
-proc_2016 = reproject_raster(re_ps_2016, epsg_string, temp_folder, lab2016, 
+proc_2016 = epsgcheck_reproj(villages, re_ps_2016, temp_folder, lab2016, 
                              nodata_val)
 
 
@@ -364,7 +412,7 @@ rs_resamp_2016 = arr_resample(proc_2016[0], proc_2016[1], outfilename,
 ############################################################################
 
 
-# OVERLAY IMAGER (ONLY NEEDED FOR 2016 DATA)
+# OVERLAY IMAGES (ONLY NEEDED FOR 2016 DATA)
 
 
 ############################################################################
@@ -428,20 +476,10 @@ comb_2016 = arr_overlay(proc_2016[0], rs_resamp_2016, outfilename, out_dir)
 ############################################################################
 
 
-# CLIP PLANET RASTERS (ALL)
+# CLIP RASTERS (ALL)
 
 
 ############################################################################
-"""
-start time: 5:58
-end time: 6:00
-for planetscope
-
-start 4:38
-end 4:40
-for 2016
-"""
-
 # Define function to clip rasters
 def clip_raster(raster_pathlist, aoi_geom, nodata_value):
     
@@ -465,7 +503,7 @@ def clip_raster(raster_pathlist, aoi_geom, nodata_value):
             # Update metadata
             out_meta.update({
                 'driver': 'GTiff',
-                'dtype': 'uint8',
+                'dtype': 'uint16',
                 'count': len(indices),
                 'height': raster_clip.shape[1],
                 'width': raster_clip.shape[2],
@@ -490,7 +528,7 @@ clip_raster(re_proc_files, aoi_geom, nodata_val)
 # Clip planetscope imagery
 clip_raster(ps_proc_files, aoi_geom, nodata_val)
 
-# Clip 2016 imagery
+# Clip 2016 planet imagery
 clip_raster([comb_2016], aoi_geom, nodata_val)
 
 
