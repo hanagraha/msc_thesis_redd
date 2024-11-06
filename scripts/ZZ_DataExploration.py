@@ -1740,3 +1740,74 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 #                     dst.write(tile)
 
 #                 print(f"Saved {tile_filename}")
+
+
+
+
+
+# # Box plots
+# # Convert data dictionary to DataFrame for easier plotting
+# data_expanded = []
+# for year, stats in ag_mcnemar.items():
+#     for stat in stats:
+#         if not np.isnan(stat['statistic']):  # Ignore NaN values
+#             data_expanded.append({'year': year, 'statistic': stat['statistic']})
+
+# df = pd.DataFrame(data_expanded)
+
+# # Plot
+# plt.figure(figsize=(12, 6))
+# sns.boxplot(x='year', y='statistic', data=df)
+# plt.xlabel('Year')
+# plt.ylabel('Statistic')
+# plt.title('Distribution of McNemar Statistics per Year')
+# plt.show()
+
+
+# # Plot without outliers
+# plt.figure(figsize=(12, 6))
+# sns.boxplot(x='year', y='statistic', data=df, showfliers=False)
+# plt.xlabel('Year')
+# plt.ylabel('Statistic')
+# plt.title('Distribution of McNemar Statistics per Year (Without Outliers)')
+# plt.show()
+
+
+
+# Initialize lists for mean and standard error calculations
+# means = []
+# std_errors = []
+
+# # Calculate mean and standard error for each year, ignoring NaN values
+# for year in years:
+#     # Extract only the "statistic" values, converting each to a numpy array
+#     stats = np.array([entry['statistic'] for entry in ag_mcnemar[year] if isinstance(entry['statistic'], (int, float))])
+    
+#     # Filter out NaN values explicitly
+#     stats = stats[~np.isnan(stats)]
+    
+#     # Calculate mean and standard error if there are valid stats, otherwise append NaN
+#     if len(stats) > 0:
+#         mean = np.mean(stats)
+#         std_error = np.std(stats) / np.sqrt(len(stats))  # Standard Error
+#     else:
+#         mean = np.nan
+#         std_error = np.nan
+    
+#     # Append results to the lists
+#     means.append(mean)
+#     std_errors.append(std_error)
+
+# # Plotting
+# plt.figure(figsize=(10, 6))
+# plt.plot(years, means, label='Mean Statistic', color=nonredd_col)
+# plt.fill_between(years, np.array(means) - np.array(std_errors), 
+#                  np.array(means) + np.array(std_errors), color=nonredd_col, alpha=0.2)
+
+# # Customize the plot
+# plt.xlabel('Year')
+# plt.ylabel('Mean Statistic')
+# plt.title('Yearly Mean Statistics with Standard Error')
+# plt.legend()
+# plt.grid(True)
+# plt.show()

@@ -16,15 +16,11 @@ Created on Wed Nov  6 11:25:35 2024
 
 import rasterio
 from rasterio.windows import Window
-import geopandas as gpd
-import pandas as pd
 import os
 import numpy as np
-from rasterio.mask import mask
-from statsmodels.stats.contingency_tables import mcnemar 
+from statsmodels.stats.contingency_tables import mcnemar
 import matplotlib.pyplot as plt
-from sklearn.metrics import cohen_kappa_score
-
+from matplotlib.lines import Line2D
 
 
 ############################################################################
@@ -51,16 +47,6 @@ out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 
 # Define study range years
 years = range(2013, 2024)
-
-# Define temporary folder path
-temp_folder = os.path.join('data', "temp")
-
-# Create temporary folder, if it doesn't already exist
-if not os.path.exists(temp_folder):
-    os.makedirs(temp_folder)
-    print(f"{temp_folder} created.")
-else:
-    print(f"{temp_folder}' already exists.")
 
 
 
@@ -120,6 +106,35 @@ tmf_arrs, tmf_profile = read_files(tmf_files)
 
 
 ############################################################################
+# Define function to save a list of files
+def filestack_write(arraylist, yearrange, dtype, fileprefix, profile):
+    
+    # Create empty list to store output filepaths
+    filelist = []
+    
+    # Save each array to drive
+    for var, year in zip(arraylist, yearrange):
+        # Adapt file datatype
+        data = var.astype(dtype)
+        
+        # Define file name and path
+        output_filename = f"{fileprefix}_{year}.tif"
+        output_filepath = os.path.join(out_dir, output_filename)
+        
+        # Update profile with dtype string
+        profile['dtype'] = data.dtype.name
+        
+        # Write array to file
+        with rasterio.open(output_filepath, "w", **profile) as dst:
+            dst.write(data, 1)
+            
+        # Append filepath to list
+        filelist.append(output_filepath)
+        
+        print(f"{output_filename} saved to file")
+    
+    return filelist
+
 # Define function to split array into tiles
 def tilesplit(pathlist, yearrange, tilesize_m=1000):
     
@@ -159,7 +174,6 @@ def tilesplit(pathlist, yearrange, tilesize_m=1000):
                 
     return yearly_tiles
 
-
 # Define function to create contingency tables from agreement layers
 def contingency_table(image):
     # Mask out NoData (255) values
@@ -177,7 +191,8 @@ def contingency_table(image):
 
     return matrix
 
-def mcnemar_per_tile(tiledict):
+# Define function to calculate mcnemar's statistic per tile
+def tile_mcnemar(tiledict):
     
     # Create empty dictionary to store results
     annual_mcnemar = {}
@@ -194,10 +209,13 @@ def mcnemar_per_tile(tiledict):
             # Calculate contingency table
             matrix = contingency_table(tile)
             
-            # Extract discoordinant pairs from table
+            # Extract disagreement pairs from table
             b, c = matrix[0][1], matrix[1][0]
             
-            # If the pairs have data:
+            # Extract agreement pairs from table
+            a, d = matrix[0][0], matrix[1][1]
+            
+            # If there is disagreement in the tile
             if b + c > 0:
                 
                 # Calculate mcNemar statistic
@@ -209,10 +227,18 @@ def mcnemar_per_tile(tiledict):
                 # Extract p-value
                 pvalue = result.pvalue
                 
-            # If the pairs do not have data
+            # If there is no disagreement in the tile
             else:
-                stat = np.nan
-                pvalue = np.nan
+                
+                # If there is agreement in the tile
+                if a + d > 0:
+                    stat = 0
+                    pvalue = np.nan
+                    
+                # If there is no data in the tile
+                else: 
+                    stat = np.nan
+                    pvalue = np.nan
 
             # Store tile results in list
             mcnemars.append({
@@ -226,7 +252,7 @@ def mcnemar_per_tile(tiledict):
     return annual_mcnemar
 
 # Define function to write McNemar statistics back into tiles
-def mcnemar_rast(annual_mcnemar, pathlist, yearrange, out_dir, fileprefix, 
+def mcnemar_rast(annual_mcnemar, pathlist, val, yearrange, out_dir, fileprefix, 
                  tilesize_m=1000):
     
     # Iterate over each dictionary item (years)
@@ -261,7 +287,7 @@ def mcnemar_rast(annual_mcnemar, pathlist, yearrange, out_dir, fileprefix,
                 for j in range(0, raster_height, tilesize_pix):
                     
                     # Extract McNemar statistic from tile
-                    stat = stats[tile_idx]['statistic']
+                    stat = stats[tile_idx][val]
                     
                     # If statistic is NA
                     if np.isnan(stat):
@@ -296,26 +322,98 @@ def mcnemar_rast(annual_mcnemar, pathlist, yearrange, out_dir, fileprefix,
 agtiles = tilesplit(spatagree_paths, years, 1000)
 
 # Calculate mcnemar statistic
-ag_mcnemar = mcnemar_per_tile(agtiles)
+ag_mcnemar = tile_mcnemar(agtiles)
 
-# Create mcnemar raster
-mcnemar_rast(ag_mcnemar, spatagree_paths, years, temp_folder, "ag_mcnemar")
+# Create mcnemar statistic raster
+mcnemar_rast(ag_mcnemar, spatagree_paths, "statistic", years, out_dir, 
+             "ag_mcnemar")
 
-
-
-
-
-
-
+# Create p-value raster
+mcnemar_rast(ag_mcnemar, spatagree_paths, "pvalue", years, out_dir, 
+             "ag_pvalue")
 
 
 
+############################################################################
 
 
+# PLOT RESULTS
 
 
+############################################################################
+# Define colors
+redd_col = "#820300"  # Darker Red
+nonredd_col = "#4682B4"  # Darker Blue - lighter
 
+# Create empty lists to hold mean and standard deviations
+means = []
+std_devs = []
 
+# Calculate mean and standard deviation for each year, ignoring NaN values
+for year in years:
+    
+    # Extract McNemar statstics
+    stats = np.array([entry['statistic'] for entry in ag_mcnemar[year] if \
+                      isinstance(entry['statistic'], (int, float))])
+    
+    # Exclude nodata statistics
+    stats = stats[~np.isnan(stats)]
+    
+    # If there are valid statistics
+    if len(stats) > 0:
+        
+        # Calculate mean
+        mean = np.mean(stats)
+        
+        # Calculate standard deviation
+        std_dev = np.std(stats)  
+        
+    # If there are no valid statistics
+    else:
+        
+        # Use nodata for mean
+        mean = np.nan
+        
+        # Use nodata for standard deviation
+        std_dev = np.nan
+    
+    # Append results to the lists
+    means.append(mean)
+    std_devs.append(std_dev)
 
+# Initialize figure
+plt.figure(figsize=(10, 6))
 
+# Plot mean line
+plt.plot(years, means, label='AOI', color=nonredd_col)
 
+# Assign 0 as lower boundary
+lower_bound = np.maximum(0, np.array(means) - np.array(std_devs))
+
+# Assign upper standard deviation as upper boundary
+upper_bound = np.array(means) + np.array(std_devs)
+
+# Create shading for standard deviation area
+plt.fill_between(years, lower_bound, upper_bound, color=nonredd_col, alpha=0.2)
+
+# Create rectangle for standard deviation legend icon
+custom_line = Line2D([0], [0], color='b', lw=4, alpha=0.2)
+
+# Add legend
+plt.legend(['Mean Statistic', 'Standard Deviation'], loc='best')
+
+# Add axes labels
+plt.xlabel('Year')
+plt.ylabel('Tiled McNemar Statistics (Excluding NaN)')
+
+# Add title
+plt.title('McNemar Statistics per 1000m x 1000m Tile')
+
+# Add x tickmarks
+plt.xticks(years, rotation=45)
+
+# Add gridlines
+plt.grid(True, linestyle = "--")
+
+# Show plot
+plt.show()
