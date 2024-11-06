@@ -1691,3 +1691,52 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 # lab2016 = ["2016re", "2016ps"]
 # proc_2016 = reproject_raster(re_ps_2016, epsg_string, temp_folder, lab2016, 
 #                              nodata_val)
+
+
+# Define function to split raster into tiles
+# def tilesplit(path, out_dir, tilesize_m=1000):
+    
+#     # Open the raster file
+#     with rasterio.open(path) as src:
+        
+#         # Calculate the tile size in pixels based on the raster resolution
+#         tile_size_pixels = int(tilesize_m / src.res[0])
+
+#         # Get the dimensions of the raster
+#         raster_width, raster_height = src.width, src.height
+
+#         # Loop through the raster and extract tiles
+#         for i in range(0, raster_width, tile_size_pixels):
+#             for j in range(0, raster_height, tile_size_pixels):
+#                 # Calculate the window for the tile
+#                 window = Window(i, j, tile_size_pixels, tile_size_pixels)
+
+#                 # Read the window (tile) as an array
+#                 tile = src.read(window=window)
+
+#                 # Skip tiles that are entirely NoData (optional)
+#                 if np.all(tile == src.nodata):
+#                     continue
+
+#                 # Define the transform for the tile
+#                 tile_transform = src.window_transform(window)
+
+#                 # Define the output path for the tile
+#                 tile_filename = f"{out_dir}/tile_{i}_{j}.tif"
+
+#                 # Save the tile as a new raster
+#                 with rasterio.open(
+#                     tile_filename,
+#                     "w",
+#                     driver="GTiff",
+#                     height=tile.shape[1],
+#                     width=tile.shape[2],
+#                     count=src.count,
+#                     dtype=tile.dtype,
+#                     crs=src.crs,
+#                     transform=tile_transform,
+#                     nodata=src.nodata,
+#                 ) as dst:
+#                     dst.write(tile)
+
+#                 print(f"Saved {tile_filename}")
