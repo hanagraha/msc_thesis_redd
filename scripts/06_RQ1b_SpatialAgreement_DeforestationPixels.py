@@ -355,11 +355,10 @@ grnp_agree_stats= agreestat_summary(grnp_agreement, years)
 ############################################################################
 
 
-# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO AOI)
+# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO DEFORESTATION AREA)
 
 
 ############################################################################
-
 # Define function to calculate agreement statistics for one image
 def rel_agreestats(image, class1=5, class2=6, class3=7, class4=8):
     # Mask out NoData (255) values

@@ -106,35 +106,6 @@ tmf_arrs, tmf_profile = read_files(tmf_files)
 
 
 ############################################################################
-# Define function to save a list of files
-def filestack_write(arraylist, yearrange, dtype, fileprefix, profile):
-    
-    # Create empty list to store output filepaths
-    filelist = []
-    
-    # Save each array to drive
-    for var, year in zip(arraylist, yearrange):
-        # Adapt file datatype
-        data = var.astype(dtype)
-        
-        # Define file name and path
-        output_filename = f"{fileprefix}_{year}.tif"
-        output_filepath = os.path.join(out_dir, output_filename)
-        
-        # Update profile with dtype string
-        profile['dtype'] = data.dtype.name
-        
-        # Write array to file
-        with rasterio.open(output_filepath, "w", **profile) as dst:
-            dst.write(data, 1)
-            
-        # Append filepath to list
-        filelist.append(output_filepath)
-        
-        print(f"{output_filename} saved to file")
-    
-    return filelist
-
 # Define function to split array into tiles
 def tilesplit(pathlist, yearrange, tilesize_m=1000):
     
@@ -174,6 +145,18 @@ def tilesplit(pathlist, yearrange, tilesize_m=1000):
                 
     return yearly_tiles
 
+# Split agreement rasters into tiles
+agtiles = tilesplit(spatagree_paths, years, 1000)
+
+
+
+############################################################################
+
+
+# CALCULATE MCNEMAR STATISTIC
+
+
+############################################################################
 # Define function to create contingency tables from agreement layers
 def contingency_table(image):
     # Mask out NoData (255) values
@@ -318,9 +301,6 @@ def mcnemar_rast(annual_mcnemar, pathlist, val, yearrange, out_dir, fileprefix,
         # Print statement
         print(f"Saved mcnemar raster to {output_path}")
 
-# Split agreement rasters into tiles
-agtiles = tilesplit(spatagree_paths, years, 1000)
-
 # Calculate mcnemar statistic
 ag_mcnemar = tile_mcnemar(agtiles)
 
@@ -331,6 +311,17 @@ mcnemar_rast(ag_mcnemar, spatagree_paths, "statistic", years, out_dir,
 # Create p-value raster
 mcnemar_rast(ag_mcnemar, spatagree_paths, "pvalue", years, out_dir, 
              "ag_pvalue")
+
+
+
+############################################################################
+
+
+# CALCULATED CHI SQUARED
+
+
+############################################################################
+
 
 
 
@@ -417,3 +408,16 @@ plt.grid(True, linestyle = "--")
 
 # Show plot
 plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
