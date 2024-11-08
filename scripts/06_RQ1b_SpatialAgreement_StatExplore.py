@@ -98,6 +98,14 @@ gfc_paths = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif" for year
 tmf_paths = [f"data/jrc_preprocessed/tmf_defordegrayear_fm_{year}.tif" for 
              year in years]
 
+# Define simple binary gfc paths
+gfc_simp_paths = [f"data/intermediate/gfc_simple_binary_{year}.tif" for 
+                  year in years]
+
+# Define simple binary gfc paths
+tmf_simp_paths = [f"data/intermediate/tmf_simple_binary_{year}.tif" for 
+                  year in years]
+
 # Read spatial agreement rasters
 spatagree_arrs, spatagree_profile = read_files(spatagree_paths)
 
@@ -106,6 +114,12 @@ gfc_arrs, gfc_profile = read_files(gfc_paths)
 
 # Read tmf paths
 tmf_arrs, tmf_profile = read_files(tmf_paths)
+
+# Read gfc simple binary
+gfc_simp_arrs, gfc_simp_profile = read_files(gfc_simp_paths)
+
+# Read tmf simple binary
+tmf_simp_arrs, tmf_simp_profile = read_files(tmf_simp_paths)
 
 # Read vector data
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
@@ -171,6 +185,12 @@ gfc_redd, gfc_nonredd, gfc_grnp = regions_clip(gfc_paths)
 
 # Clip tmf arrays to redd+, nonredd+, and grnp area
 tmf_redd, tmf_nonredd, tmf_grnp = regions_clip(tmf_paths)
+
+# Clip gfc simple arrays to redd+, nonredd+, and grnp area
+gfc_simp_redd, gfc_simp_nonredd, gfc_simp_grnp = regions_clip(gfc_simp_paths)
+
+# Clip gfc simple arrays to redd+, nonredd+, and grnp area
+tmf_simp_redd, tmf_simp_nonredd, tmf_simp_grnp = regions_clip(tmf_simp_paths)
 
 
 
@@ -296,7 +316,7 @@ ov_ag_nonredd = ov_agree(ag_nonredd)
 ov_ag_grnp = ov_agree(ag_grnp)
 
 # Plot overall agreement for aoi
-lineplot(ov_ag_aoi, "Overall Spatial Agreement between GFC and TMF", 
+lineplot(ov_ag_aoi, "Overall Spatial Agreement between GFC and TMF Datasets", 
          "AOI", "Overall Agreement (%)", 95, 98)
 
 # Plot overall agreement for redd, nonredd, and grnp area
@@ -349,7 +369,7 @@ defor_ag_nonredd = defor_agree(ag_nonredd)
 defor_ag_grnp = defor_agree(ag_grnp)
 
 # Plot deforestation agreement for aoi
-lineplot(defor_ag_aoi, "Deforestation Spatial Agreement between GFC and TMF", 
+lineplot(defor_ag_aoi, "Deforestation Spatial Agreement between GFC and TMF Datasets", 
          "AOI", "Deforestation Agreement (%)", 10, 30)
 
 # Plot deforestation agreement for redd, nonredd, and grnp area
@@ -396,7 +416,7 @@ mattcoef_nonredd = matt_coef(gfc_nonredd, tmf_nonredd)
 mattcoef_grnp = matt_coef(gfc_grnp, tmf_grnp)
         
 # Plot matthews coefficient for aoi
-lineplot(matcoef_aoi, "Matthews Coefficient for GFC and TMF Deforestation", 
+lineplot(matcoef_aoi, "Matthews Coefficient for GFC and TMF Datasets", 
          "AOI", "Matthews Coefficient", 0.25, 0.45)
 
 # Plot matthews coefficient for redd, nonredd, and grnp area
@@ -559,11 +579,6 @@ Based on example from documentation:
 https://scikit-learn.org/1.5/modules/generated/sklearn.metrics.cohen_kappa_score.html
 """
 # Define function to calculate cohen's kappa
-y1 = ["negative", "positive", "negative", "neutral", "positive"]
-y2 = ["negative", "positive", "negative", "neutral", "negative"]
-cohen_kappa_score(y1, y2)
-
-
 def calckappa(arrlist1, arrlist2):
     
     # Create empty list to hold statistics
@@ -591,33 +606,40 @@ def calckappa(arrlist1, arrlist2):
     
     return kappas
 
-kappa_aoi = calckappa(gfc_arrs, tmf_arrs)
+# Calculate cohens kappa for aoi
+kappa_aoi = calckappa(gfc_simp_arrs, tmf_simp_arrs)
+
+# Calculate cohens kappa for redd areas
+kappa_redd = calckappa(gfc_simp_redd, tmf_simp_redd)
+
+# Calculate cohens kappa for nonredd areas
+kappa_nonredd = calckappa(gfc_simp_nonredd, tmf_simp_nonredd)
+
+# Calculate cohens kappa for grnp area
+kappa_grnp = calckappa(gfc_simp_grnp, tmf_simp_grnp)
+
+# Plot cohens kappa for aoi
+lineplot(kappa_aoi, "Cohen's Kappa for GFC and TMF Datasets", 
+         "AOI", "McNemar Statistic", 0.2, 0.45)
+
+# Plot cohens kappa for redd, nonredd, and grnp area
+tripleplot(kappa_redd, kappa_nonredd, kappa_grnp, 
+           "Cohen's Kappa for GFC and TMF Datasets", 
+           "Cohen's Kappa", 0, 0.5)
 
 
-    # Create empty list to hold statistics
-    kappas = []
-    
-    # Iterate over each array
-    for arr1, arr2 in zip(arrlist1, arrlist2):
-        
-        # Ignore nodata values
-        # Convert both arrays to float
-        arr1 = arr1.astype(float)
-        arr2 = arr2.astype(float)
-        
-        # Replace nodata value with np.nodata
-        arr1[arr1 == nodataval] = np.nan
-        arr2[arr2 == nodataval] = np.nan
-        
-        # Create nodata mask
-        mask = ~np.isnan(arr1) & ~np.isnan(arr2)
-        
-        # Filter arrays to remove NaN pixels
-        filtered_arr1 = arr1[mask]
-        filtered_arr2 = arr2[mask]
-        
-        # Calculate Cohen's Kappa
-        kappa = cohen_kappa_score(filtered_arr1, filtered_arr2)
-        
-        # Store results in list
-        kappa_results.append(kappa)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
