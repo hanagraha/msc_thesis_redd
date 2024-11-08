@@ -1811,3 +1811,76 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 # plt.legend()
 # plt.grid(True)
 # plt.show()
+
+
+# # Define function to plot frames based on point
+# def pnt_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
+    
+#     # Extract relevant point
+#     point = val_frames["geometry"][pntindex]
+    
+#     # Extract relevant frame
+#     frame = [val_frames["frame"][pntindex]]
+    
+#     # Clip validation data to frame
+#     clipped_arrs, metas = clip_raster(raster_pathlist, frame, nodata_val)
+    
+#     # Transpose clipped array to match format for imshow
+#     clipped_rgb_arrs = [arr.transpose(1, 2, 0) for arr in clipped_arrs]
+    
+#     # Normalize to range 0-255 just in case
+#     clipped_rgb_arrs = [(arr / arr.max() * 255).astype(np.uint8) for arr 
+#                         in clipped_rgb_arrs]
+    
+#     # Extract transform data
+#     transform = meta['transform']
+    
+#     # Convert xy coordinate to image coordinates
+#     px, py = ~transform * (point.x, point.y)
+    
+#     # Create box in img pixel sizes
+#     pxsize_px = pxsize_m / abs(transform.a) 
+    
+#     # Define labels for subplots
+#     labels = [2013, 2014, 2015, "2016p", "2016s", 2017, 2018, 2019, 2020, 
+#               2021, 2022, 2023]
+    
+#     # Initialize figure with 3x4 subplots
+#     fig, axs = plt.subplots(3, 4, figsize=(12, 9))
+    
+#     # Flatten axes array
+#     axs = axs.flatten()
+    
+#     # Iterate over the arrays and corresponding axes
+#     for i, rgb_array in enumerate(clipped_rgb_arrs):
+        
+#         # Display rgb image
+#         axs[i].imshow(rgb_array)
+        
+#         # Remove axis labels
+#         axs[i].axis('off')
+        
+#         # Set subplot titles
+#         axs[i].set_title(f'{labels[i]}')
+        
+#         # Create pixel rectangle
+#         rect = Rectangle(
+            
+#             # Define bottom left corner
+#             (px - pxsize_px / 2, py - pxsize_px / 2),
+            
+#             # Define width and height in pixels
+#             pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+#         )
+        
+#         # Overlay validation pixel area
+#         axs[i].add_patch(rect)
+        
+#         # Remove empty subplot axes
+#         for j in range(len(clipped_rgb_arrs), len(axs)):
+#             axs[j].axis('off')
+
+#     # Show plot
+#     plt.tight_layout()
+#     plt.show()
+
