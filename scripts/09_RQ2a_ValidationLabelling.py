@@ -235,6 +235,32 @@ def pnt_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
 val_frames = point_frame(valpoints, 500)
 
 # Plot for defined point
-pnt_plot(planet_paths, val_frames, 256, 30)
+pnt_plot(planet_paths, val_frames, 100, 30)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
