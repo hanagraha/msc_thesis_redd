@@ -77,12 +77,17 @@ valstats <- function(pred_data, val_data, varname){
     pa = as.numeric(stats$PA),
     area = as.numeric(stats$area),
     se_ua = as.numeric(stats$SEua),
-    se_pa = as.numeric(stats$SEpa)
+    se_pa = as.numeric(stats$SEpa),
+    se_a = as.numeric(stats$SEa)
   )
   
-  # Export dataframe
+  # Export annual data
   write.csv(stats_df, file = sprintf("data/validation/%s_stehmanstats.csv", 
                                      varname), row.names = FALSE)
+  
+  # Export confusion matrix
+  write.csv(stats$matrix, file = sprintf("data/validation/%s_confmatrix.csv", 
+                                         varname))
   
   # Print statement
   print("Stehman statistics calculated and saved to file")
@@ -119,13 +124,6 @@ tmf_substats <- valstats(tmf, val1_sub1, "sub_tmf")
 
 # Calculate statistics for se
 se_substats <- valstats(se, val1_sub1, "sub_se")
-
-
-
-
-
-
-
 
 
 
