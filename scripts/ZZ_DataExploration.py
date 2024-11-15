@@ -1884,3 +1884,55 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 #     plt.tight_layout()
 #     plt.show()
 
+
+
+
+
+
+
+# ############################################################################
+
+
+# # CREATE CONFUSION MATRICES PER YEAR
+
+
+# ############################################################################  
+# from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix  
+# # Define annual labels
+# annlabs = ["Undisturbed"] + list(years)
+
+# # Define function to plot annual confusion matrices
+# def mlmatrix_plt(matrices, dataset):
+    
+#     # Set up the figure and axes
+#     fig, axes = plt.subplots(3, 4, figsize=(15, 8))
+#     axes = axes.flatten()
+
+#     # Plot each confusion matrix
+#     for matrix, lab, i in zip(matrices, annlabs, range(0,12)):
+#         sns.heatmap(matrix, annot=True, fmt='d', cmap='Blues', ax=axes[i])
+#         axes[i].set_title(lab)
+#         axes[i].set_xlabel(f'{dataset} Predicted Labels')
+#         axes[i].set_ylabel('Validation Labels')
+
+#     # Adjust layout
+#     plt.tight_layout()
+#     plt.show()
+
+# # Calculate annual gfc confusion matrices
+# gfc_mlmatrix = multilabel_confusion_matrix(val_first, gfc, labels = yearlabs)
+
+# # Calculate annual tmf confusion matrices
+# tmf_mlmatrix = multilabel_confusion_matrix(val_first, tmf, labels = yearlabs)
+
+# # Calculate annual se confusion matrices
+# se_mlmatrix = multilabel_confusion_matrix(val_first, se, labels = yearlabs)
+
+# # Plot annual gfc confusion matrices
+# mlmatrix_plt(gfc_mlmatrix, "GFC")
+
+# # Plot annual tmf confusion matrices
+# mlmatrix_plt(tmf_mlmatrix, "TMF")
+
+# # Plot annual se confusion matrices
+# mlmatrix_plt(se_mlmatrix, "Sensitive Early")

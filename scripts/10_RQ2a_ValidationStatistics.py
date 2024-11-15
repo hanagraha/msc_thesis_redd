@@ -16,7 +16,7 @@ Created on Thu Nov 14 10:52:36 2024
 import os
 import pandas as pd
 import geopandas as gpd
-from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -54,6 +54,17 @@ reddcol = "brown"
 nonreddcol = "dodgerblue"
 grnpcol = "darkgreen"
 
+# blue colors
+blue1 = "#1E2A5E"
+blue2 = "#55679C"
+blue3 = "#83B4FF"
+blue4 = "#87C4FF"
+bluecols = [blue1, blue2, blue3]
+
+# Define dataset labels
+yearlabs = [0] + list(years)
+
+
 
 
 ############################################################################
@@ -87,6 +98,7 @@ se_stehman_cm = pd.read_csv("data/validation/se_confmatrix.csv", delimiter=",")
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
+
 ############################################################################
 
 
@@ -94,9 +106,6 @@ datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
 ############################################################################
-# Define dataset labels
-yearlabs = [0] + list(years)
-
 # Define function to plot three confusion matrices side by side
 def matrix_plt(matrices, names, fmt):
     
@@ -118,79 +127,170 @@ def matrix_plt(matrices, names, fmt):
     # Adjust layout
     plt.tight_layout()
     plt.show()
-
-# Extract data from validation dataset
-gfc = val_data['gfc']
-tmf = val_data['tmf']
-se = val_data['se']
-val_first = val_data['defor1']
-
-# Calculate confusion matrix for gfc
-gfc_matrix = confusion_matrix(val_first, gfc)
-
-# Calculate confusion matrix for tmf
-tmf_matrix = confusion_matrix(val_first, tmf)
-
-# Calculate confusion matrix for sensitive early combination
-se_matrix = confusion_matrix(val_first, se)
-
-# Plot calculated matrices
-matrix_plt([gfc_matrix, tmf_matrix, se_matrix], datanames, 'd')
-
-
-
-############################################################################
-
-
-# CREATE CONFUSION MATRICES PER YEAR
-
-
-############################################################################    
-# Define annual labels
-annlabs = ["Undisturbed"] + list(years)
-
-# Define function to plot annual confusion matrices
-def mlmatrix_plt(matrices, dataset):
     
-    # Set up the figure and axes
-    fig, axes = plt.subplots(3, 4, figsize=(15, 8))
-    axes = axes.flatten()
+# Define function to calculate confusion matrices for gfc, tmf, se
+def cm_calcplot(valdata, valcolumn):
+    
+    # Calculate confusion matrix for gfc
+    gfc_matrix = confusion_matrix(valdata[valcolumn], valdata['gfc'])
 
-    # Plot each confusion matrix
-    for matrix, lab, i in zip(matrices, annlabs, range(0,12)):
-        sns.heatmap(matrix, annot=True, fmt='d', cmap='Blues', ax=axes[i])
-        axes[i].set_title(lab)
-        axes[i].set_xlabel(f'{dataset} Predicted Labels')
-        axes[i].set_ylabel('Validation Labels')
+    # Calculate confusion matrix for tmf
+    tmf_matrix = confusion_matrix(valdata[valcolumn], valdata['tmf'])
 
-    # Adjust layout
-    plt.tight_layout()
-    plt.show()
+    # Calculate confusion matrix for sensitive early combination
+    se_matrix = confusion_matrix(valdata[valcolumn], valdata['se'])
 
-# Calculate annual gfc confusion matrices
-gfc_mlmatrix = multilabel_confusion_matrix(val_first, gfc, labels = yearlabs)
-
-# Calculate annual tmf confusion matrices
-tmf_mlmatrix = multilabel_confusion_matrix(val_first, tmf, labels = yearlabs)
-
-# Calculate annual se confusion matrices
-se_mlmatrix = multilabel_confusion_matrix(val_first, se, labels = yearlabs)
-
-# Plot annual gfc confusion matrices
-mlmatrix_plt(gfc_mlmatrix, "GFC")
-
-# Plot annual tmf confusion matrices
-mlmatrix_plt(tmf_mlmatrix, "TMF")
-
-# Plot annual se confusion matrices
-mlmatrix_plt(se_mlmatrix, "Sensitive Early")
+    # Plot calculated matrices
+    matrix_plt([gfc_matrix, tmf_matrix, se_matrix], datanames, 'd')
+    
+# Calculate confusion matrix for gfc, tmf, and se
+cm_calcplot(val_data, 'defor1')
 
 
 
 ############################################################################
 
 
-# MANIPULATE STEHMAN CONFUSION MATRICES
+# VALIDATION MANIPULATION: SUBTRACT 1 
+
+
+############################################################################
+# Define function to subtract from all non-0 deforestation and regrowth years
+def col_sub1(dataset, col_list):
+    
+    # Iterate over each column
+    for col in col_list:
+        
+        # Subtract 1 from cells with non-0 data
+        dataset[col] = np.where(dataset[col] != 0, dataset[col] - 1, 
+                                dataset[col])
+        
+        # Convert cells with value 2012 to 0
+        dataset[col] = np.where(dataset[col] == 2012, 0, dataset[col])
+        
+    return dataset
+    
+# Define function to print overall accuracy for gfc, tmf, and se
+def tripacc(title, dataset, col, col2=None, col3=None, sw1=None, sw2=None, sw3=None):
+    
+    # Copy col for col2 and col3 if not provided
+    col2 = col2 if col2 is not None else col
+    col3 = col3 if col3 is not None else col
+    
+    # If only sw1 provided, set sw2 and sw3 equal to sw1
+    if sw1 is not None:
+        sw2 = sw2 if sw2 is not None else sw1
+        sw3 = sw3 if sw3 is not None else sw1
+        
+    # Retrieve sample weights from the dataset columns if provided
+    sw1_col = dataset[sw1] if sw1 is not None else None
+    sw2_col = dataset[sw2] if sw2 is not None else None
+    sw3_col = dataset[sw3] if sw3 is not None else None
+    
+    # Calculate accuracy for gfc
+    gfc_acc = accuracy_score(dataset[col], dataset['gfc'], sample_weight = sw1_col)
+    
+    # Calculate accuracy for tmf
+    tmf_acc = accuracy_score(dataset[col2], dataset['tmf'], sample_weight = sw2_col)
+    
+    # Calculate accuracy for se
+    se_acc = accuracy_score(dataset[col3], dataset['se'], sample_weight = sw3_col)
+    
+    # Print statement
+    print(f"{title}:\n"
+          f"gfc accuracy: {gfc_acc}\n"
+          f"tmf accuracy: {tmf_acc}\n"
+          f"sensitive early accuracy: {se_acc}\n")
+
+# Copy validation data
+proc_valdata = val_data.copy()
+
+# Subtract 1 from deforestation and regrowth years
+proc_valdata = col_sub1(proc_valdata, ['defor1', 'regr1', 'defor2', 'regr2',
+                                       'defor3', 'regr3'])
+
+# Calculate overall accuracy of raw validation data
+tripacc("Raw validation data", val_data, 'defor1')
+
+# Calculate overall accuracy of processed validation data
+tripacc("Subtracted 1 from validation data", proc_valdata, 'defor1')
+
+# Plot confusion matrices for gfc, tmf, se with processed validation data
+cm_calcplot(proc_valdata, 'defor1')
+
+# Weighted overall accuracy of processed validation data
+tripacc("Subtracted 1 and weighted validation data", proc_valdata, 
+        col='defor1', sw1='conf1')
+
+
+
+############################################################################
+
+
+# VALIDATION MANIPULATION: PRIORITIZE AGREEING DEFOR YEAR
+
+
+############################################################################
+# Define function to create new column prioritizing a certain dataset
+def agvalcol(dataset, col, newcol, confcol):
+    
+    # Create mask where any defor year matches dataset
+    mask1 = dataset[col] == dataset['defor1']
+    mask2 = (dataset[col] == dataset['defor2']) & (dataset['defor2'] != 0)
+    mask3 = (dataset[col] == dataset['defor3']) & (dataset['defor3'] != 0)
+
+    # Assign dataset year where mask is true, otherwise the first defor year
+    dataset[newcol] = np.where(mask1, dataset['defor1'], 
+                               np.where(mask2, dataset['defor2'], 
+                                        np.where(mask3, dataset['defor3'], 
+                                                 dataset['defor1'])))
+
+    # Assign corresponding confidence value
+    dataset[confcol] = np.where(mask1, dataset['conf1'], 
+                                np.where(mask2, dataset['conf2'], 
+                                         np.where(mask3, dataset['conf3'], 
+                                                  dataset['conf1'])))
+    
+    return dataset
+
+# Create new column to prioritize gfc matches
+proc_valdata = agvalcol(proc_valdata, 'gfc', 'val_gfc', 'val_gfc_conf')
+
+# Create new column to prioritize tmf matches
+proc_valdata = agvalcol(proc_valdata, 'tmf', 'val_tmf', 'val_tmf_conf')
+
+# Create new colun to priotize se matches
+proc_valdata = agvalcol(proc_valdata, 'se', 'val_se', 'val_se_conf')
+
+# Plot confusion matrices for gfc, tmf, se with processed validation data
+cm_calcplot(proc_valdata, 'val_gfc')
+
+# Calculate accuracy for processed validation data
+tripacc("Weighted and matched validation data", proc_valdata, 'val_gfc', 
+        'val_tmf', 'val_se', 'val_gfc_conf', 'val_tmf_conf', 'val_se_conf')
+
+
+
+############################################################################
+
+
+# VALIDATION MANIPULATION: ONLY YEARS 2017-2023
+
+
+############################################################################
+# Remove strata 1-8 (agreement/disagreement 2013-2016)
+subset_valdata = proc_valdata[(proc_valdata['strata'] > 8)]
+
+# Calculate accuracy for processed validation data
+tripacc("Validation data only from 2017-2023)", subset_valdata, 'val_gfc', 
+        'val_tmf', 'val_se')
+
+
+
+############################################################################
+
+
+# PLOT STEHMAN CONFUSION MATRICES
 
 
 ############################################################################
@@ -239,11 +339,11 @@ def steh_lineplt(datalist, stat, se, ylab):
     plt.figure(figsize=(10, 6))
     
     # Iterate over each dataset
-    for data, name in zip(datalist, datanames):
+    for data, col, name in zip(datalist, bluecols, datanames):
         
         # Add lines with error bars
         plt.errorbar(data['year'], data[stat], yerr=data[se], fmt='-o', 
-                     color=defaultblue, capsize=5, elinewidth=1, ecolor='r', 
+                     color=col, capsize=5, elinewidth=1, ecolor=col, 
                      label=name)
     
     # Add gridlines
