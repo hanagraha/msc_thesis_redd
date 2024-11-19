@@ -47,7 +47,7 @@ print("New Working Directory:", os.getcwd())
 nodata_val = 255
 
 # Set year range
-years = range(2013, 2024)
+years = range(2013, 2025)
 
 # Set output directory
 out_dir = os.path.join('data', 'validation')
@@ -127,10 +127,10 @@ re_pathlist = [file_path for paths in re_2013_2015_pathdict.values() for \
                file_path in paths]
 
 # Define year range for planetscope
-ps_years = range(2017, 2024)
+ps_years = range(2017, 2025)
 
 # Define PlanetScope filepaths (2018-2023)
-ps_2017_2023_pathdict = folder_tifs(ps_years)
+ps_2017_2024_pathdict = folder_tifs(ps_years)
 
 # Define path for 2016 rapideye imagery
 re_2016 = "data/planet_raw/2016/RapidEye/composite.tif"
@@ -203,7 +203,7 @@ def connect_tiles(yearrange, tile_dict, file_prefix, out_dir):
     return connected_paths
 
 # Merge planetscope tiles to images
-ps_pathlist = connect_tiles(ps_years, ps_2017_2023_pathdict, "Composite", 
+ps_pathlist = connect_tiles(ps_years, ps_2017_2024_pathdict, "Composite", 
                             temp_folder)
 
 
