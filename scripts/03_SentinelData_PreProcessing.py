@@ -4,7 +4,7 @@ Created on Tue Nov  5 16:35:29 2024
 
 @author: hanna
 
-Estimated runtime: ~3min
+Estimated runtime: ~42min
 """
 
 
@@ -154,8 +154,7 @@ aoi = (gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True))
 
 ############################################################################
 """
-start 11:14, 12:07
-end 11:38, 
+Total execution time: 1289.19 seconds
 """
 
 # Create function to read list of paths into 3d array
@@ -208,6 +207,7 @@ def read_rgb(r_dict, g_dict, b_dict, out_dir):
             
             # Update profile
             profile['count'] = 3
+            profile['driver'] = 'GTiff'
             
             # Extract filename segment
             seg = r_path.split('\\')[8].split('_B')[0]
@@ -251,9 +251,16 @@ s2_rgb = read_rgb(s2_r, s2_g, s2_b, temp_folder)
 # CHECK REPROJECTIONS
 
 
-############################################################################   
+############################################################################ 
+"""
+Total execution time: 0.23 seconds
+"""  
 # Define function to check epsg with reference epsg
 def epsgcheck(ref_gdf, path_dict):
+    
+    # Record start time    
+    start_time = time.time()
+    print(f"Start time: {time.strftime('%H:%M:%S', time.localtime(start_time))}")
     
     # Extract first epsg
     epsg1 = ref_gdf.crs.to_epsg()
@@ -278,6 +285,13 @@ def epsgcheck(ref_gdf, path_dict):
             # If epsgs don't match
             else:
                 print(f"Different EPSG codes: Reference has {epsg1}, Image from {year} has {epsg2}")
+    
+    # Record end time
+    end_time = time.time()
+    print(f"End time: {time.strftime('%H:%M:%S', time.localtime(end_time))}")
+    
+    # Print the total execution time
+    print(f"Total execution time: {end_time - start_time:.2f} seconds")
 
 # Check projection sentinel images
 epsgcheck(villages, s2_rgb)
@@ -291,6 +305,9 @@ epsgcheck(villages, s2_rgb)
 
 
 ############################################################################
+"""
+Total execution time: 0.00 seconds
+"""
 # Define function to create lists of pairs
 def img_pair(path_dict):
 
@@ -359,7 +376,7 @@ s2_pairs = img_pair(s2_rgb)
 
 ############################################################################
 """
-Total execution time: 1125.65 seconds
+Total execution time: 1347.24 seconds
 """
 # Define function to combine two arrays (only partially overlapping)
 def img_union(path_dict, out_dir):
@@ -400,8 +417,8 @@ def img_union(path_dict, out_dir):
                 })
             
             # Extract month from filepath
-            mondat1 = int(pair[0].split('\\')[-1].split('_')[1][4:8])
-            mondat2 = int(pair[1].split('\\')[-1].split('_')[1][4:8])
+            mondat1 = pair[0].split('\\')[-1].split('_')[1][4:8]
+            mondat2 = pair[1].split('\\')[-1].split('_')[1][4:8]
             
             # If both images are the same date
             if mondat1 == mondat2:
@@ -449,7 +466,7 @@ s2_comps = img_union(s2_pairs, out_dir)
 
 ############################################################################
 """
-Total execution time: 101.11 seconds
+Total execution time: 140.76 seconds
 """
 # Define function to clip rasters to aoi
 def clip_raster(raster_pathlist, aoi_geom, nodata_value):

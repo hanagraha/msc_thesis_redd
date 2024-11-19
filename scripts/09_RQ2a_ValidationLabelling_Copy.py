@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import box
 from rasterio.mask import mask
 from matplotlib.patches import Rectangle
-import numpy as np
 
 
 
@@ -57,7 +56,7 @@ val_dir = os.path.join('data', 'validation')
 out_dir = os.path.join('data', 'intermediate')
 
 # Set year range
-years = range(2013, 2024)
+years = range(2013, 2025)
 
 
 
@@ -95,6 +94,7 @@ def pathlist(folder, prefix):
     return outfiles
 
 # Define planet filepaths
+planet_paths = [f"data/validation/HighRes_{year}.tif" for year in years]
 planet_paths = pathlist(val_dir, "HighRes")
 
 # Define sentinel filepaths
@@ -269,14 +269,20 @@ def sentinel_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     # Iterate over each path
     for path in raster_pathlist:
         
-        # Split path into segments
-        segs = path.split("//")
-    
-    # Define labels for subplots
-    labels = list(years)
-    
+        # Extract year
+        year = path.split("\\")[-1].split("_")[1]
+        
+        # Extract month
+        mondat = path.split("\\")[-1].split("_")[-1].split(".tif")[0]
+        
+        # Create label
+        label = f"{year}-{mondat[0:2]}-{mondat[2:4]}"
+        
+        # Add label to list
+        labels.append(label)
+
     # Initialize figure with 3x4 subplots
-    fig, axs = plt.subplots(3, 4, figsize=(12, 9))
+    fig, axs = plt.subplots(3, 5, figsize=(15, 9))
     
     # Flatten axes array
     axs = axs.flatten()
