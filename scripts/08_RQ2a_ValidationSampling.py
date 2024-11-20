@@ -19,6 +19,7 @@ import numpy as np
 import geopandas as gpd
 from rasterio.features import geometry_mask
 from shapely.geometry import Point
+import pandas as pd
 
 
 ############################################################################
@@ -308,16 +309,27 @@ This thesis validation methodology will sample 22 points per 23 strata,
 creating 506 total validation points
 """
 # Define function to sample points from array
-def strat_sample(array, sample_size, transform, profile):
-    
-    # Create empty list to hold point coordinates
-    sample_points = []
+def strat_sample(array, sample_size, transform, profile, min_strata = None, 
+                 max_strata = None):
     
     # Identify number of clasess
     classnum = len(np.unique(array))
     
+    # Select strata of interest (if defined)
+    if min_strata is not None or max_strata is not None:
+        
+        # Replace values outside range with nodata
+        array = np.where(
+            (array >= (min_strata if min_strata is not None else array.min())) &
+            (array <= (max_strata if max_strata is not None else array.max())),
+            array, nodata_val
+            )
+    
+    # Create empty list to hold point coordinates
+    sample_points = []
+    
     # Iterate over each class
-    for strata in range(1, classnum):
+    for strata in range(np.min(array), classnum):
         
         # Find indices of pixels in class
         pixel_indices = np.argwhere(array == strata)
@@ -366,7 +378,69 @@ sample_points = strat_sample(nogrnp_stratarr, 22, transform, profile)
 
 # Write sample points to file
 shp_write(sample_points, "validation_points_geometry.shp", val_dir)
+
+
+"""
+Also try a strategy only sampling from 2016-2023, strata7-23, 17 total)
+"""
+# Create sample points from subsection of stratified array
+points_strata7up = strat_sample(nogrnp_stratarr, 30, transform, profile,
+                                min_strata = 7)
+
+# Define function to replace already sampled points
+def pnt_replace(gdf1, gdf2):
     
+    # Define minimum strata
+    strata_min = min(gdf2['strata'])
+    
+    # Define maximum strata
+    strata_max = max(gdf2['strata'])
+    
+    # Create empty list to hold updated gdf2 strata
+    gdf2_updated = []
+    
+    # Iterate over each strata
+    for strata in range(strata_min, strata_max + 1):
+        
+        # Subset gdf1 for strata
+        gdf1_sub = gdf1[gdf1['strata'] == strata].reset_index(drop=True)
+        
+        # Subset gdf2 for strata
+        gdf2_sub = gdf2[gdf2['strata'] == strata].reset_index(drop=True)
+        
+        # Define sample size of gdf1 strata
+        gdf1_ss = len(gdf1_sub) - 1
+        
+        # Check for common geometries
+        common_points = gdf1_sub[gdf1_sub.geometry.isin(gdf2_sub.geometry)]
+        
+        # If there are common geometries
+        if not common_points.empty:
+            print(f"Identical points found in strata {strata}:")
+            print(common_points)
+        
+        # If there are no common geometries
+        else:
+            
+            # Print statement
+            print(f"No identical points found in strata {strata}.")
+            
+            # Replace geometries of gdf2 with gdf1 (only 22)
+            gdf2_sub.loc[:gdf1_ss, 'geometry'] = gdf1_sub.loc[:,'geometry'].values
+            
+            # Add updated strata geometry to list
+            gdf2_updated.append(gdf2_sub)
+            
+    # Add updated strata to gdf2
+    updated_gdf2 = pd.concat(gdf2_updated, ignore_index = True)
+            
+    return updated_gdf2
+
+# Merge original sample points to new dataset
+sample_points_strata7up = pnt_replace(sample_points, points_strata7up)
+
+# Write sample points to file
+shp_write(sample_points_strata7up, "validation_points_geometry_minstrata7.shp", val_dir)
 
 
 ############################################################################
@@ -434,5 +508,11 @@ valpoints = extract_val(sample_points, tiflist, tifnames)
 
 # Write points to file
 write_csv(valpoints, val_dir, "validation_points_labelling")
+
+# Extract raster values for strata 7+ points
+valpoints_strata7up = extract_val(sample_points_strata7up, tiflist, tifnames)
+
+# Write points to file
+write_csv(valpoints_strata7up, val_dir, "validation_points_labelling_minstrata7")
 
 

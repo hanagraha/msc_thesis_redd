@@ -154,7 +154,7 @@ aoi = (gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True))
 
 ############################################################################
 """
-Total execution time: 1289.19 seconds
+Total execution time: 1289.19 seconds, 303.69 seconds
 """
 
 # Create function to read list of paths into 3d array
@@ -253,7 +253,7 @@ s2_rgb = read_rgb(s2_r, s2_g, s2_b, temp_folder)
 
 ############################################################################ 
 """
-Total execution time: 0.23 seconds
+Total execution time: 0.23 seconds, 0.39 seconds
 """  
 # Define function to check epsg with reference epsg
 def epsgcheck(ref_gdf, path_dict):
@@ -306,7 +306,7 @@ epsgcheck(villages, s2_rgb)
 
 ############################################################################
 """
-Total execution time: 0.00 seconds
+Total execution time: 0.00 seconds, 0.0 seconds
 """
 # Define function to create lists of pairs
 def img_pair(path_dict):
@@ -376,7 +376,7 @@ s2_pairs = img_pair(s2_rgb)
 
 ############################################################################
 """
-Total execution time: 1347.24 seconds
+Total execution time: 1347.24 seconds, 162.17 seconds
 """
 # Define function to combine two arrays (only partially overlapping)
 def img_union(path_dict, out_dir):
@@ -466,7 +466,7 @@ s2_comps = img_union(s2_pairs, out_dir)
 
 ############################################################################
 """
-Total execution time: 140.76 seconds
+Total execution time: 140.76 seconds, 62.19 seconds
 """
 # Define function to clip rasters to aoi
 def clip_raster(raster_pathlist, aoi_geom, nodata_value):

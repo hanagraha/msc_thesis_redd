@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import box
 from rasterio.mask import mask
 from matplotlib.patches import Rectangle
+import numpy as np
 
 
 
@@ -95,13 +96,14 @@ def pathlist(folder, prefix):
 
 # Define planet filepaths
 planet_paths = [f"data/validation/HighRes_{year}.tif" for year in years]
-planet_paths = pathlist(val_dir, "HighRes")
+# planet_paths = pathlist(val_dir, "HighRes")
 
 # Define sentinel filepaths
 sentinel_paths = pathlist(val_dir, "S2")
 
 # Read validation points
 valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
+st7_valpoints = gpd.read_file("data/validation/validation_points_geometry_minstrata7.shp")
 
 
 
@@ -119,10 +121,10 @@ def point_frame(point_gdf, framesize):
     bbox_list = []
     
     # Iterate over each point
-    for i in range(len(valpoints)):
+    for i in range(len(point_gdf)):
         
         # Extract point geometry
-        geom = valpoints.geometry[i]
+        geom = point_gdf.geometry[i]
         
         # Extract pixel bounds
         minx, miny, maxx, maxy = geom.bounds
@@ -186,6 +188,22 @@ def clip_raster(raster_pathlist, geom, nodata_value):
         
     return clipped_arrs, metadata
 
+# Create validation points for regular dataset
+val_frames = point_frame(valpoints, 500)
+
+# Create validation points for strata 7+ dataset
+st7_val_frames = point_frame(st7_valpoints, 500)
+
+
+
+############################################################################
+
+
+# PLANET PLOTTING
+
+
+############################################################################
+
 # Define function to plot frames based on point
 def planet_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     
@@ -247,7 +265,22 @@ def planet_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     # Show plot
     plt.tight_layout()
     plt.show()
-    
+
+# Create frames for each validation point
+val_frames = point_frame(valpoints, 500)
+
+# Plot planet data for defined point
+planet_plot(planet_paths, val_frames, 100, 30)
+
+
+
+############################################################################
+
+
+# SENTINEL PLOTTING
+
+
+############################################################################
 # Define function to plot frames based on point
 def sentinel_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     
@@ -262,6 +295,18 @@ def sentinel_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     
     # Transpose clipped array to match format for imshow
     clipped_rgb_arrs = [arr.transpose(1, 2, 0) for arr in clipped_arrs]
+    
+    # Create empty list to hold normalized arrays
+    norm_arrs = []
+    
+    # Iterate over each clipped array
+    for arr in clipped_rgb_arrs:
+        
+        # Normalize data (0-1)
+        norm_arr = (arr - arr.min()) / (arr.max() - arr.min()) 
+        
+        # Add normalized data to list
+        norm_arrs.append(norm_arr)
     
     # Create empty list to hold labels
     labels = []
@@ -283,6 +328,89 @@ def sentinel_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
 
     # Initialize figure with 3x4 subplots
     fig, axs = plt.subplots(3, 5, figsize=(15, 9))
+    
+    # Flatten axes array
+    axs = axs.flatten()
+    
+    # Iterate over axis, arrays, and metadata
+    for i, (rgb_array, meta) in enumerate(zip(norm_arrs, metas)):
+        
+        # Display rgb image
+        axs[i].imshow(rgb_array)
+        
+        # Remove axis labels
+        axs[i].axis('off')
+        
+        # Set subplot titles
+        axs[i].set_title(f'{labels[i]}')
+        
+        # Extract specific transform for each year
+        transform = meta['transform']
+        
+        # Calculate pixel size in pixels for each raster
+        pxsize_px = pxsize_m / abs(transform.a)
+        
+        # Convert xy coordinate to image coordinates
+        px, py = ~transform * (point.x, point.y)
+        
+        # Create pixel rectangle
+        rect = Rectangle(
+            (px - pxsize_px / 2, py - pxsize_px / 2),
+            pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+        )
+        
+        # Overlay validation pixel area
+        axs[i].add_patch(rect)
+        
+        # Remove empty subplot axes
+        for j in range(len(norm_arrs), len(axs)):
+            axs[j].axis('off')
+
+    # Show plot
+    plt.tight_layout()
+    plt.show()
+
+# Create frames for each validation point
+val_frames = point_frame(valpoints, 500)
+
+# Plot sentinel data for defined point
+sentinel_plot(sentinel_paths, val_frames, 100, 30)
+
+
+
+############################################################################
+
+
+# SENTINEL PLOTTING FOR STRATA 7+
+
+
+############################################################################
+# Define years for only strata 7+
+st7_years = range(2017, 2025)
+
+# Define rasters for only strata 7+
+st7_planet_paths = planet_paths[4:]
+
+# Define function to plot frames based on point
+def planet_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
+    
+    # Extract relevant point
+    point = val_frames["geometry"][pntindex]
+    
+    # Extract relevant frame
+    frame = [val_frames["frame"][pntindex]]
+    
+    # Clip validation data to frame and retrieve list of metadata
+    clipped_arrs, metas = clip_raster(raster_pathlist, frame, nodata_val)
+    
+    # Transpose clipped array to match format for imshow
+    clipped_rgb_arrs = [arr.transpose(1, 2, 0) for arr in clipped_arrs]
+    
+    # Define labels for subplots
+    labels = list(st7_years)
+    
+    # Initialize figure with 3x4 subplots
+    fig, axs = plt.subplots(2, 4, figsize=(14, 8))
     
     # Flatten axes array
     axs = axs.flatten()
@@ -326,25 +454,10 @@ def sentinel_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     plt.show()
 
 # Create frames for each validation point
-val_frames = point_frame(valpoints, 500)
+st7_val_frames = point_frame(st7_valpoints, 500)
 
 # Plot planet data for defined point
-planet_plot(planet_paths, val_frames, 100, 30)
-
-# Plot sentinel data for defined point
-sentinel_plot(sentinel_paths, val_frames, 100, 30)
-
-
-
-
-
-
-
-
-
-
-
-
+planet_plot(st7_planet_paths, st7_val_frames, 201, 30)
 
 
 
