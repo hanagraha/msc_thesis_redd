@@ -76,12 +76,15 @@ yearlabs = [0] + list(years)
 ############################################################################
 # Read validation data
 val_data = pd.read_csv("data/validation/validation_points_labelled.csv", delimiter=";")
+val_data_st7 = pd.read_csv("data/validation/validation_points_labelled_minstrata7.csv", delimiter=";")
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
+val_data_st7['geometry'] = gpd.GeoSeries.from_wkt(val_data_st7['geometry'])
 
 # Convert dataframe to geodataframe
 val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
+val_data_st7 = gpd.GeoDataFrame(val_data_st7, geometry='geometry', crs="EPSG:32629") 
 
 # Read gfc stehman statistic data (calculated in R)
 gfc_stehman = pd.read_csv("data/validation/gfc_stehmanstats.csv", delimiter=",")
@@ -204,22 +207,30 @@ def tripacc(title, dataset, col, col2=None, col3=None, sw1=None, sw2=None, sw3=N
 
 # Copy validation data
 proc_valdata = val_data.copy()
+proc_valdata_st7 = val_data_st7.copy()
 
 # Subtract 1 from deforestation and regrowth years
 proc_valdata = col_sub1(proc_valdata, ['defor1', 'regr1', 'defor2', 'regr2',
                                        'defor3', 'regr3'])
+
+proc_valdata_st7 = col_sub1(proc_valdata_st7, ['defor1', 'regr1', 'defor2', 
+                                               'regr2', 'defor3', 'regr3'])
 
 # Calculate overall accuracy of raw validation data
 tripacc("Raw validation data", val_data, 'defor1')
 
 # Calculate overall accuracy of processed validation data
 tripacc("Subtracted 1 from validation data", proc_valdata, 'defor1')
+tripacc("Subtracted 1 from validation data", proc_valdata_st7, 'defor1')
 
 # Plot confusion matrices for gfc, tmf, se with processed validation data
 cm_calcplot(proc_valdata, 'defor1')
+cm_calcplot(proc_valdata_st7, 'defor1')
 
 # Weighted overall accuracy of processed validation data
 tripacc("Subtracted 1 and weighted validation data", proc_valdata, 
+        col='defor1', sw1='conf1')
+tripacc("Subtracted 1 and weighted validation data", proc_valdata_st7, 
         col='defor1', sw1='conf1')
 
 

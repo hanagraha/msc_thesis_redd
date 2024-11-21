@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import box
 from rasterio.mask import mask
 from matplotlib.patches import Rectangle
-import numpy as np
 
 
 
@@ -457,7 +456,7 @@ def planet_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
 st7_val_frames = point_frame(st7_valpoints, 500)
 
 # Plot planet data for defined point
-planet_plot(st7_planet_paths, st7_val_frames, 201, 30)
+planet_plot(st7_planet_paths, st7_val_frames, 129, 30)        
 
 
 
