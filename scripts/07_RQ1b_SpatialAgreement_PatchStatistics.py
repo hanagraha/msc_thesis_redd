@@ -332,7 +332,7 @@ patch_freq = disagree_binned + agree_binned
 def agratio_plot(df, yearrange):
 
     # Initiate figure
-    plt.figure(figsize=(10,6))
+    plt.figure(figsize=(13.8, 9))
     
     # Iterate over each column (series)
     for lab in df.columns:
@@ -363,7 +363,7 @@ def agratio_plot(df, yearrange):
 # Define function to plot patch population sizes
 def patchfreq_plot(df):
     # Define figure size
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(13.8, 9))
     
     # Initialize the bottom values for stacking
     bottom = np.zeros(len(df.index))

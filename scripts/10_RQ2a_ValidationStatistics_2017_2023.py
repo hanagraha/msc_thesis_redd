@@ -20,6 +20,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import rasterio
 
 
 
@@ -44,6 +45,9 @@ nodata_val = 255
 
 # Set output directory
 out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+
+# Set validation directory
+val_dir = os.path.join('data', 'validation')
 
 # Set year range
 years = range(2016, 2024)
@@ -456,5 +460,128 @@ steh_lineplt([gfc_stehman0, tmf_stehman0, se_stehman0], 'area', 'se_a',
 
 # Plot user's and producer's accuracy side by side
 steh_dual_lineplt([gfc_stehman0, tmf_stehman0, se_stehman0], datanames)
+
+
+
+############################################################################
+
+
+# SPLIT STRATA
+
+
+############################################################################
+# Define function to create subset array
+def arr_subset(array, cellvals):
+    
+    # Select cells equal to defined cell values 
+    subset = np.where(np.isin(array, cellvals), array, nodata_val)
+    
+    return subset
+
+# Define function to write rasters
+def rast_write(array, filename, out_dir, profile):
+    
+    # Define output filepath
+    output_filepath = os.path.join(out_dir, filename)
+    
+    # Save to file
+    with rasterio.open(output_filepath, "w", **profile) as dst:
+        dst.write(array)
+
+# Read stratification raster
+with rasterio.open('data/intermediate/stratification_layer_nogrnp.tif') as rast:
+    
+    # Extract raster data
+    strat_arr = rast.read()
+    
+    # Extract profile
+    profile = rast.profile
+    
+# Select only agreement strata
+agreement = arr_subset(strat_arr, [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 23])
+
+# Select only disagreement strata
+disagreement = arr_subset(strat_arr, [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21])
+
+# Write agreement strata to file
+rast_write(agreement, "strata_agreement.tif", val_dir, profile)
+
+# Write disagreement strata to file
+rast_write(disagreement, "strata_disagreement.tif", val_dir, profile)
+
+
+
+
+############################################################################
+
+
+# PLOT ALL PLANET AND SENTINEL IMAGERY
+
+
+############################################################################
+# Define function to define filepaths in subfolder
+def pathlist(folder, prefix):
+    
+    # Create empty list to hold filepaths
+    outfiles = []
+    
+    # List all files in folder
+    files = [f for f in os.listdir(folder) if f.endswith('.tif')]
+    
+    # Iterate over each file
+    for file in files:
+        
+        # Split filepath into parts
+        parts = file.split('\\')[-1].split('_')
+        
+        # If filepath matches prefix
+        if parts[0] == prefix:
+            
+            # Create filepath
+            filepath = os.path.join(folder, file)
+            
+            # Add filepath to list
+            outfiles.append(filepath)
+    
+    return outfiles
+
+# Define planet filepaths
+planet_paths = [f"data/validation/HighRes_{year}.tif" for year in years]
+# planet_paths = pathlist(val_dir, "HighRes")
+
+# Define sentinel filepaths
+sentinel_paths = pathlist(val_dir, "S2")
+
+# Number of files
+num_files = len(planet_paths)
+
+# Create subplots
+fig, axs = plt.subplots(nrows=(num_files // 4) + 1, ncols=4, figsize=(15, 15))
+axs = axs.flatten()
+
+# Loop through each file and plot
+for idx, file in enumerate(planet_paths):
+    with rasterio.open(file) as src:
+        data = src.read(1)  # Read the first band
+        axs[idx].imshow(data, cmap='viridis')
+        axs[idx].set_title(os.path.basename(file).split('.')[0])
+        axs[idx].axis('off')  # Turn off axes for better visual
+    
+# Turn off unused axes
+for ax in axs[num_files:]:
+    ax.axis('off')
+
+# Adjust layout and show the figure
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+
+
+
 
 

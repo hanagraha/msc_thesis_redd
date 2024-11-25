@@ -453,10 +453,10 @@ def planet_plot(raster_pathlist, val_frames, pntindex, pxsize_m):
     plt.show()
 
 # Create frames for each validation point
-st7_val_frames = point_frame(st7_valpoints, 500)
+st7_val_frames = point_frame(st7_valpoints, 1000)
 
 # Plot planet data for defined point
-planet_plot(st7_planet_paths, st7_val_frames, 129, 30)        
+planet_plot(st7_planet_paths, st7_val_frames, 424, 30)        
 
 
 

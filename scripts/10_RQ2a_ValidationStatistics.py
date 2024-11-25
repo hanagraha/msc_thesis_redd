@@ -16,7 +16,7 @@ Created on Thu Nov 14 10:52:36 2024
 import os
 import pandas as pd
 import geopandas as gpd
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -204,6 +204,38 @@ def tripacc(title, dataset, col, col2=None, col3=None, sw1=None, sw2=None, sw3=N
           f"gfc accuracy: {gfc_acc}\n"
           f"tmf accuracy: {tmf_acc}\n"
           f"sensitive early accuracy: {se_acc}\n")
+    
+# Define function to print precision score for gfc, tmf, and se
+def tripprec(title, dataset, col, col2=None, col3=None, sw1=None, sw2=None, sw3=None):
+    
+    # Copy col for col2 and col3 if not provided
+    col2 = col2 if col2 is not None else col
+    col3 = col3 if col3 is not None else col
+    
+    # If only sw1 provided, set sw2 and sw3 equal to sw1
+    if sw1 is not None:
+        sw2 = sw2 if sw2 is not None else sw1
+        sw3 = sw3 if sw3 is not None else sw1
+        
+    # Retrieve sample weights from the dataset columns if provided
+    sw1_col = dataset[sw1] if sw1 is not None else None
+    sw2_col = dataset[sw2] if sw2 is not None else None
+    sw3_col = dataset[sw3] if sw3 is not None else None
+    
+    # Calculate accuracy for gfc
+    gfc_acc = precision_score(dataset[col], dataset['gfc'], average = 'macro', sample_weight = sw1_col)
+    
+    # Calculate accuracy for tmf
+    tmf_acc = precision_score(dataset[col2], dataset['tmf'], average = 'macro', sample_weight = sw2_col)
+    
+    # Calculate accuracy for se
+    se_acc = precision_score(dataset[col3], dataset['se'], average = 'macro', sample_weight = sw3_col)
+    
+    # Print statement
+    print(f"{title}:\n"
+          f"gfc precision: {gfc_acc}\n"
+          f"tmf precision: {tmf_acc}\n"
+          f"sensitive early precision: {se_acc}\n")
 
 # Copy validation data
 proc_valdata = val_data.copy()
@@ -230,6 +262,10 @@ cm_calcplot(proc_valdata_st7, 'defor1')
 # Weighted overall accuracy of processed validation data
 tripacc("Subtracted 1 and weighted validation data", proc_valdata, 
         col='defor1', sw1='conf1')
+
+tripprec("Subtracted 1 and weighted validation data", proc_valdata, 
+         col='defor1', sw1='conf1')
+
 tripacc("Subtracted 1 and weighted validation data", proc_valdata_st7, 
         col='defor1', sw1='conf1')
 

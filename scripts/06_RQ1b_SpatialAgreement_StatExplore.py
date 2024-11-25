@@ -237,7 +237,7 @@ def lineplot(ydata, title, ylab, yaxis, lim_low, lim_up):
 def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     
     # Initialize figure
-    plt.figure(figsize = (10,6))
+    plt.figure(figsize = (13.8, 9))
     
     # Plot redd+ data
     plt.plot(years, redd, label = "REDD+", color = reddcol)
