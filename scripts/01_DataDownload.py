@@ -168,9 +168,38 @@ for url in tmf_urls:
 
 
 
+############################################################################
 
 
+# LANDSAT IMAGERY
 
+
+############################################################################
+
+import ee
+import os
+
+# Initialize Earth Engine API
+ee.Initialize()
+
+# Define the date range
+start_date = '2016-02-01'
+end_date = '2016-02-29'
+
+# Filter Landsat 8 collection
+landsat = ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA") \
+            .filterDate(start_date, end_date)
+
+# Get download URLs
+for image in landsat.toList(landsat.size()).getInfo():
+    image_id = image['id']
+    print(f"Downloading: {image_id}")
+    image_data = ee.Image(image_id).getDownloadUrl({
+        'scale': 30,
+        'region': ee.Geometry.Rectangle([-180, -90, 180, 90]),
+        'format': 'GEO_TIFF'
+    })
+    os.system(f"wget -O {image_id.split('/')[-1]}.tif {image_data}")
 
 
 
