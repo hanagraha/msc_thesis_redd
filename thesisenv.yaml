@@ -11,4 +11,9 @@ dependencies:
   - rasterstats
   - affine
   - pandas
+  - geemap
+  - earthengine-api
+  - seaborn
+  - statsmodels
+
 
