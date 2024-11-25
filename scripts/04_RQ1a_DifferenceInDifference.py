@@ -214,7 +214,7 @@ redd_col1 = "#820300"  # Darker Red
 
 nonredd_col1 = "#4682B4"  # Darker Blue - lighter
 
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(13.8, 9))
 
 # Plot the pixel values for REDD+ villages
 plt.plot(years, gfc_zonal['REDD+'], color=redd_col1,
@@ -376,6 +376,76 @@ plt.tight_layout()
 
 # Show plot
 plt.show()
+
+
+
+############################################################################
+
+
+# CALCULATE AND PLOT DIFFERENCES BETWEEN REDD / NONREDD
+
+
+############################################################################
+# Calculate differences for gfc data
+gfc_rdif = gfc_zonal['REDD+'] - gfc_zonal['Non-REDD+']
+
+# Calculate differences for tmf data
+tmf_rdif = tmf_zonal['REDD+'] - tmf_zonal['Non-REDD+']
+
+# Set bar width
+bar_width = 0.3
+
+# Define x values
+x = np.arange(len(years))
+
+# Initiate figure
+plt.figure(figsize=(13.8, 9))
+
+# Add gfc data to figure
+plt.bar(x - bar_width/2, gfc_rdif, width=bar_width, label='GFC Deforestation', 
+        color=redd_col1)
+
+# Add tmf data to figure
+plt.bar(x + bar_width/2, tmf_rdif, width=bar_width, label='TMF Deforestation', 
+        color=nonredd_col1)
+
+# Add axes lables
+plt.xlabel('Year')
+plt.ylabel('Difference between Non-REDD+ and REDD+ Deforestation (%)')
+
+# Add title
+plt.title('Estimated counterfactual deforestation (2013-2023)')
+
+# Add legend
+plt.legend()
+
+# Set major tickmark spacing
+plt.gca().yaxis.set_major_locator(MultipleLocator(0.01))
+
+# Set minor tickmark spacing
+plt.gca().yaxis.set_minor_locator(MultipleLocator(0.005))
+
+# Add gridlines
+plt.grid(axis='y', which='major', linestyle = "-")
+plt.grid(axis='y', which='minor', linestyle = "--")
+
+# Add x tickmarks
+plt.xticks(x, years)
+
+# Adjust plot layout
+plt.tight_layout()
+
+# Show plot
+plt.show()
+
+
+
+
+
+
+
+
+
 
 
 
