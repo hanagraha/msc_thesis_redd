@@ -2182,3 +2182,19 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
     
     
     
+# import matplotlib.colors as mcolors
+
+# # Define function to create custom color palette
+# def gen_colors(start_color, end_color, n_colors=12):
+    
+#     # Convert hex colors to RGB
+#     start_rgb = np.array(mcolors.hex2color(start_color))
+#     end_rgb = np.array(mcolors.hex2color(end_color))
+    
+#     # Create a gradient from the start color to the end color
+#     colors = [mcolors.rgb2hex((start_rgb * (1 - i / (n_colors - 1)) + end_rgb * (i / (n_colors - 1)))) for i in range(n_colors)]
+    
+#     return colors
+
+# # Define color palette
+# colors = gen_colors("#091057", "#bdd7e7")
