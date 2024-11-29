@@ -23,7 +23,7 @@ import shutil
 import numpy as np
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import time
-
+from collections import Counter
 
 
 
@@ -371,10 +371,13 @@ dec_reproj_paths = epsgcheck(villages, dec_filepaths_c)
 ############################################################################
 
 
-# CREATE MONTHLY COMPOSITES
+# RESAMPLE DATA (IF NECESSARY)
 
 
 ############################################################################
+"""
+2014 images are used as reference shapes
+"""
 # Define function to group files into years for compositing
 def comp_groups(filepath_list):
     
@@ -392,79 +395,139 @@ def comp_groups(filepath_list):
         
     return file_dict
 
-def composite(path_dict, out_dir):
+# Define function to resample to match image shapes
+def resample(arr1path, arr2path):
     
-    # Record start time    
-    start_time = time.time()
-    print(f"Start time: {time.strftime('%H:%M:%S', time.localtime(start_time))}")
+    # Read first array (reference)
+    with rasterio.open(arr1path) as src1:
+        
+        # Get metadata of first array
+        profile = src1.profile
+        
+        # Get the transform and dimensions of first array
+        dst_transform = src1.transform
+        dst_width = src1.width
+        dst_height = src1.height
 
-    # Create empty list to store output files
-    outfilepaths = []
-    
-    # Iterate over each year
-    for year, group in path_dict.items():
+    # Read second array (array to resample)
+    with rasterio.open(arr2path) as src2:
         
-        # Ensure pairs is a list of lists
-        if isinstance(group[0], str):
+        # Read the data from the second TIFF
+        data = src2.read(
             
-            # Put items in parent list
-            group = [group]
-        
-        # Iterate over each pair
-        for img in group:
+            # Match shape of first array
+            out_shape=(src2.count, dst_height, dst_width),
             
-            # Open both files
-            with rasterio.open(img[0]) as src1, rasterio.open(pair[1]) as src2:
-                
-                # Union of the two images with priority to image 1
-                comp_arr, comp_trans = merge([src1, src2], method="first")
+            # Use bilinear resampling (good for RGB)
+            resampling=Resampling.bilinear
+        )
 
-                # Copy profile
-                out_profile = src1.profile.copy()
-                
-                # Update profile to new raster shape
-                out_profile.update({
-                    "height": comp_arr.shape[1],
-                    "width": comp_arr.shape[2],
-                    "transform": comp_trans
-                })
-            
-            # Extract month from filepath
-            mondat1 = pair[0].split('\\')[-1].split('_')[1][4:8]
-            mondat2 = pair[1].split('\\')[-1].split('_')[1][4:8]
-            
-            # If both images are the same date
-            if mondat1 == mondat2:
-                
-                # Define filename
-                filename = f"S2_{year}_{mondat1}.tif"
-                
-            # If images have different acquisition dates    
-            else:
-                # Define filename
-                filename = f"S2_{year}_{mondat1}_{mondat2}_comp.tif"
+        # Adjust metadata to match first array
+        profile.update(
+            transform=dst_transform,
+            width=dst_width,
+            height=dst_height
+        )
         
-            # Define filepath
-            filepath = os.path.join(out_dir, filename)
-            
-            # Save the composite as a new .tif file
-            with rasterio.open(filepath, 'w', **out_profile) as dst:
-                dst.write(comp_arr)
-            
-            # Add filepath to list
-            outfilepaths.append(filepath)
-                
-            # Print statement
-            print(f"Created Sentinel-2 Composite: {filepath}")
+        # Define output filename
+        outfilepath = arr2path.replace("pp", "resamp")
+
+        # Save resampled array (override)
+        with rasterio.open(outfilepath, 'w', **profile) as dst:
+            dst.write(data)
+
+    # Print statement
+    print("Resampled mismatched array")
     
-    # Record end time
-    end_time = time.time()
-    print(f"End time: {time.strftime('%H:%M:%S', time.localtime(end_time))}")
+    return outfilepath
+
+# Define function to check shape of rasters
+def shapecheck(path_dict, ref_img):
     
-    # Print the total execution time
-    print(f"Total execution time: {end_time - start_time:.2f} seconds")
+    # Create an empty list to hold new filenames
+    resamp_files = []
+
+    # Read reference image
+    with rasterio.open(ref_img) as rast:
+        
+        # Extract shape of image
+        ref_shape = rast.shape
+    
+    # Iterate over each year and path group
+    for year, paths in path_dict.items():
+        
+        # If there are no paths for that year
+        if not paths: 
+            
+            # Print statement for skipping
+            print(f"No rasters for year {year}. Skipping...")
+            print()
+            
+            # Skip processing for this year
+            continue
+        
+        # Create empty list to hold raster shapes
+        shapes = []
+        
+        # Iterate over each path in group
+        for path in paths:
+            
+            # Read raster in path
+            with rasterio.open(path) as rast:
                 
-    return outfilepaths
+                # Extract raster metadata
+                shape = rast.shape
+                
+                # Add width to list
+                shapes.append(shape)
+        
+        # Check if shapes are identical to reference shape
+        shapecheck = all(shp == ref_shape for shp in shapes)
+        
+        # Print statement if identical
+        if shapecheck == True:
+            
+            print(f"Images from {year} share identical shapes")
+        
+        # Print statement if not identical
+        else:
+            
+            print(f"Images from {year} have different shapes")
+        
+        # Iterate over each path (again)
+        for path in paths:
+            
+            # Read raster in path
+            with rasterio.open(path) as rast:
+                
+                # Extract raster metadata
+                shape = rast.shape
+                
+                # Check if shape matches reference
+                if shape == ref_shape:
+                    
+                    # Define new file name for consistency
+                    resamp_filename = path.replace("pp", "resamp")
+                    
+                    # Copy file under new name
+                    shutil.copy2(path, resamp_filename)
+                    
+                    # Add filename to list
+                    resamp_files.append(resamp_filename)
+                
+                # If the shape does not match reference
+                else:
+                    
+                    # Resample path to match reference
+                    resamp_filename = resample(ref_img, path)
+                    
+                    # Add filename to list
+                    resamp_files.append(resamp_filename)
+            
+        # Print statement to create gap in results
+        print()
+    
+    return resamp_files
 
 # Group files for january composites
 jan_groups = comp_groups(jan_reproj_paths)
@@ -475,28 +538,226 @@ feb_groups = comp_groups(feb_reproj_paths)
 # Group files for december composites
 dec_groups = comp_groups(dec_reproj_paths)
 
+# Reference image path
+ref_img = jan_groups[2014][0]
 
-tes tes test
+# Check group shapes for january
+jan_resamp_paths = shapecheck(jan_groups, ref_img)
 
-file_dict = {year: [] for year in years}
+# Check group shapes for february
+feb_resamp_paths = shapecheck(feb_groups, ref_img)
 
-# Iterate over each path
-for path in pathlist_jan:
+# Check group shapes for december
+dec_resamp_paths = shapecheck(dec_groups, ref_img)
+
+
+
+############################################################################
+
+
+# CREATE MONTHLY COMPOSITES
+
+
+############################################################################
+# Define function to composite images 
+def composite(path_dict, out_dir, month, nodata_value=np.nan):
     
-    # Extract year for image
-    year = int(path.split('_')[3][:4])
+    # Record start time    
+    start_time = time.time()
     
-    # Add file to year groupp
-    file_dict[year].append(path)
+    # Print statement for start time
+    print(f"Start time: {time.strftime('%H:%M:%S', time.localtime(start_time))}")
+
+    # Create empty list to store output files
+    outfilepaths = []
+    
+    # Iterate over each year and path group
+    for year, paths in path_dict.items():
+        
+        # If there are no paths for that year
+        if not paths: 
+            
+            # Print statement for skipping
+            print(f"No rasters for year {year}. Skipping...")
+            
+            continue
+        
+        # Print statement for compositing
+        print(f"Processing year {year} with {len(paths)} files...")
+        
+        # Placeholder for stacking data and metadata
+        band_data_stack = None
+        meta = None
+        
+        # Iterate over each path in group
+        for path in paths:
+            
+            # Open raster image
+            with rasterio.open(path) as src:
+                
+                # If there is no metadata (yet)
+                if meta is None:
+                    
+                    # Add metadata to stack
+                    meta = src.meta.copy()
+                    
+                    # Extract number of bands
+                    num_bands = meta['count']
+                    
+                    # Add empty list in band_data_stack for each band
+                    band_data_stack = [[] for _ in range(num_bands)]
+                
+                # Iterate over each band
+                for b in range(1, num_bands + 1):
+                    
+                    # Extract band data
+                    data = src.read(b)
+                    
+                    # Create masked array to ignore nodata values
+                    data_masked = np.ma.masked_equal(data, nodata_value)
+                    
+                    # Add masked band data to band dictionary
+                    band_data_stack[b - 1].append(data_masked)
+        
+        # Create empty list to hold composite data
+        composites = []
+        
+        # Iterate over each band
+        for b, band_stack in enumerate(band_data_stack):
+            
+            # Convert data list to masked raster stack
+            band_stack = np.ma.stack(band_stack, axis=0)
+            
+            # Extract minimum pixel value, ignoring masked (NoData) values
+            composite = np.nanmin(band_stack, axis=0)
+            
+            # Add minimum pixel values to list
+            composites.append(composite)
+        
+        # Create masked raster stack out of composite values
+        composite_array = np.ma.stack(composites, axis=0)
+        
+        # Define output filepath
+        output_path = os.path.join(out_dir, f"composite_{year}_{month}.tif")
+        
+        # Update metadata with correct dtype of masked arrays
+        meta.update(dtype=composite_array.dtype, count=num_bands)
+        
+        # Write composite to file, 
+        with rasterio.open(output_path, 'w', **meta) as dst:
+            
+            # Replaced masked values with no data value 
+            dst.write(composite_array.filled(nodata_value))
+        
+        # Print statement
+        print(f"Composite for year {year} saved to {output_path}")
+        
+        # Add filepath to list
+        outfilepaths.append(output_path)
+    
+    # Record end time
+    end_time = time.time()
+    
+    # Print statement for end time
+    print(f"End time: {time.strftime('%H:%M:%S', time.localtime(end_time))}")
+    
+    # Print statement for total executino time
+    print(f"Total execution time: {end_time - start_time:.2f} seconds")
+                
+    return outfilepaths
+
+# Group files for january composites
+jan_resamp_groups = comp_groups(jan_resamp_paths)
+
+# Group files for february composites
+feb_resamp_groups = comp_groups(feb_resamp_paths)
+
+# Group files for december composites
+dec_resamp_groups = comp_groups(dec_resamp_paths)
+
+# Composite january images
+jan_comp_paths = composite(jan_resamp_groups, jan_temp, "jan")
+
+# Composite february images
+feb_comp_paths = composite(feb_resamp_groups, feb_temp, "feb")
+
+# Composite december images
+dec_comp_paths = composite(dec_resamp_groups, dec_temp, "dec")
 
 
 
+############################################################################
 
 
+# CLIP IMAGES TO AOI
 
 
+############################################################################
+# Define function to clip rasters
+def clip_raster(raster_pathlist, aoi_geom, nodata_value, out_dir):
+    
+    # Iterate over rasters
+    for file in raster_pathlist:
+    
+        # Read raster
+        with rasterio.open(file) as rast:
+            
+            # Extract the number of bands
+            bands = rast.count
+            
+            # Only process the first three bands (RGB)
+            indices = list(range(1, bands + 1))
+            
+            # Mask pixels outside aoi with NoData values
+            raster_clip, out_transform = mask(rast, aoi_geom, crop = True, 
+                                              nodata = nodata_value, 
+                                              indexes = indices)
+            
+            # Copy metadata
+            out_meta = rast.meta.copy()
+            
+            # Update metadata
+            out_meta.update({
+                'driver': 'GTiff',
+                'dtype': 'uint16',
+                'count': len(indices),
+                'height': raster_clip.shape[1],
+                'width': raster_clip.shape[2],
+                'transform': out_transform,
+                'nodata': nodata_value})
+        
+        # Extract file name
+        basename = os.path.basename(file)
+        
+        # Split file name components
+        splits = basename.split("_")
+        
+        # Define new file name
+        outfilename = f"Landsat8_{splits[1]}_{splits[2][:3]}.tif"
+        
+        # Define new filepath
+        outfilepath = os.path.join(out_dir, outfilename)
+        
+        # Replace old file with new file (same file name)
+        with rasterio.open(outfilepath, 'w', **out_meta) as dest:
+            
+            # Iterate over each band of interest
+            for band_index, band in enumerate(indices, start=1):
+                
+                # Write each band to file
+                dest.write(raster_clip[band_index - 1], band_index)
+        
+        # Print statement
+        print(f"Clipping Complete for {outfilename}")
 
+# Clip january composites
+clip_raster(jan_comp_paths, aoi, nodata_val, out_dir)
 
+# Clip february composites
+clip_raster(feb_comp_paths, aoi, nodata_val, out_dir)
+
+# Clip december composites
+clip_raster(dec_comp_paths, aoi, nodata_val, out_dir)
 
 
 
