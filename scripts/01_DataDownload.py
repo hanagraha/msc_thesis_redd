@@ -484,7 +484,7 @@ def month_imgs(imglist, bands, outfolder):
             print("No images <30% cloud cover exist.")
             
 # Define bands of interest
-bands = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']
+bands = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', "QA_PIXEL"]
 
 # Download january images
 month_imgs(landsat_jan, bands, "GEE_Landsat_Jan")

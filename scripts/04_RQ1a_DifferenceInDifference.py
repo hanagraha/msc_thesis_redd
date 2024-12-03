@@ -214,23 +214,26 @@ redd_col1 = "#820300"  # Darker Red
 
 nonredd_col1 = "#4682B4"  # Darker Blue - lighter
 
-plt.figure(figsize=(13.8, 9))
+gfc_col = "#820300"  # Darker Red
+
+tmf_col = "#4682B4"  # Darker Blue - lighter
+
+plt.figure(figsize=(6.9, 4.5))
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_zonal['REDD+'], color=redd_col1,
+plt.plot(years, gfc_zonal['REDD+'], color=gfc_col,
          label='GFC Deforestation in REDD+ Villages')
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, tmf_zonal['REDD+'], color=redd_col1,
-         label='TMF Deforestation and Degradation in REDD+ Villages', 
-         linestyle = '--')
+plt.plot(years, tmf_zonal['REDD+'], color=tmf_col,
+         label='TMF Deforestation and Degradation in REDD+ Villages')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, gfc_zonal['Non-REDD+'], color=nonredd_col1, 
-         label='GFC Deforestation in Non-REDD+ Villages')
+plt.plot(years, gfc_zonal['Non-REDD+'], color=gfc_col, 
+         label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_zonal['Non-REDD+'], color=nonredd_col1,
+plt.plot(years, tmf_zonal['Non-REDD+'], color=tmf_col,
          label='TMF Deforestation and Degradation in Non-REDD+ Villages',
          linestyle = '--')
 
@@ -240,10 +243,10 @@ plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area')
 plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
 
 # Add x tickmarks
-plt.xticks(years, rotation=45)
+plt.xticks(years)
 
 # Add legend
-plt.legend()
+plt.legend(fontsize = 8)
 
 # Show the grid and plot
 plt.grid(True)
@@ -399,7 +402,7 @@ bar_width = 0.3
 x = np.arange(len(years))
 
 # Initiate figure
-plt.figure(figsize=(13.8, 9))
+plt.figure(figsize=(6.9, 4.5))
 
 # Add gfc data to figure
 plt.bar(x - bar_width/2, gfc_rdif, width=bar_width, label='GFC Deforestation', 
@@ -411,10 +414,10 @@ plt.bar(x + bar_width/2, tmf_rdif, width=bar_width, label='TMF Deforestation',
 
 # Add axes lables
 plt.xlabel('Year')
-plt.ylabel('Difference between Non-REDD+ and REDD+ Deforestation (%)')
+plt.ylabel('Difference b/w Non-REDD+ and REDD+ Deforestation (%)')
 
 # Add title
-plt.title('Estimated counterfactual deforestation (2013-2023)')
+plt.title('Estimated deforestation (2013-2023)')
 
 # Add legend
 plt.legend()

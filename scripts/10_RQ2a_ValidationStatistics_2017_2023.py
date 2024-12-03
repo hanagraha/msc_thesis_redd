@@ -65,6 +65,16 @@ blue3 = "#83B4FF"
 blue4 = "#87C4FF"
 bluecols = [blue1, blue2, blue3]
 
+# other colors test
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
+
+blue1 = "brown"
+blue2 = "dodgerblue"
+blue3 = "darkgreen"
+
 # Define dataset labels
 yearlabs = [0] + list(years)
 
@@ -393,7 +403,7 @@ def steh_dual_lineplt(datalist, datanames):
         # Add data and error bars
         axes[0].errorbar(data['year'], data['ua'], yerr=data['se_ua'], fmt='-o', 
                          color=col, capsize=5, elinewidth=1, ecolor=col, 
-                         label=name)
+                         label=name, linewidth = 2)
     
     # Add gridlines
     axes[0].grid(True, linestyle="--")
@@ -417,7 +427,7 @@ def steh_dual_lineplt(datalist, datanames):
         # Add data and error bars
         axes[1].errorbar(data['year'], data['pa'], yerr=data['se_pa'], fmt='-o', 
                          color=col, capsize=5, elinewidth=1, ecolor=col, 
-                         label=name)
+                         label=name, linewidth = 2)
     
     # Add gridlines
     axes[1].grid(True, linestyle="--")

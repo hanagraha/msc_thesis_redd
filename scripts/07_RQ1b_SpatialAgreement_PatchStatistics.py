@@ -332,7 +332,7 @@ patch_freq = disagree_binned + agree_binned
 def agratio_plot(df, yearrange):
 
     # Initiate figure
-    plt.figure(figsize=(13.8, 9))
+    plt.figure(figsize=(6.9, 4.5))
     
     # Iterate over each column (series)
     for lab in df.columns:

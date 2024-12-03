@@ -2198,3 +2198,154 @@ Note: this segment takes ~ 1 hour 33 minutes to run!!
 
 # # Define color palette
 # colors = gen_colors("#091057", "#bdd7e7")
+
+
+# def shapecheck(path_dict, ref_img):
+
+#     # Read reference image
+#     with rasterio.open(ref_img) as rast:
+        
+#         # Extract shape of image
+#         ref_shape = rast.shape
+    
+#     # Iterate over each year and path group
+#     for year, paths in path_dict.items():
+        
+#         # If there are no paths for that year
+#         if not paths: 
+            
+#             # Print statement for skipping
+#             print(f"No rasters for year {year}. Skipping...")
+#             print()
+            
+#             # Skip processing for this year
+#             continue
+        
+#         # Create empty dictionary to hold raster shapes and paths
+#         shapes = {}
+        
+#         # Iterate over each path in group
+#         for path in paths:
+            
+#             # Read raster in path
+#             with rasterio.open(path) as rast:
+                
+#                 # Extract raster metadata
+#                 shape = rast.shape
+                
+#                 # Add shape to dictionary (if needed)
+#                 if shape not in shapes:
+#                     shapes[shape] = []
+                    
+#                 # Extract basename
+#                 file = os.path.basename(path)
+                
+#                 # Add path to shape key
+#                 shapes[shape].append(file)
+        
+#         # Check if shapes are identical to reference shape
+#         shapecheck = all(shp == ref_shape for shp in shapes)
+        
+#         # Print statement if identical
+#         if shapecheck == True:
+            
+#             # Print statement
+#             print(f"Images from {year} share identical shapes")
+            
+#             # # Extract number of unique shapes and counts
+#             # shape_counts = Counter(shapes)
+            
+#             # # Iterate over each unique shape and count
+#             # for shape, count in shape_counts.items():
+                
+#             #     # Print result
+#             #     print(f"Shape: {shape}, Count: {count}")
+        
+#         # Print statement if not identical
+#         else:
+            
+#             # Print statement
+#             print(f"Images from {year} have different shapes")
+            
+#             # # Extract number of unique shapes and counts
+#             # shape_counts = Counter(shapes)
+            
+#             # # Iterate over each unique shape and count
+#             # for shape, count in shape_counts.items():
+                
+#             #     # Print results
+#             #     print(f"Shape: {shape}, Count: {count}")
+                
+#         for shape, paths in shapes.items():
+            
+#             # Print shapes and counts
+#             print(f"Shape: {shape}, Count: {len(paths)}")
+#             print(f"Paths: {paths} \n")
+            
+#         # Print statement to create gap in results
+#         print()
+
+
+
+
+
+
+
+
+
+
+
+
+# # Define function to check shape of rasters
+# def shapecheck(path_dict):
+
+#     # Create empty dictionary to hold shape counts per year
+#     shape_data = {}
+
+#     # Iterate over each year and path group
+#     for year, paths in path_dict.items():
+        
+#         # Initialize counter to hold shapes and counts
+#         shape_counts = Counter()
+        
+#         # Iterate over each filepath
+#         for path in paths:
+            
+#             # Read raster
+#             with rasterio.open(path) as rast:
+                
+#                 # Extract raster shape
+#                 shape = rast.shape
+                
+#                 # Update counter
+#                 shape_counts[shape] += 1
+        
+#         # Iterate over each shape, count pair
+#         for shape, count in shape_counts.items():
+            
+#             # If the shape does not exist in list
+#             if shape not in shape_data:
+                
+#                 # Add empty entry to shape
+#                 shape_data[shape] = {}
+                
+#             # Add count to year, shape entry
+#             shape_data[shape][year] = count
+        
+#         # Fill missing years with 0
+#         for shape in shape_data.keys():
+            
+#             # If the there are no images in year equal to shape
+#             if year not in shape_data[shape]:
+                
+#                 # Add zero to that year, shape
+#                 shape_data[shape][year] = 0
+
+#     # Convert dictionary to dataframe
+#     df = pd.DataFrame(shape_data).fillna(0).astype(int)
+    
+#     # Make index the year
+#     df.index.name = "Year"
+
+#     return df
+

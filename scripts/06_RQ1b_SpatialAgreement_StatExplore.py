@@ -58,7 +58,8 @@ reddcol = "brown"
 nonreddcol = "dodgerblue"
 grnpcol = "darkgreen"
 
-
+reddcol = "#820300"  # Darker Red
+grnpcol = "#4682B4"  # Darker Blue - lighter
 
 ############################################################################
 
@@ -237,13 +238,14 @@ def lineplot(ydata, title, ylab, yaxis, lim_low, lim_up):
 def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     
     # Initialize figure
-    plt.figure(figsize = (13.8, 9))
+    plt.figure(figsize = (6.9, 4.5))
     
     # Plot redd+ data
     plt.plot(years, redd, label = "REDD+", color = reddcol)
     
     # Plot nonredd data
-    plt.plot(years, nonredd, label = "Non-REDD+", color = nonreddcol)
+    plt.plot(years, nonredd, label = "Non-REDD+", color = reddcol, 
+             linestyle = "--")
     
     # Plot grnp data
     plt.plot(years, grnp, label = "GRNP", color = grnpcol)
@@ -262,7 +264,7 @@ def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     plt.legend(loc='best')
     
     # Add x tickmarks
-    plt.xticks(years, rotation=45)
+    plt.xticks(years)
     
     # Adjust yaxis limits
     plt.ylim(lim_low, lim_up)
