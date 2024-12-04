@@ -86,6 +86,7 @@ folder_create(temp_folder)
 folder_create(jan_temp)
 
 
+
 ############################################################################
 
 
@@ -464,174 +465,59 @@ jan_shp2yr_groups = year_groups(jan_shp_groups[jan_shps[1]])
 
 
 ############################################################################
-# Define function to composite image groups
-def create_composite_with_nodata(yearly_dict):
+img1_path = jan_shp2yr_groups[2023][0]
+img2_path = jan_shp2yr_groups[2023][1]
+out = os.path.join(jan_temp, "composite_shp2_2023.tif")
 
-    # Create empty dictionary of composite files
-    composite_files = {}
+with rasterio.open(img1_path) as src_a, rasterio.open(img2_path) as src_b:
     
-    # Iterate over each year and filepath
-    for year, filepaths in yearly_dict.items():
-        
-        # Skip if there are no files for the year
-        if not filepaths:
-            continue
-        
-        # Open all rasters for the year
-        rasters = [rasterio.open(fp) for fp in filepaths]
-
-        # Initialize arrays for QA_PIXEL and bands
-        qa_pixel_stack = []
-        band_stack = []
-
-        # Iterate over each raster
-        for raster in rasters:
-            
-            # Read all bands
-            data = raster.read()
-            
-            # Extract raster nodata value
-            nodata_value = raster.nodata
-            
-            # Extract quality band (QA_PIXEL)
-            qa_band = data[7] 
-            
-            # If there are nodata pixels in layer
-            if nodata_value is not None:
-                
-                # Mask nodata pixels with infinity values
-                qa_band = np.where(qa_band == nodata_value, np.inf, qa_band)
-            
-            # Add quality pixels to stack
-            qa_pixel_stack.append(qa_band)
-            
-            # Read all bands
-            band_stack.append(data) 
-        
-        # Convert
-        qa_pixel_stack = np.array(qa_pixel_stack)  # Shape: (num_layers, height, width)
-        band_stack = np.array(band_stack)  # Shape: (num_layers, num_bands, height, width)
-
-        # Find the index of the layer with the lowest QA_PIXEL value per pixel
-        min_qa_pixel_indices = np.argmin(qa_pixel_stack, axis=0)
-        min_qa_pixel_values = np.min(qa_pixel_stack, axis=0)
-
-        # Create the composite array
-        composite = np.zeros_like(band_stack[0])
-        for b in range(band_stack.shape[1]):  # Iterate over bands
-            composite[b] = band_stack[np.arange(band_stack.shape[0])[:, None, None], b, :, :][min_qa_pixel_indices]
-
-        # Handle NoData (all QA_PIXEL values masked as inf)
-        nodata_mask = np.isinf(min_qa_pixel_values)
-        composite[:, nodata_mask] = rasters[0].nodata  # Set NoData value
-
-        # Save the composite to a new raster file
-        output_path = f"composite_{year}.tif"
-        with rasterio.open(
-            output_path,
-            "w",
-            driver="GTiff",
-            height=reference_shape[0],
-            width=reference_shape[1],
-            count=composite.shape[0],
-            dtype=rasterio.uint8,
-            crs=rasters[0].crs,
-            transform=rasters[0].transform,
-            nodata=rasters[0].nodata,
-        ) as dst:
-            dst.write(composite)
-
-        composite_files[year] = output_path
-
-        # Close raster files
-        for r in rasters:
-            r.close()
-
-    return composite_files
-
-composite_files = {}
-rasterlist = []
-for year, filepaths in jan_shp2yr_groups.items():
+    # Read all bands
+    img1 = src_a.read()
+    img2 = src_b.read()
     
-    # If there are no files for the year
-    if not filepaths: 
-        continue
+    # Extract profile data
+    profile = src_a.profile
     
-    # Open all rasters for the year
-    rasters = [rasterio.open(fp) for fp in filepaths]
-
-    # Initialize arrays for QA_PIXEL and bands
-    qa_pixel_stack = []
-    band_stack = []
-
-    for raster in rasters:
-        
-        # Read all bands
-        data = raster.read() 
-        
-        # Get nodata value for raster
-        nodata_value = raster.nodata 
-        
-        # Extract 8th band (QA_PIXEL)
-        qa_band = data[7]
-        
-        # Mask NoData values in the QA band
-        if nodata_value is not None:
-            
-            # Assign infinity where QA band is nodata
-            qa_band = np.where(qa_band == nodata_value, np.inf, qa_band)
-        
-        # Add qa band to list
-        qa_pixel_stack.append(qa_band)
-        
-        # Add all bands to list
-        band_stack.append(data)
-
-    # Convert qa band list to array (shape: number of layers, height, width)
-    qa_pixel_stack = np.array(qa_pixel_stack)
+    # Extract pixel quality data
+    qa1 = img1[7]
+    qa2 = img2[7]
     
-    # Convert band list to array (shape: number of layers, number of bands, height, width)
-    band_stack = np.array(band_stack)
-
-    # Extract layer index with lowest QA_PIXEL value (per pixel)
-    min_qa_pixel_indices = np.argmin(qa_pixel_stack, axis=0)
+    # Prepare output array
+    combined = np.zeros_like(img1, dtype=img1.dtype)
     
-    # Extract lowest QA PIXEL value
-    min_qa_pixel_values = np.min(qa_pixel_stack, axis=0)
-
-    # Create the composite array
-    composite = np.zeros_like(band_stack[0])
+    # Define mask where both images have data
+    valid_mask = (qa1 != nodata_val) & (qa2 != nodata_val)
     
-    # Iterate over each band
-    for b in range(band_stack.shape[1]):
+    # Apply combination logic across all bands
+    for band in range(img1.shape[0]):
         
-        # Add data to composite image per pixel location
-        composite[b] = band_stack[np.arange(band_stack.shape[0])[:, None, None], b, :, :][min_qa_pixel_indices]
-
-    # Create infinity mask (converted nodata)
-    nodata_mask = np.isinf(min_qa_pixel_values)
+        # Extract band data
+        band1 = img1[band]
+        band2 = img2[band]
+        
+        # If both are NoData, keep NoData
+        combined[band][(qa1 == nodata_val) & (qa2 == nodata_val)] = nodata_val
     
-    # Set nodata value to mask
-    composite[:, nodata_mask] = rasters[0].nodata  
-
-    # Save the composite to a new raster file
-    output_path = os.path.join(jan_temp, f"composite_{year}.tif")
+        # If only image 1 has data keep image 1's pixel values
+        combined[band][(qa1 != nodata_val) & (qa2 == nodata_val)] = band1[
+            (qa1 != nodata_val) & (qa2 == nodata_val)]
     
-    # Write raster file
-    with rasterio.open(output_path, "w", driver="GTiff", 
-                       height=reference_shape[0], width=reference_shape[1], 
-                       count=composite.shape[0], dtype=rasterio.uint8,
-                       crs=rasters[0].crs, transform=rasters[0].transform,
-                       nodata=rasters[0].nodata,) as dst:
-                            dst.write(composite)
+        # If only image 2 has data keep image 2's pixel values
+        combined[band][(qa1 == nodata_val) & (qa2 != nodata_val)] = band2[
+            (qa1 == nodata_val) & (qa2 != nodata_val)]
+    
+        # If both have data, take the minimum value for this band
+        combined[band][valid_mask] = np.where(qa1[valid_mask] < qa2[valid_mask],
+                                              band1[valid_mask], band2[valid_mask])
 
-    composite_files[year] = output_path
+with rasterio.open(out, 'w', **profile) as dst:
+    dst.write(combined)
 
-    # Close raster files
-    for r in rasters:
-        r.close()
 
-return composite_files
+
+
+
+
 
 
 
