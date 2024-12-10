@@ -45,6 +45,8 @@ nodata_val = 255
 # Define years of interest
 years = range(2013, 2025)
 
+# Define 
+
 
 
 ############################################################################
@@ -78,6 +80,16 @@ epsg_string = f"EPSG:{villages_epsg}"
 # Create aoi
 aoi = gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True)).dissolve()
 
+# Download aoi as shapefile
+aoi_gdf = aoi[['geometry']]
+
+aoi_gdf = aoi_gdf.to_crs(epsg=4326)
+
+# Specify the path where you want to save the shapefile
+outfilepath = os.path.join("data", "village polygons", "villages_simple.shp")
+
+# Export as shapefile
+aoi_gdf.to_file(outfilepath)
 
 
 ############################################################################
@@ -285,6 +297,18 @@ mosaics = []
 # Iterate over each ee list
 for eelist in cc15_collection:
     
+    # Iterate over each ee list in ee.ee_list.List
+    for eecoll in eelist:
+    
+        # Check if the list is empty
+        if eecoll.size().getInfo() == 0:
+            
+            # Print statement
+            print("Empty list encountered.")
+            
+            # Skip empty lists
+            continue
+        
     # Apply mosaic function
     ee_mosaic = mosaic(eelist)
     
@@ -293,6 +317,8 @@ for eelist in cc15_collection:
     
 # Export mosaics to google drive
 mosaic_export(mosaics, "Jan", "GEE_Jan_Mosaics")
+
+
 
 ############################################################################
 
@@ -369,4 +395,9 @@ bands = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', "QA_PIXE
 
 # Download january images
 month_imgs(cc15_collection[0], bands, "GEE_Landsat_Jan_cc30")
+
+
+
+## Quick reformatting 
+with 
 
