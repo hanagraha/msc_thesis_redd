@@ -6,6 +6,1029 @@ Created on Wed Sep  4 16:39:18 2024
 """
 
 
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Dec 10 15:49:58 2024
+
+@author: hanna
+"""
+
+############################################################################
+
+
+# IMPORT PACKAGES
+
+
+############################################################################
+
+import os
+import geopandas as gpd
+from dash import Dash, dcc, html, Input, Output
+import plotly.express as px
+import pandas as pd
+import rasterio
+import matplotlib.pyplot as plt
+from shapely.geometry import box
+from rasterio.mask import mask
+from matplotlib.patches import Rectangle
+import base64
+import io
+import dash
+import numpy as np
+
+
+
+############################################################################
+
+
+# SET UP DIRECTORY AND NODATA
+
+
+############################################################################
+# Check current working directory
+print("Current Working Directory:", os.getcwd())
+
+# Change to a new directory (ADAPT THIS!!!)
+os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+
+# Verify the working directory has been changed
+print("New Working Directory:", os.getcwd())
+
+# Set nodata value
+nodata_val = 255
+
+# Set year range
+years = range(2013, 2025)
+
+# Define landsat data folder
+l8_folder = os.path.join("data", "cc_composites", "L8_Annual")
+
+# Define sentinel data folder
+s2_folder = os.path.join("data", "cc_composites", "S2_Annual")
+
+# Define planet data folder
+planet_folder = os.path.join("data", "cc_composites", "Planet_Feb")
+
+
+
+############################################################################
+
+
+# READ INPUT DATA
+
+
+############################################################################
+# Read landsat data
+l8 = [os.path.join(l8_folder, file) for file in os.listdir(l8_folder) if \
+      file.endswith('.tif')]
+
+# Read sentinel data
+s2 = [os.path.join(s2_folder, file) for file in os.listdir(s2_folder) if \
+      file.endswith('.tif')]
+
+# Read planet data
+planet = [os.path.join(planet_folder, file) for file in os.listdir(planet_folder) \
+          if file.endswith('.tif')]
+    
+# Read validation points
+valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
+
+
+
+############################################################################
+
+
+# SAMPLE DASH SETUP A
+
+
+############################################################################
+# visit: http://127.0.0.1:8050/
+app = Dash()
+
+colors = {
+    'background': '#111111',
+    'text': '#7FDBFF'
+}
+
+df = pd.DataFrame({
+    "Fruit": ["Apples", "Oranges", "Bananas", "Apples", "Oranges", "Bananas"],
+    "Amount": [4, 1, 2, 2, 4, 5],
+    "City": ["SF", "SF", "SF", "Montreal", "Montreal", "Montreal"]
+})
+
+fig = px.bar(df, x="Fruit", y="Amount", color="City", barmode="group")
+
+fig.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text']
+)
+
+app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
+    html.H1(
+        children='Hello Dash',
+        style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }
+    ),
+
+    html.Div(children='Dash: A web application framework for your data.', style={
+        'textAlign': 'center',
+        'color': colors['text']
+    }),
+
+    dcc.Graph(
+        id='example-graph-2',
+        figure=fig
+    )
+])
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+############################################################################
+
+
+# SAMPLE DASH SETUP B
+
+
+############################################################################
+app = Dash(__name__)
+
+df = pd.read_csv("https://raw.githubusercontent.com/Coding-with-Adam/Dash-by-Plotly/master/Other/Dash_Introduction/intro_bees.csv")
+
+df = df.groupby(['State', 'ANSI', 'Affected by', 'Year', 'state_code'])[['Pct of Colonies Impacted']].mean()
+df.reset_index(inplace=True)
+print(df[:5])
+
+# ------------------------------------------------------------------------------
+# App layout
+app.layout = html.Div([
+
+    html.H1("Web Application Dashboards with Dash", style={'text-align': 'center'}),
+
+    dcc.Dropdown(id="slct_year",
+                 options=[
+                     {"label": "2015", "value": 2015},
+                     {"label": "2016", "value": 2016},
+                     {"label": "2017", "value": 2017},
+                     {"label": "2018", "value": 2018}],
+                 multi=False,
+                 value=2015,
+                 style={'width': "40%"}
+                 ),
+
+    html.Div(id='output_container', children=[]),
+    html.Br(),
+
+    dcc.Graph(id='my_bee_map', figure={})
+
+])
+
+
+# ------------------------------------------------------------------------------
+# Connect the Plotly graphs with Dash Components
+@app.callback(
+    [Output(component_id='output_container', component_property='children'),
+     Output(component_id='my_bee_map', component_property='figure')],
+    [Input(component_id='slct_year', component_property='value')]
+)
+def update_graph(option_slctd):
+    print(option_slctd)
+    print(type(option_slctd))
+
+    container = "The year chosen by user was: {}".format(option_slctd)
+
+    dff = df.copy()
+    dff = dff[dff["Year"] == option_slctd]
+    dff = dff[dff["Affected by"] == "Varroa_mites"]
+
+    # Plotly Express
+    fig = px.choropleth(
+        data_frame=dff,
+        locationmode='USA-states',
+        locations='state_code',
+        scope="usa",
+        color='Pct of Colonies Impacted',
+        hover_data=['State', 'Pct of Colonies Impacted'],
+        color_continuous_scale=px.colors.sequential.YlOrRd,
+        labels={'Pct of Colonies Impacted': '% of Bee Colonies'},
+        template='plotly_dark'
+    )
+
+    return container, fig
+
+
+# ------------------------------------------------------------------------------
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
+
+
+# %%
+############################################################################
+
+
+# FUNCTIONS FOR IMAGE PLOTTING
+
+
+############################################################################
+# Define function to create frames for each point
+def point_frame(point_gdf, framesize):
+    
+    # Create empty list to store frames
+    bbox_list = []
+    
+    # Iterate over each point
+    for i in range(len(point_gdf)):
+        
+        # Extract point geometry
+        geom = point_gdf.geometry[i]
+        
+        # Extract pixel bounds
+        minx, miny, maxx, maxy = geom.bounds
+        
+        # Create a rectangular bounding box
+        bbox = box(minx - framesize / 2, miny - framesize / 2, 
+                    maxx + framesize / 2, maxy + framesize / 2)
+        
+        bbox_list.append(bbox)
+    
+    # Copy validation points gdf
+    bbox_gdf = point_gdf.copy()
+    
+    # Add bbox infomration to gdf
+    bbox_gdf['frame'] = bbox_list
+    
+    # Make sure crs stays the same
+    bbox_gdf.crs = point_gdf.crs
+    
+    return bbox_gdf
+
+# Create frames for each validation point
+val_frames = point_frame(valpoints, 500)
+
+# Define function to clip validation data to each frame
+def clip_landsat(l8_raster_pathlist, geom, nodata_value):
+    
+    # Create empty lists to hold clipped arrays and metadata
+    l8_clipped_arrs = []
+    l8_metadata = []
+    
+    # Iterate over rasters
+    for l8_file in l8_raster_pathlist:
+
+        # Read raster
+        with rasterio.open(l8_file) as l8_rast:
+            
+            # Only process the first three bands (RGB)
+            l8_indices = [2, 3, 4]
+            
+            # Mask pixels outside aoi with NoData values
+            l8_raster_clip, l8_out_transform = mask(l8_rast, geom, crop = True, 
+                                                    nodata = nodata_value, 
+                                                    indexes = l8_indices)
+        
+            # Copy metadata
+            l8_out_meta = l8_rast.meta.copy()
+            
+            # Update metadata
+            l8_out_meta.update({
+                'driver': 'GTiff',
+                'dtype': 'uint8',
+                'count': len(l8_indices),
+                'height': l8_raster_clip.shape[1],
+                'width': l8_raster_clip.shape[2],
+                'transform': l8_out_transform,
+                'nodata': nodata_value})
+        
+        # Add clipped array to list
+        l8_clipped_arrs.append(l8_raster_clip)
+        
+        # Add metadata to list
+        l8_metadata.append(l8_out_meta)
+        
+    return l8_clipped_arrs, l8_metadata
+
+# Define function to clip validation data to each frame
+def clip_sentinel(s2_raster_pathlist, geom, nodata_value = 0):
+    
+    # Create empty lists to hold clipped arrays and metadata
+    s2_clipped_arrs = []
+    s2_metadata = []
+    
+    # Iterate over rasters
+    for s2_file in s2_raster_pathlist:
+
+        # Read raster
+        with rasterio.open(s2_file) as s2_rast:
+            
+            # Only process the first three bands (RGB)
+            s2_indices = [16, 17, 18]
+            
+            # Mask pixels outside aoi with NoData values
+            s2_raster_clip, s2_out_transform = mask(s2_rast, geom, crop = True, 
+                                                    nodata = nodata_value, 
+                                                    indexes = s2_indices)
+            
+            # Make sure the nan values have the same nodata value
+            s2_raster_clip_int = np.where(np.isnan(s2_raster_clip), nodata_value, 
+                                          s2_raster_clip).astype(int)
+            
+            # Copy metadata
+            s2_out_meta = s2_rast.meta.copy()
+            
+            # Update metadata
+            s2_out_meta.update({
+                'driver': 'GTiff',
+                'dtype': 'float32',
+                'count': len(s2_indices),
+                'height': s2_raster_clip_int.shape[1],
+                'width': s2_raster_clip_int.shape[2],
+                'transform': s2_out_transform,
+                'nodata': nodata_value})
+        
+        # Add clipped array to list
+        s2_clipped_arrs.append(s2_raster_clip_int)
+        
+        # Add metadata to list
+        s2_metadata.append(s2_out_meta)
+        
+    return s2_clipped_arrs, s2_metadata
+
+# Define function to clip validation data to each frame
+def clip_planet(pl_raster_pathlist, geom, nodata_value):
+    
+    # Create empty lists to hold clipped arrays and metadata
+    pl_clipped_arrs = []
+    pl_metadata = []
+    
+    # Iterate over rasters
+    for pl_file in pl_raster_pathlist:
+
+        # Read raster
+        with rasterio.open(pl_file) as pl_rast:
+            
+            # Only process the first three bands (RGB)
+            pl_indices = [1,2,3]
+            
+            # Mask pixels outside aoi with NoData values
+            pl_raster_clip, pl_out_transform = mask(pl_rast, geom, crop = True, 
+                                                    nodata = nodata_value, 
+                                                    indexes = pl_indices)
+        
+            # Copy metadata
+            pl_out_meta = pl_rast.meta.copy()
+            
+            # Update metadata
+            pl_out_meta.update({
+                'driver': 'GTiff',
+                'dtype': 'uint8',
+                'count': len(pl_indices),
+                'height': pl_raster_clip.shape[1],
+                'width': pl_raster_clip.shape[2],
+                'transform': pl_out_transform,
+                'nodata': nodata_value})
+        
+        # Add clipped array to list
+        pl_clipped_arrs.append(pl_raster_clip)
+        
+        # Add metadata to list
+        pl_metadata.append(pl_out_meta)
+        
+    return pl_clipped_arrs, pl_metadata
+
+# Define function to plot frames based on point
+def landsat_plot(pntindex):
+    
+    # Extract relevant point
+    point = val_frames["geometry"][pntindex]
+    
+    # Extract relevant frame
+    frame = [val_frames["frame"][pntindex]]
+    
+    # Clip validation data to frame and retrieve list of metadata
+    l8_clipped_arrs, l8_metas = clip_landsat(l8, frame, nodata_val)
+    
+    # Transpose clipped array to match format for imshow
+    l8_clipped_rgb_arrs = [l8_arr.transpose(1, 2, 0) for l8_arr in l8_clipped_arrs]
+    
+    # Define labels for subplots
+    l8_labels = list(years)
+    
+    # Initialize figure with 3x4 subplots
+    l8_fig, l8_axs = plt.subplots(1, 12, figsize=(12, 2))
+    
+    # Flatten axes array
+    l8_axs = l8_axs.flatten()
+    
+    # Iterate over axis, arrays, and metadata
+    for l8_i, (l8_rgb_array, l8_meta) in enumerate(zip(l8_clipped_rgb_arrs, l8_metas)):
+        
+        # Display rgb image
+        l8_axs[l8_i].imshow(l8_rgb_array)
+        
+        # Remove axis labels
+        l8_axs[l8_i].axis('off')
+        
+        # Set subplot titles
+        l8_axs[l8_i].set_title(f'{l8_labels[l8_i]}')
+        
+        # Extract specific transform for each year
+        l8_transform = l8_meta['transform']
+        
+        # Calculate pixel size in pixels for each raster
+        pxsize_px = 30 / abs(l8_transform.a)
+        
+        # Convert xy coordinate to image coordinates
+        px, py = ~l8_transform * (point.x, point.y)
+        
+        # Create pixel rectangle
+        rect = Rectangle(
+            (px - pxsize_px / 2, py - pxsize_px / 2),
+            pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+        )
+        
+        # Overlay validation pixel area
+        l8_axs[l8_i].add_patch(rect)
+        
+        # # Remove empty subplot axes
+        # for l8_j in range(len(l8_clipped_rgb_arrs), len(l8_axs)):
+        #     l8_axs[l8_j].axis('off')
+
+    # Show plot
+    plt.tight_layout()
+    # plt.show()
+    
+    return l8_fig
+
+# Define function to plot frames based on point
+def sentinel_plot(pntindex):
+    
+    # Extract relevant point
+    point = val_frames["geometry"][pntindex]
+    
+    # Extract relevant frame
+    frame = [val_frames["frame"][pntindex]]
+    
+    # Clip validation data to frame and retrieve list of metadata
+    s2_clipped_arrs, s2_metas = clip_sentinel(s2, frame)
+    
+    # Transpose clipped array to match format for imshow
+    s2_clipped_rgb_arrs = [s2_arr.transpose(1, 2, 0) for s2_arr in s2_clipped_arrs]
+    
+    # Define labels for subplots
+    s2_labels = list(years)[5:]
+    
+    # Initialize figure with 3x4 subplots
+    s2_fig, s2_axs = plt.subplots(1, 7, figsize=(12, 2))
+    
+    # Flatten axes array
+    s2_axs = s2_axs.flatten()
+    
+    # Iterate over axis, arrays, and metadata
+    for s2_i, (s2_rgb_array, s2_meta) in enumerate(zip(s2_clipped_rgb_arrs, s2_metas)):
+        
+        # Display rgb image
+        s2_axs[s2_i].imshow(s2_rgb_array)
+        
+        # Remove axis labels
+        s2_axs[s2_i].axis('off')
+        
+        # Set subplot titles
+        s2_axs[s2_i].set_title(f'{s2_labels[s2_i]}')
+        
+        # Extract specific transform for each year
+        s2_transform = s2_meta['transform']
+        
+        # Calculate pixel size in pixels for each raster
+        pxsize_px = 30 / abs(s2_transform.a)
+        
+        # Convert xy coordinate to image coordinates
+        px, py = ~s2_transform * (point.x, point.y)
+        
+        # Create pixel rectangle
+        rect = Rectangle(
+            (px - pxsize_px / 2, py - pxsize_px / 2),
+            pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+        )
+        
+        # Overlay validation pixel area
+        s2_axs[s2_i].add_patch(rect)
+        
+        # # Remove empty subplot axes
+        # for s2_j in range(len(s2_clipped_rgb_arrs), len(s2_axs)):
+        #     s2_axs[s2_j].axis('off')
+
+    # # Show plot
+    # plt.tight_layout()
+    # # plt.show()
+    
+    # Create empty BytesIO buffer
+    s2_buffer = io.BytesIO()
+    
+    # Create tight layout
+    plt.tight_layout()
+    
+    # Save figure to buffer as png
+    s2_fig.savefig(s2_buffer, format="png")
+    
+    # Close figure
+    plt.close(s2_fig)
+    
+    # Read buffer from beginning
+    s2_buffer.seek(0)
+    
+    # Encode image to base64 for Dash
+    s2_encoded_image = base64.b64encode(s2_buffer.read()).decode('utf-8')
+    
+    # Close buffer
+    s2_buffer.close()
+    
+    # Return buffer string for <img> tag in Dash
+    return f"data:image/png;base64,{s2_encoded_image}"
+
+# Define function to plot frames based on point
+def planet_plot(pntindex):
+    
+    # Extract relevant point
+    point = val_frames["geometry"][pntindex]
+    
+    # Extract relevant frame
+    frame = [val_frames["frame"][pntindex]]
+    
+    # Clip validation data to frame and retrieve list of metadata
+    pl_clipped_arrs, pl_metas = clip_planet(planet, frame, nodata_val)
+    
+    # Transpose clipped array to match format for imshow
+    pl_clipped_rgb_arrs = [pl_arr.transpose(1, 2, 0) for pl_arr in pl_clipped_arrs]
+    
+    # Define labels for subplots
+    pl_labels = list(years)
+    
+    # Initialize figure with 3x4 subplots
+    pl_fig, pl_axs = plt.subplots(1, 12, figsize=(12, 2))
+    
+    # Flatten axes array
+    pl_axs = pl_axs.flatten()
+    
+    # Iterate over axis, arrays, and metadata
+    for pl_i, (pl_rgb_array, pl_meta) in enumerate(zip(pl_clipped_rgb_arrs, pl_metas)):
+        
+        # Display rgb image
+        pl_axs[pl_i].imshow(pl_rgb_array)
+        
+        # Remove axis labels
+        pl_axs[pl_i].axis('off')
+        
+        # Set subplot titles
+        pl_axs[pl_i].set_title(f'{pl_labels[pl_i]}')
+        
+        # Extract specific transform for each year
+        pl_transform = pl_meta['transform']
+        
+        # Calculate pixel size in pixels for each raster
+        pxsize_px = 30 / abs(pl_transform.a)
+        
+        # Convert xy coordinate to image coordinates
+        px, py = ~pl_transform * (point.x, point.y)
+        
+        # Create pixel rectangle
+        rect = Rectangle(
+            (px - pxsize_px / 2, py - pxsize_px / 2),
+            pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+        )
+        
+        # Overlay validation pixel area
+        pl_axs[pl_i].add_patch(rect)
+        
+        # # Remove empty subplot axes
+        # for pl_j in range(len(pl_clipped_rgb_arrs), len(pl_axs)):
+        #     pl_axs[pl_j].axis('off')
+
+    # Show plot
+    # plt.tight_layout()
+    # plt.show()
+    
+    # return pl_fig
+
+    # Create empty BytesIO buffer
+    pl_buffer = io.BytesIO()
+    
+    # Create tight layout
+    plt.tight_layout()
+    
+    # Save figure to buffer as png
+    pl_fig.savefig(pl_buffer, format="png")
+    
+    # Close figure
+    plt.close(pl_fig)
+    
+    # Read buffer from beginning
+    pl_buffer.seek(0)
+    
+    # Encode image to base64 for Dash
+    pl_encoded_image = base64.b64encode(pl_buffer.read()).decode('utf-8')
+    
+    # Close buffer
+    pl_buffer.close()
+    
+    # Return buffer string for <img> tag in Dash
+    return f"data:image/png;base64,{pl_encoded_image}"
+
+# # Function to create and encode a matplotlib plot (landsat)
+# def create_landsat(val_id):
+
+#     # Create plots for planet    
+#     landsat_plot(val_id)
+    
+#     # Save the plot to a BytesIO buffer
+#     l8_buf = io.BytesIO()
+#     plt.savefig(l8_buf, format="png")
+#     plt.close()
+    
+#     # Convert to base64 string
+#     l8_buf.seek(0)
+#     l8_encoded_image = base64.b64encode(l8_buf.read()).decode('utf-8')
+    
+#     return l8_encoded_image
+
+# # Function to create and encode a matplotlib plot (sentinel)
+# def create_sentinel(val_id):
+
+#     # Create plots for planet    
+#     sentinel_plot(val_id)
+    
+#     # Save the plot to a BytesIO buffer
+#     s2_buf = io.BytesIO()
+#     plt.savefig(s2_buf, format="png")
+#     plt.close()
+    
+#     # Convert to base64 string
+#     s2_buf.seek(0)
+#     s2_encoded_image = base64.b64encode(s2_buf.read()).decode('utf-8')
+    
+#     return s2_encoded_image
+
+# # Function to create and encode a matplotlib plot (planet)
+# def create_planet(val_id):
+
+#     # Create plots for planet    
+#     planet_plot(val_id)
+    
+#     # Save the plot to a BytesIO buffer
+#     pl_buf = io.BytesIO()
+#     plt.savefig(pl_buf, format="png")
+#     plt.close()
+    
+#     # Convert to base64 string
+#     pl_buf.seek(0)
+#     pl_encoded_image = base64.b64encode(pl_buf.read()).decode('utf-8')
+    
+#     return pl_encoded_image
+
+
+
+# %%
+############################################################################
+
+
+# MY DASHBOARD (CLEAN)
+
+
+############################################################################  
+
+# Initiate dashboard
+app = Dash()
+
+# Define dashboard layout
+app.layout = html.Div([
+    
+    # Dashboard heading
+    html.H1("Sample-Based Deforestation Validation Dashboard", style={
+            "font-family": "Arial", "font-size": "36px", "color": "darkslategrey",
+            "text-align": "center"}),
+
+    # Input box for validation point ID
+    html.Div([
+        
+        # Input box label
+        html.Label("Enter Validation Point ID (0-505): ", style={
+            "font-size": "18px", "font-family": "Arial"}),
+        
+        # Input format requirements
+        dcc.Input(id="input-id", type="number", min=0, max=505, step=1, 
+                  value=None, placeholder="Enter ID...", style={"margin-right": 
+                                                                "10px"})
+        
+        # Style for input box
+        ], style={"text-align": "center", "margin-top": "20px"}),
+
+    # Output for displaying validation point info
+    html.Div(id="output-div", style={"text-align": "center", "margin-top": "20px"}),
+    
+    # Visual divider
+    html.Br(), 
+    
+    # Heading for landsat plotting
+    html.H3("Landsat-8 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Visual divider
+    html.Br(), 
+    
+    # Heading for sentinel plotting
+    html.H3("Sentinel-2 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Visual divider
+    html.Br(), 
+    
+    # Heading for planet plotting
+    html.H3("RapidEye (2013-2016) + PlanetScope (2016-2023) Time Series", 
+            style={"font-family": "Arial", "font-size": "24px", "color": 
+                   "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for planet
+    html.Div([
+        html.Img(
+            id="planet-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ])
+    
+])
+
+# Define callback for validation details
+@app.callback(
+    Output("output-div", "children"),
+    Input("input-id", "value")
+)
+
+# Define function to extract validation point info
+def display_validation_point(point_id):
+    
+    # If no input provided
+    if point_id is None:
+        return "Enter a point ID to begin validation."
+    
+    # Check if point_id exists in valpoints
+    if point_id in valpoints.index:
+        
+        # Extract column data for identified valpoint
+        point_data = valpoints.loc[point_id]
+        
+        # Extract point data
+        x_coord = point_data.geometry.x
+        y_coord = point_data.geometry.y
+        
+        return html.Div([
+            html.P(f"Validation Point ID: {point_id}", style={"font-weight": "bold"}),
+            html.P(f"Coordinates: ({x_coord}, {y_coord}), Strata: {point_data.strata}")
+        ])
+    
+    else:
+        return f"Validation Point ID {point_id} does not exist."
+
+# Define callback for planet plotting
+@app.callback(
+    Output("planet-plot", "src"),
+    Input("input-id", "value")
+)
+
+# Define function to plot planet time series
+def update_planet(validation_id):
+    
+    # Check if there is a validation ID
+    if validation_id is None:
+        
+        # Set default ID if no input
+        validation_id = 0
+    
+    # Update plot
+    plot = create_planet(validation_id)
+    
+    # Create output html string
+    html = f"data:image/png;base64,{plot}"
+    
+    return html
+
+# Run/update dashboard
+if __name__ == '__main__':
+    app.run_server(debug=True)
+    
+    
+
+# %%
+############################################################################
+
+
+# MY DASHBOARD (TESTING)
+
+
+############################################################################
+# Initiate dashboard
+app = Dash()
+
+# Define dashboard layout
+app.layout = html.Div([
+    
+    # Dashboard heading
+    html.H1("Sample-Based Deforestation Validation Dashboard", style={
+            "font-family": "Arial", "font-size": "36px", "color": "darkslategrey",
+            "text-align": "center"}),
+
+    # Input box for validation point ID
+    html.Div([
+        
+        # Input box label
+        html.Label("Enter Validation Point ID (0-505): ", style={
+            "font-size": "18px", "font-family": "Arial"}),
+        
+        # Input format requirements
+        dcc.Input(id="input-id", type="number", min=0, max=505, step=1, 
+                  value=None, placeholder="Enter ID...", style={"margin-right": 
+                                                                "10px"})
+        
+        # Style for input box
+        ], style={"text-align": "center", "margin-top": "20px"}),
+
+    # Output for displaying validation point info
+    html.Div(id="output-div", style={"text-align": "center", "margin-top": "20px"}),
+    
+    # Visual divider
+    html.Br(), 
+    
+    # Heading for landsat plotting
+    html.H3("Landsat-8 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for landsat
+    # html.Div([
+    #     html.Img(
+    #         id="landsat-plot",
+    #         src="",  # Will be set by the callback
+    #         style={"width": "100%", "height": "100%"}
+    #     )
+    # ]),
+    
+    # Heading for sentinel plotting
+    html.H3("Sentinel-2 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for sentinel
+    html.Div([
+        html.Img(
+            id="sentinel-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ]),
+    
+    # Heading for planet plotting
+    html.H3("RapidEye (2013-2016) + PlanetScope (2016-2023) Time Series", 
+            style={"font-family": "Arial", "font-size": "24px", "color": 
+                   "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for planet
+    html.Div([
+        html.Img(
+            id="planet-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ])
+    
+])
+
+# Define callback for validation details
+@app.callback(
+    Output("output-div", "children"),
+    Input("input-id", "value")
+)
+
+# Define function to extract validation point info
+def display_validation_point(point_id):
+    
+    # If no input provided
+    if point_id is None:
+        return "Enter a point ID to begin validation."
+    
+    # Check if point_id exists in valpoints
+    if point_id in valpoints.index:
+        
+        # Extract column data for identified valpoint
+        point_data = valpoints.loc[point_id]
+        
+        # Extract point data
+        x_coord = point_data.geometry.x
+        y_coord = point_data.geometry.y
+        
+        return html.Div([
+            html.P(f"Validation Point ID: {point_id}", style={"font-weight": "bold"}),
+            html.P(f"Coordinates: ({x_coord}, {y_coord}), Strata: {point_data.strata}")
+        ])
+    
+    else:
+        return f"Validation Point ID {point_id} does not exist."
+
+# # Callback for landsat plotting
+# @app.callback(
+#     Output("landsat-plot", "src"),
+#     Input("input-id", "value")
+# )
+# def update_landsat(validation_id):
+#     # Set default ID if no input
+#     if validation_id is None:
+#         return ""
+
+#     # Update plot
+#     plot = create_landsat(validation_id)
+    
+#     # Create output html string
+#     html = f"data:image/png;base64,{plot}"
+    
+#     return html
+
+# Callback for sentinel plotting
+@app.callback(
+    Output("sentinel-plot", "src"),
+    Input("input-id", "value")
+)
+def update_sentinel(sentinel_id):
+    # Set default ID if no input
+    if sentinel_id is None:
+        return ""
+    
+    # Create output html string
+    s2html = sentinel_plot(sentinel_id)
+    
+    return s2html
+
+# Callback for planet plotting
+@app.callback(
+    Output("planet-plot", "src"),
+    Input("input-id", "value")
+)
+
+
+def update_planet(planet_id):
+    # Set default ID if no input
+    if planet_id is None:
+        return ""
+
+    # Create output html string
+    phtml = planet_plot(planet_id)
+    
+    return phtml
+
+# Run/update dashboard
+if __name__ == '__main__':
+    app.run_server(debug=True)
+    
+    
+    
+    
+    # %%
+from dash import Dash, html, Input, Output, ctx, callback
+
+app = Dash()
+
+app.layout = html.Div([
+    html.Button('Landsat 8', id='btn-nclicks-1', n_clicks=0),
+    html.Button('Sentinel-2', id='btn-nclicks-2', n_clicks=0),
+    html.Button('RapidEye + PlanetScope', id='btn-nclicks-3', n_clicks=0),
+    html.Div(id='container-button-timestamp')
+])
+
+@callback(
+    Output('container-button-timestamp', 'children'),
+    Input('btn-nclicks-1', 'n_clicks'),
+    Input('btn-nclicks-2', 'n_clicks'),
+    Input('btn-nclicks-3', 'n_clicks')
+)
+def displayClick(btn1, btn2, btn3):
+    msg = "None of the buttons have been clicked yet"
+    if "btn-nclicks-1" == ctx.triggered_id:
+        msg = "Button 1 was most recently clicked"
+    elif "btn-nclicks-2" == ctx.triggered_id:
+        msg = "Button 2 was most recently clicked"
+    elif "btn-nclicks-3" == ctx.triggered_id:
+        msg = "Button 3 was most recently clicked"
+    return html.Div(msg)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+    
+
+
+
+
 ############################################################################
 
 
