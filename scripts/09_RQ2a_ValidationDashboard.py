@@ -82,9 +82,56 @@ planet = [os.path.join(planet_folder, file) for file in os.listdir(planet_folder
 # Read validation points
 valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
 
+# Define default image path (show it is in wdir)
+def_img = "/assets/def_ts_small.png"
+
 
 
 # %%
+
+############################################################################
+
+
+# CALCULATE INDICES
+
+
+############################################################################
+# Iterate over each landsat path
+for path in l8:
+    
+    # Create empty lists to hold indice arrays
+    ndvi_arrs = []
+    ndmi_arrs = []
+    
+    # Read raster
+    with rasterio.open(path) as rast:
+        
+        # Extract nir data
+        nir = rast.read(5)
+        
+        # Extract red data
+        red = rast.read(4)
+        
+        # Extract swir1 data
+        swir1 = rast.read(6)
+        
+        # Calculate ndvi
+        ndvi = (nir - red) / (nir + red)
+        
+        # Calculated ndmi
+        ndmi = (nir - swir1) / (nir + swir1)
+        
+        # Add ndvi to list
+        ndvi_arrs.append(ndvi)
+        
+        # Add ndmi to list
+        ndmi_arrs.append(ndmi)
+
+
+
+
+# %%
+
 ############################################################################
 
 
@@ -294,7 +341,7 @@ def landsat_plot(pntindex):
     frame = [val_frames["frame"][pntindex]]
     
     # Clip validation data to frame and retrieve list of metadata
-    l8_clipped_arrs, l8_metas = clip_landsat(l8, frame, nodata_val)
+    l8_clipped_arrs, l8_metas = clip_landsat(l8, frame)
     
     # Transpose clipped array to match format for imshow
     l8_clipped_rgb_arrs = [l8_arr.transpose(1, 2, 0) for l8_arr in l8_clipped_arrs]
@@ -343,7 +390,7 @@ def landsat_plot(pntindex):
     
     # Create tight layout
     plt.tight_layout()
-    plt.show
+    # plt.show
     
     # Save figure to buffer as png
     l8_fig.savefig(l8_buffer, format="png")
@@ -545,7 +592,7 @@ def planet_plot(pntindex):
 ############################################################################
 
 
-# MY DASHBOARD (CLEAN)
+# MY DASHBOARD (NOO BUTTONS, PLOTS VISIBLE SIMULTANEOUSLY)
 
 
 ############################################################################ 
@@ -586,14 +633,14 @@ app.layout = html.Div([
     html.H3("Landsat-8 Time Series", style={"font-family": "Arial", 
             "font-size": "24px", "color": "slategrey", "text-align": "center"}),
     
-    # # Timeseries plot for landsat
-    # html.Div([
-    #     html.Img(
-    #         id="landsat-plot",
-    #         src="",  # Will be set by the callback
-    #         style={"width": "100%", "height": "100%"}
-    #     )
-    # ]),
+    # Timeseries plot for landsat
+    html.Div([
+        html.Img(
+            id="landsat-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ]),
     
     # Heading for sentinel plotting
     html.H3("Sentinel-2 Time Series", style={"font-family": "Arial", 
@@ -655,23 +702,23 @@ def display_validation_point(point_id):
     else:
         return f"Validation Point ID {point_id} does not exist."
 
-# # Callback for landsat plotting
-# @app.callback(
-#     Output("landsat-plot", "src"),
-#     Input("input-id", "value")
-# )
+# Callback for landsat plotting
+@app.callback(
+    Output("landsat-plot", "src"),
+    Input("input-id", "value")
+)
 
-# # Define function to add landsat plots
-# def update_landsat(landsat_id):
+# Define function to add landsat plots
+def update_landsat(landsat_id):
     
-#     # Set default ID if no input
-#     if landsat_id is None:
-#         return ""
+    # Set default ID if no input
+    if landsat_id is None:
+        return def_img
 
-#     # Update plot
-#     l8html = landsat_plot(landsat_id)
+    # Update plot
+    l8html = landsat_plot(landsat_id)
     
-#     return l8html
+    return l8html
 
 # Callback for sentinel plotting
 @app.callback(
@@ -684,7 +731,7 @@ def update_sentinel(sentinel_id):
     
     # Set default ID if no input
     if sentinel_id is None:
-        return ""
+        return def_img
     
     # Create output html string
     s2html = sentinel_plot(sentinel_id)
@@ -702,7 +749,7 @@ def update_planet(planet_id):
     
     # Set default ID if no input
     if planet_id is None:
-        return ""
+        return def_img
 
     # Create output html string
     plhtml = planet_plot(planet_id)
@@ -720,9 +767,148 @@ if __name__ == '__main__':
 ############################################################################
 
 
-# MY DASHBOARD (TESTING)
+# MY DASHBOARD (WITH BUTTONS, ONE PLOT AT A TIME)
 
 
 ############################################################################
+# Initiate dashboard
+app = Dash()
+
+# Define dashboard layout
+app.layout = html.Div([
+    
+    # Dashboard heading text
+    html.H1("Sample-Based Deforestation Validation Dashboard", 
+            
+            # Heading formatting
+            style={"font-family": "Arial", "font-size": "36px", 
+                   "color": "darkslategrey", "text-align": "center"}),
+
+    # Input box for validation point ID
+    html.Div([
+        
+        # Input box label
+        html.Label("Enter Validation Point ID (0-505): ", style={
+            "font-size": "24px", "font-family": "Arial", "color": "slategrey",
+            "font-weight": "bold"}),
+        
+        # Input format requirements
+        dcc.Input(id="input-id", type="number", min=0, max=505, step=1, 
+                  value=None, placeholder="Enter ID...", style={"font-size": "18px",
+                      "font-family": "Arial", "margin-right": "10px"})
+        
+    ], style={"text-align": "center", "margin-top": "20px"}),
+
+    # Output for displaying validation point info
+    html.Div(id="output-div", style={"text-align": "center", "font-family": "Arial",
+                                     "margin-top": "20px"}),
+
+    # Visual divider
+    html.Br(),
+    
+    # Radio buttons for plot selection
+    html.Div([
+        
+        html.Div([
+            
+            # Create description label before buttons
+            html.Label("Select Time Series Plot:", style={"font-size": "24px", 
+                        "font-family": "Arial", "color": "slategrey", 
+                        "margin-right": "20px", "font-weight": "bold"}),
+            
+            # Create radio buttons
+            dcc.RadioItems(
+            
+                id="plot-selector",
+                
+                # Button options
+                options=[
+                    {"label": "Landsat-8 Time Series", "value": "landsat"},
+                    {"label": "Sentinel-2 Time Series", "value": "sentinel"},
+                    {"label": "RapidEye + PlanetScope Time Series", 
+                     "value": "planet"}], 
+                
+                # Set default selection
+                value="landsat", 
+                
+                # Set buttons side by side
+                inline=True, 
+                
+                # Button text formatting
+                labelStyle = {"font-family": "Arial", "margin-right": "20px", 
+                              "font-size": "18px"}, 
+                
+                # Add spacing between buttons
+                style={"margin-left": "25px", "margin-right": "25px"})], 
+        
+        # Positioning of button section
+        style={"display": "flex", "align-items": "center", "justify-content": 
+                  "center", "margin-top": "10px"})]),
+    
+    # Dynamic image display
+    html.Div([html.Img(id = "time-series-plot", src = def_img, style = 
+                       {"width": "100%", "height": "100%"})])
+])
+
+# Define callback for validation point details
+@app.callback(
+    Output("output-div", "children"),
+    Input("input-id", "value")
+)
+
+# Define function to display point details
+def valpoint_details(point_id):
+    if point_id is None:
+        return "Enter a point ID to begin validation."
+
+    if point_id in valpoints.index:
+        point_data = valpoints.loc[point_id]
+        x_coord = point_data.geometry.x
+        y_coord = point_data.geometry.y
+        return html.Div([
+            html.P(f"Validation Point ID: {point_id}", style={"font-weight": "bold"}),
+            html.P(f"Coordinates: ({x_coord}, {y_coord}), Strata: {point_data.strata}")
+        ])
+    else:
+        return f"Validation Point ID {point_id} does not exist."
+
+# Define callback for time-series plot selection
+@app.callback(
+    Output("time-series-plot", "src"),
+    [Input("input-id", "value"), Input("plot-selector", "value")]
+)
+
+# Define function to display selected time series plot
+def update_plot(point_id, plot_type):
+    
+    # If no point is given
+    if point_id is None:
+        
+        # Print default image
+        return def_img
+    
+    # If landsat is selected
+    if plot_type == "landsat":
+        
+        # Plot landsat time series
+        return landsat_plot(point_id)
+    
+    # If sentinel is selected
+    elif plot_type == "sentinel":
+        
+        # Plot sentinel time series
+        return sentinel_plot(point_id)
+    
+    # If planet is selected
+    elif plot_type == "planet":
+        
+        # Plot planet time series
+        return planet_plot(point_id)
+    
+    return ""
+
+# Run/update dashboard
+if __name__ == '__main__':
+    app.run_server(debug=True)
 
     
