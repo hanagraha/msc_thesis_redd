@@ -24,6 +24,7 @@ from matplotlib.patches import Rectangle
 import base64
 import io
 import numpy as np
+import plotly.graph_objs as go
 
 
 
@@ -96,15 +97,52 @@ def_img = "/assets/def_ts_small.png"
 
 
 ############################################################################
-# Iterate over each landsat path
-for path in l8:
+# Define function to extract raster values per point
+def extract_val(points_gdf, tiflist, tifnames):
     
-    # Create empty lists to hold indice arrays
-    ndvi_arrs = []
-    ndmi_arrs = []
+    # Copy points gdf
+    gdf = points_gdf.copy()
+    
+    # Iterate over each tif file
+    for tif, name in zip(tiflist, tifnames):
+        
+        # Create empty list to store pixel values
+        pix_vals = []
+        
+        # Read tif file
+        with rasterio.open(tif) as src:
+        
+            # Iterate over each point
+            for pnt in gdf.geometry:
+                
+                # Get row and column indices
+                row, col = src.index(pnt.x, pnt.y)
+                
+                # Extract pixel value at point location
+                pix_val = src.read(1)[row, col]
+                
+                # Append pixel value to list
+                pix_vals.append(pix_val)
+            
+        # Add new column to geodataframe
+        gdf[name] = pix_vals
+        
+    return gdf
+
+# Create empty list to store ndvi files
+ndvi_files = []
+
+# Create empty list to store ndmi files
+ndmi_files = []
+    
+# Iterate over each landsat path
+for path, year in zip(l8, years):
     
     # Read raster
     with rasterio.open(path) as rast:
+        
+        # Extract profile
+        profile = rast.profile
         
         # Extract nir data
         nir = rast.read(5)
@@ -115,18 +153,46 @@ for path in l8:
         # Extract swir1 data
         swir1 = rast.read(6)
         
-        # Calculate ndvi
-        ndvi = (nir - red) / (nir + red)
+        # Update profile for indices
+        profile["count"] = 1
         
-        # Calculated ndmi
-        ndmi = (nir - swir1) / (nir + swir1)
+    # Calculate ndvi
+    ndvi = (nir - red) / (nir + red)
+    
+    # Calculated ndmi
+    ndmi = (nir - swir1) / (nir + swir1)
+    
+    # Define output filename for ndvi
+    ndvi_filename = f"data/validation/L8_ndvi_{year}.tif"
+    
+    # Define output filename for ndmi
+    ndmi_filename = f"data/validation/L8_ndmi_{year}.tif"
         
-        # Add ndvi to list
-        ndvi_arrs.append(ndvi)
+    # Write ndvi file to drive
+    with rasterio.open(ndvi_filename, "w", **profile) as dst:
+        dst.write(ndvi, 1)
         
-        # Add ndmi to list
-        ndmi_arrs.append(ndmi)
+    # Write ndmi file to drive
+    with rasterio.open(ndmi_filename, "w", **profile) as dst:
+        dst.write(ndmi, 1)
 
+    # Add ndvi filename to list
+    ndvi_files.append(ndvi_filename)
+    
+    # Add ndmi filename to list
+    ndmi_files.append(ndmi_filename)
+
+# Create list for yearly ndvi labels
+ndvi_labs = [f"ndvi_{year}" for year in years]
+
+# Create list for yearly ndvi labels
+ndmi_labs = [f"ndmi_{year}" for year in years]
+
+# Extract ndvi values at validation points
+pnt_ndvi = extract_val(valpoints, ndvi_files, ndvi_labs)
+
+# Extract ndvi values at validation points
+pnt_ndmi = extract_val(valpoints, ndmi_files, ndmi_labs)
 
 
 
@@ -776,32 +842,76 @@ app = Dash()
 
 # Define dashboard layout
 app.layout = html.Div([
-    
-    # Dashboard heading text
-    html.H1("Sample-Based Deforestation Validation Dashboard", 
-            
-            # Heading formatting
-            style={"font-family": "Arial", "font-size": "36px", 
-                   "color": "darkslategrey", "text-align": "center"}),
+
+    # Dashboard heading
+    html.H1("Sample-Based Deforestation Validation Dashboard", style={
+            "font-family": "Arial", "font-size": "36px", "color": "darkslategrey",
+            "text-align": "center"}),
 
     # Input box for validation point ID
     html.Div([
-        
+
         # Input box label
         html.Label("Enter Validation Point ID (0-505): ", style={
-            "font-size": "24px", "font-family": "Arial", "color": "slategrey",
-            "font-weight": "bold"}),
-        
-        # Input format requirements
-        dcc.Input(id="input-id", type="number", min=0, max=505, step=1, 
-                  value=None, placeholder="Enter ID...", style={"font-size": "18px",
-                      "font-family": "Arial", "margin-right": "10px"})
-        
-    ], style={"text-align": "center", "margin-top": "20px"}),
+            "font-size": "18px", "font-family": "Arial"}),
 
-    # Output for displaying validation point info
-    html.Div(id="output-div", style={"text-align": "center", "font-family": "Arial",
-                                     "margin-top": "20px"}),
+        # Input box
+        dcc.Input(
+            id="input-id",
+            type="number",
+            min=0,
+            max=505,
+            step=1,
+            value=None,
+            placeholder="Enter ID...",
+            style={"margin-right": "10px"}
+        ),
+
+    ], style={"text-align": "center", "margin-top": "20px"}),
+    
+    # Visual divider
+    html.Br(),
+    
+    # Radio buttons for indice selection
+    html.Div([
+        
+        html.Div([
+            
+            # Create description label before buttons
+            html.Label("Select Indice for Time Series:", style={"font-size": "24px", 
+                        "font-family": "Arial", "color": "slategrey", 
+                        "margin-right": "20px", "font-weight": "bold"}),
+            
+            # Create radio buttons
+            dcc.RadioItems(
+            
+                id="indice-selector",
+                
+                # Button options
+                options=[
+                    {"label": "NDMI", "value": "ndmi"},
+                    {"label": "NDVI", "value": "ndvi"}], 
+                
+                # Set default selection
+                value="ndmi", 
+                
+                # Set buttons side by side
+                inline=True, 
+                
+                # Button text formatting
+                labelStyle = {"font-family": "Arial", "margin-right": "20px", 
+                              "font-size": "18px"}, 
+                
+                # Add spacing between buttons
+                style={"margin-left": "25px", "margin-right": "25px"})], 
+        
+        # Positioning of button section
+        style={"display": "flex", "align-items": "center", "justify-content": 
+                  "center", "margin-top": "10px"})]),
+
+    # Graph output
+    dcc.Graph(id="indice-plot", style={"margin-top": "0px", "margin": "0 auto",
+                                       "width": "80%"}),
 
     # Visual divider
     html.Br(),
@@ -812,7 +922,7 @@ app.layout = html.Div([
         html.Div([
             
             # Create description label before buttons
-            html.Label("Select Time Series Plot:", style={"font-size": "24px", 
+            html.Label("Select Imagery Source:", style={"font-size": "24px", 
                         "font-family": "Arial", "color": "slategrey", 
                         "margin-right": "20px", "font-weight": "bold"}),
             
@@ -847,30 +957,89 @@ app.layout = html.Div([
     
     # Dynamic image display
     html.Div([html.Img(id = "time-series-plot", src = def_img, style = 
-                       {"width": "100%", "height": "100%"})])
+                       {"width": "80%", "height": "100%", "margin-top": "10px",
+                        "display": "block", "margin": "0 auto"})]),
+    
+    # Visual divider
+    html.Br()
+    
 ])
 
 # Define callback for validation point details
 @app.callback(
-    Output("output-div", "children"),
-    Input("input-id", "value")
+    Output("indice-plot", "figure"),
+    Input("input-id", "value"),
+    Input("indice-selector", "value")
 )
 
 # Define function to display point details
-def valpoint_details(point_id):
+def indice_plotting(point_id, indice):
+    
+    # If no valid point id provided
     if point_id is None:
-        return "Enter a point ID to begin validation."
+        
+        # Return empty figure
+        return go.Figure()
+    
+    # If NDVI is selected
+    if indice == 'ndvi':
+        indice_row = pnt_ndvi.iloc[point_id]
+        labs = ndvi_labs
+        ylab = "NDVI"
+        
+    # If NDMI is selected
+    elif indice == 'ndmi':
+        indice_row = pnt_ndmi.iloc[point_id]
+        labs = ndmi_labs
+        ylab = "NDMI"
+    
+    # Extract ndvi values for selected point
+    indice_vals = [indice_row[col] for col in labs]
 
-    if point_id in valpoints.index:
-        point_data = valpoints.loc[point_id]
-        x_coord = point_data.geometry.x
-        y_coord = point_data.geometry.y
-        return html.Div([
-            html.P(f"Validation Point ID: {point_id}", style={"font-weight": "bold"}),
-            html.P(f"Coordinates: ({x_coord}, {y_coord}), Strata: {point_data.strata}")
-        ])
-    else:
-        return f"Validation Point ID {point_id} does not exist."
+    # Create line plot
+    fig = go.Figure(
+        
+        # Define input data
+        data=[
+            
+            # Initialize scatter plotting
+            go.Scatter(
+                
+                # Set x data to years
+                x = list(years),
+                
+                # Set y data to ndvi value
+                y = indice_vals,
+                
+                # Connect with lines
+                mode = "lines",
+                
+                # Make line green
+                line = dict(color="darkslategrey"),
+                
+                # Add data label
+                name = ylab
+            )
+        ],
+        
+        # Adjust plot layout
+        layout=go.Layout(
+ 
+            # Set x axis label
+            xaxis = dict(title="Year", tickmode="linear", tick0=2013, dtick=1),
+            
+            # Set y axis label
+            yaxis = dict(title=ylab),
+            
+            # Use template
+            template = "plotly_white",
+            
+            # Remove unnecessary margin or padding
+            margin=dict(t=0)
+        )
+    )
+
+    return fig
 
 # Define callback for time-series plot selection
 @app.callback(
@@ -879,7 +1048,7 @@ def valpoint_details(point_id):
 )
 
 # Define function to display selected time series plot
-def update_plot(point_id, plot_type):
+def ts_plotting(point_id, plot_type):
     
     # If no point is given
     if point_id is None:
