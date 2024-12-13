@@ -5,7 +5,182 @@ Created on Wed Sep  4 16:39:18 2024
 @author: hanna
 """
 
+# %%
+############################################################################
 
+
+# MY DASHBOARD (NOO BUTTONS, PLOTS VISIBLE SIMULTANEOUSLY)
+
+
+############################################################################ 
+ 
+# Initiate dashboard
+app = Dash()
+
+# Define dashboard layout
+app.layout = html.Div([
+    
+    # Dashboard heading
+    html.H1("Sample-Based Deforestation Validation Dashboard", style={
+            "font-family": "Arial", "font-size": "36px", "color": "darkslategrey",
+            "text-align": "center"}),
+
+    # Input box for validation point ID
+    html.Div([
+        
+        # Input box label
+        html.Label("Enter Validation Point ID (0-505): ", style={
+            "font-size": "18px", "font-family": "Arial"}),
+        
+        # Input format requirements
+        dcc.Input(id="input-id", type="number", min=0, max=505, step=1, 
+                  value=None, placeholder="Enter ID...", style={"margin-right": 
+                                                                "10px"})
+        
+        # Style for input box
+        ], style={"text-align": "center", "margin-top": "20px"}),
+
+    # Output for displaying validation point info
+    html.Div(id="output-div", style={"text-align": "center", "margin-top": "20px"}),
+    
+    # Visual divider
+    html.Br(), 
+    
+    # Heading for landsat plotting
+    html.H3("Landsat-8 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for landsat
+    html.Div([
+        html.Img(
+            id="landsat-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ]),
+    
+    # Heading for sentinel plotting
+    html.H3("Sentinel-2 Time Series", style={"font-family": "Arial", 
+            "font-size": "24px", "color": "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for sentinel
+    html.Div([
+        html.Img(
+            id="sentinel-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ]),
+    
+    # Heading for planet plotting
+    html.H3("RapidEye (2013-2016) + PlanetScope (2016-2023) Time Series", 
+            style={"font-family": "Arial", "font-size": "24px", "color": 
+                   "slategrey", "text-align": "center"}),
+    
+    # Timeseries plot for planet
+    html.Div([
+        html.Img(
+            id="planet-plot",
+            src="",  # Will be set by the callback
+            style={"width": "100%", "height": "100%"}
+        )
+    ])
+    
+])
+
+# Define callback for validation details
+@app.callback(
+    Output("output-div", "children"),
+    Input("input-id", "value")
+)
+
+# Define function to extract validation point info
+def display_validation_point(point_id):
+    
+    # If no input provided
+    if point_id is None:
+        return "Enter a point ID to begin validation."
+    
+    # Check if point_id exists in valpoints
+    if point_id in valpoints.index:
+        
+        # Extract column data for identified valpoint
+        point_data = valpoints.loc[point_id]
+        
+        # Extract point data
+        x_coord = point_data.geometry.x
+        y_coord = point_data.geometry.y
+        
+        return html.Div([
+            html.P(f"Validation Point ID: {point_id}", style={"font-weight": "bold"}),
+            html.P(f"Coordinates: ({x_coord}, {y_coord}), Strata: {point_data.strata}")
+        ])
+    
+    else:
+        return f"Validation Point ID {point_id} does not exist."
+
+# Callback for landsat plotting
+@app.callback(
+    Output("landsat-plot", "src"),
+    Input("input-id", "value")
+)
+
+# Define function to add landsat plots
+def update_landsat(landsat_id):
+    
+    # Set default ID if no input
+    if landsat_id is None:
+        return def_img
+
+    # Update plot
+    l8html = landsat_plot(landsat_id)
+    
+    return l8html
+
+# Callback for sentinel plotting
+@app.callback(
+    Output("sentinel-plot", "src"),
+    Input("input-id", "value")
+)
+
+# Define function to add sentinel plots
+def update_sentinel(sentinel_id):
+    
+    # Set default ID if no input
+    if sentinel_id is None:
+        return def_img
+    
+    # Create output html string
+    s2html = sentinel_plot(sentinel_id)
+    
+    return s2html
+
+# Callback for planet plotting
+@app.callback(
+    Output("planet-plot", "src"),
+    Input("input-id", "value")
+)
+
+# Define function to add planet plots
+def update_planet(planet_id):
+    
+    # Set default ID if no input
+    if planet_id is None:
+        return def_img
+
+    # Create output html string
+    plhtml = planet_plot(planet_id)
+    
+    return plhtml
+
+# Run/update dashboard
+if __name__ == '__main__':
+    app.run_server(debug=True)
+    
+    
+    
+
+# %%
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 10 15:49:58 2024
