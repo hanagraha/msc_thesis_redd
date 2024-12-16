@@ -3,6 +3,8 @@
 Created on Fri Dec 13 17:15:56 2024
 
 @author: hanna
+
+start time: 1:56
 """
 
 ############################################################################
@@ -80,7 +82,7 @@ l8_jan = [os.path.join(l8_jan_folder, file) for file in os.listdir(l8_jan_folder
 l8_jan.insert(0, l8[0])
     
 # Read validation points
-valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
+valpoints = gpd.read_file("data/validation/validation_points.shp")
 
 
 
@@ -161,8 +163,8 @@ def calc_ndmi(l8_path, years):
         # Calculate ndvi
         ndmi = (nir - swir1) / (nir + swir1)
         
-        # Define output filename for ndvi
-        ndmi_filename = f"data/validation/L8_ndmi_{year}.tif"
+        # Define output filename for ndmi
+        ndmi_filename = os.path.join(temp_folder, f"L8_ndmi_{year}.tif")
             
         # Write ndvi file to drive
         with rasterio.open(ndmi_filename, "w", **profile) as dst:
@@ -224,7 +226,7 @@ ann_ndvi = extract_val(valpoints, ndvi_files, ndvi_labs)
 ndmi_files = calc_ndmi(l8, years)
 
 # Create list for yearly ndvi labels
-ndmi_labs = [f"ndvi_{year}" for year in years]
+ndmi_labs = [f"ndmi_{year}" for year in years]
 
 # Extract ndvi values at validation points
 ann_ndmi = extract_val(valpoints, ndmi_files, ndmi_labs)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct  4 17:50:37 2024
+Created on Mon Dec 16 14:53:21 2024
 
 @author: hanna
 """
@@ -300,7 +300,7 @@ rast_write(nogrnp_stratarr, "stratification_layer_nogrnp.tif", out_dir, profile)
 ############################################################################
 
 
-# RANDOM SAMPLING PER STRATA (ALL STRATA)
+# RANDOM SAMPLING PER STRATA
 
 
 ############################################################################
@@ -308,17 +308,9 @@ rast_write(nogrnp_stratarr, "stratification_layer_nogrnp.tif", out_dir, profile)
 This thesis validation methodology will sample 22 points per 23 strata, 
 creating 506 total validation points
 """
-
-# Read stratification array to avoid re-running code
-with rasterio.open("data/intermediate/stratification_layer_nogrnp.tif") as rast:
-    nogrnp_stratarr = rast.read(1)
-
 # Define function to sample points from array
 def strat_sample(array, sample_size, transform, profile, min_strata = None, 
-                 max_strata = None, random_state=None):
-    
-    # Set local random generator with given random state (for reproducibility)
-    rng = np.random.default_rng(random_state)
+                 max_strata = None):
     
     # Identify number of clasess
     classnum = len(np.unique(array))
@@ -352,7 +344,7 @@ def strat_sample(array, sample_size, transform, profile, min_strata = None,
         else:
             
             # Take random sample
-            selected_indices = pixel_indices[rng.choice(
+            selected_indices = pixel_indices[np.random.choice(
                 pixel_indices.shape[0], sample_size, replace=False)]
             
         # Iterate over each pixel index
@@ -382,23 +374,19 @@ def shp_write(gdf, filename, out_dir):
     gdf.to_file(output_filepath)
     
 # Create sample points from stratified array
-points_22 = strat_sample(nogrnp_stratarr, 22, transform, profile, random_state=33)
+sample_points = strat_sample(nogrnp_stratarr, 22, transform, profile)
 
 # Write sample points to file
-# shp_write(points_22, "validation_points_geometry.shp", val_dir)
+shp_write(sample_points, "validation_points_geometry.shp", val_dir)
 
 
-
-############################################################################
-
-
-# RANDOM SAMPLING PER STRATA (7-23)
-
-
-############################################################################
 """
 Also try a strategy only sampling from 2016-2023, strata7-23, 17 total)
 """
+# Create sample points from subsection of stratified array
+points_strata7up = strat_sample(nogrnp_stratarr, 30, transform, profile,
+                                min_strata = 7)
+
 # Define function to replace already sampled points
 def pnt_replace(gdf1, gdf2):
     
@@ -448,49 +436,11 @@ def pnt_replace(gdf1, gdf2):
             
     return updated_gdf2
 
-# Create sample points from subsection of stratified array
-points_strata7up = strat_sample(nogrnp_stratarr, 30, transform, profile,
-                                min_strata = 7, random_state = 33)
-
 # Merge original sample points to new dataset
-sample_points_strata7up = pnt_replace(points_22, points_strata7up)
+sample_points_strata7up = pnt_replace(sample_points, points_strata7up)
 
 # Write sample points to file
-shp_write(sample_points_strata7up, "validation_points_geometry_minstrata7.shp", 
-          val_dir)
-
-
-
-############################################################################
-
-
-# RANDOM SAMPLING PER STRATA (1-6)
-
-
-############################################################################
-"""
-Also try a strategy sampling 30 points from 2013-2015)
-"""
-# Create sample points from subsection of stratified array
-points_strata6down = strat_sample(nogrnp_stratarr, 30, transform, profile,
-                                  max_strata = 6, random_state = 33)
-
-# Merge original sample points to strata6down dataset
-sample_points_strata6down = pnt_replace(points_22, points_strata6down)
-
-# Merge strata7up sample points to strata6down dataset
-sample_points_strata6down_2 = pnt_replace(sample_points_strata7up, points_strata6down)
-
-# Combine strata7up and strata6down
-points_30 = gpd.GeoDataFrame(pd.concat([sample_points_strata6down, 
-                                        sample_points_strata7up], 
-                                       ignore_index=True))
-
-# Create sample points with 30 points per strata
-points_30 = strat_sample(nogrnp_stratarr, 30, transform, profile, random_state = 33)
-
-# Write sample points to file
-shp_write(points_30, "validation_points.shp", val_dir)
+shp_write(sample_points_strata7up, "validation_points_geometry_minstrata7.shp", val_dir)
 
 
 ############################################################################
@@ -554,15 +504,13 @@ tiflist = [gfc_lossyear_path, tmf_defordegra_path, sensitive_early_path]
 tifnames = ['gfc', 'tmf', 'se']
 
 # Extract raster values
-valpoints = extract_val(points_30, tiflist, tifnames)
+valpoints = extract_val(sample_points, tiflist, tifnames)
 
 # Write points to file
 write_csv(valpoints, val_dir, "validation_points_labelling")
 
-# # Extract raster values for strata 7+ points
-# valpoints_strata7up = extract_val(sample_points_strata7up, tiflist, tifnames)
+# Extract raster values for strata 7+ points
+valpoints_strata7up = extract_val(sample_points_strata7up, tiflist, tifnames)
 
-# # Write points to file
-# write_csv(valpoints_strata7up, val_dir, "validation_points_labelling_minstrata7")
-
-
+# Write points to file
+write_csv(valpoints_strata7up, val_dir, "validation_points_labelling_minstrata7")

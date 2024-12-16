@@ -96,7 +96,7 @@ planet = [os.path.join(planet_folder, file) for file in os.listdir(planet_folder
           if file.endswith('.tif')]
     
 # Read validation points
-valpoints = gpd.read_file("data/validation/validation_points_geometry.shp")
+valpoints = gpd.read_file("data/validation/validation_points.shp")
 
 # Define default image path (show it is in wdir)
 def_img = "/assets/def_ts_small.png"
@@ -593,7 +593,7 @@ app.layout = html.Div([
     html.Div([
 
         # Input box label
-        html.Label("Enter Validation Point ID (0-505): ", style={
+        html.Label("Enter Validation Point ID (0-689): ", style={
             "font-size": "18px", "font-family": "Arial"}),
 
         # Input box
@@ -601,7 +601,7 @@ app.layout = html.Div([
             id="input-id",
             type="number",
             min=0,
-            max=505,
+            max=689,
             step=1,
             value=None,
             placeholder="Enter ID...",
@@ -804,11 +804,23 @@ def ts_plotting(point_id, plot_type):
         # Plot landsat time series
         return landsat_plot(point_id, l8)
     
+    # If landsat (jan) is selected
+    if plot_type == "landsat_jan":
+        
+        # Plot landsat time series
+        return landsat_plot(point_id, l8_jan)
+    
     # If sentinel is selected
     elif plot_type == "sentinel":
         
         # Plot sentinel time series
         return sentinel_plot(point_id, s2)
+    
+    # If sentinel (jan) is selected
+    if plot_type == "sentinel_jan":
+        
+        # Plot landsat time series
+        return landsat_plot(point_id, s2_jan)
     
     # If planet is selected
     elif plot_type == "planet":
