@@ -313,6 +313,7 @@ def clip_planet(pl_raster_pathlist, geom, nodata_value):
         
     return pl_clipped_arrs, pl_metadata
 
+
 # Define function to plot frames based on point
 def landsat_plot(pntindex, l8):
     
@@ -331,41 +332,60 @@ def landsat_plot(pntindex, l8):
     # Define labels for subplots
     l8_labels = list(years)
     
+    # Create dictionary to hold l8 data
+    l8_dic = {2013 + i: (arr, meta, label) for i, (arr, meta, label) in
+              enumerate(zip(l8_clipped_rgb_arrs, l8_metas, l8_labels))}
+
     # Initialize figure with 3x4 subplots
     l8_fig, l8_axs = plt.subplots(2, 6, figsize=(12, 4))
     
     # Flatten axes array
     l8_axs = l8_axs.flatten()
     
-    # Iterate over axis, arrays, and metadata
-    for l8_i, (l8_rgb_array, l8_meta) in enumerate(zip(l8_clipped_rgb_arrs, l8_metas)):
+    # Iterate over years in full range (2013-2024)
+    for i, year in enumerate(list(years)):
         
-        # Display rgb image
-        l8_axs[l8_i].imshow(l8_rgb_array)
+        # Extract corresponding axis
+        ax = l8_axs[i]
         
-        # Remove axis labels
-        l8_axs[l8_i].axis('off')
-        
-        # Set subplot titles
-        l8_axs[l8_i].set_title(f'{l8_labels[l8_i]}')
-        
-        # Extract specific transform for each year
-        l8_transform = l8_meta['transform']
-        
-        # Calculate pixel size in pixels for each raster
-        pxsize_px = 30 / abs(l8_transform.a)
-        
-        # Convert xy coordinate to image coordinates
-        px, py = ~l8_transform * (point.x, point.y)
-        
-        # Create pixel rectangle
-        rect = Rectangle(
-            (px - pxsize_px / 2, py - pxsize_px / 2),
-            pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
-        )
-        
-        # Overlay validation pixel area
-        l8_axs[l8_i].add_patch(rect)
+        # If there is s2 data for that year
+        if year in l8_dic:
+            
+            # Extract data for that year
+            l8_rgb_array, l8_meta, l8_label = l8_dic[year]
+            
+            # Display rgb image
+            ax.imshow(l8_rgb_array)
+            
+            # Extract specific transform for year
+            l8_transform = l8_meta['transform']
+            
+            # Calculate pixel size in pixels for each raster
+            pxsize_px = 30 / abs(l8_transform.a)
+            
+            # Convert xy coordinate to image coordinates
+            px, py = ~l8_transform * (point.x, point.y)
+             
+            # Create pixel rectangle
+            rect = Rectangle(
+                (px - pxsize_px / 2, py - pxsize_px / 2),
+                pxsize_px, pxsize_px, linewidth=1, edgecolor='red', facecolor='none'
+            )
+             
+            # Overlay validation pixel area
+            ax.add_patch(rect)
+     
+            # Set title
+            ax.set_title(f'{l8_label}', fontsize=12)
+            
+        # If there is no s2 data for that year
+        else:
+            
+            # Set title
+            ax.set_title(f'{year}', fontsize=12)
+         
+        # Remove axis labels for all subplots
+        ax.axis('off')
 
     # Create empty BytesIO buffer
     l8_buffer = io.BytesIO()
@@ -392,6 +412,7 @@ def landsat_plot(pntindex, l8):
     # Return buffer string for <img> tag in Dash
     return f"data:image/png;base64,{l8_encoded_image}"
 
+
 # Define function to plot frames based on point
 def sentinel_plot(pntindex, s2):
     
@@ -407,8 +428,12 @@ def sentinel_plot(pntindex, s2):
     # Transpose clipped array to match format for imshow
     s2_clipped_rgb_arrs = [s2_arr.transpose(1, 2, 0) for s2_arr in s2_clipped_arrs]
     
+    # Define start year
+    start_year = 2018 if len(s2) == 7 else 2019
+    
     # Define labels for subplots
-    s2_labels = list(years)[5:]
+    # s2_labels = list(years)[5:]
+    s2_labels = [str(start_year + i) for i in range(len(s2_clipped_rgb_arrs))]
     
     # Initialize figure
     s2_fig, s2_axs = plt.subplots(2, 6, figsize=(12, 4))
@@ -417,7 +442,7 @@ def sentinel_plot(pntindex, s2):
     s2_axs = s2_axs.flatten()
     
     # Create a dictionary mapping year to its data for easier alignment
-    s2_dic = {2018 + i: (arr, meta, label) for i, (arr, meta, label) in
+    s2_dic = {start_year + i: (arr, meta, label) for i, (arr, meta, label) in
               enumerate(zip(s2_clipped_rgb_arrs, s2_metas, s2_labels))}
      
     # Iterate over years in full range (2013-2024)
@@ -454,13 +479,13 @@ def sentinel_plot(pntindex, s2):
             ax.add_patch(rect)
      
             # Set title
-            ax.set_title(f'{s2_label}')
+            ax.set_title(f'{s2_label}', fontsize=12)
             
         # If there is no s2 data for that year
         else:
             
             # Set title
-            ax.set_title(f'{year}', fontsize=10)
+            ax.set_title(f'{year}', fontsize=12)
          
         # Remove axis labels for all subplots
         ax.axis('off')
@@ -488,6 +513,7 @@ def sentinel_plot(pntindex, s2):
     
     # Return buffer string for <img> tag in Dash
     return f"data:image/png;base64,{s2_encoded_image}"
+
 
 # Define function to plot frames based on point
 def planet_plot(pntindex):
@@ -820,7 +846,7 @@ def ts_plotting(point_id, plot_type):
     if plot_type == "sentinel_jan":
         
         # Plot landsat time series
-        return landsat_plot(point_id, s2_jan)
+        return sentinel_plot(point_id, s2_jan)
     
     # If planet is selected
     elif plot_type == "planet":
