@@ -25,8 +25,11 @@ library(mapaccuracy)
 # Set working directory
 setwd("C:/Users/hanna/Documents/WUR MSc/MSc Thesis/redd-thesis")
 
-# Read validation dataset
-valdata <- read.csv("data/validation/validation_points_labelled.csv", sep = ";")
+# Read validation dataset (pre-processed)
+valdata <- read.csv("data/validation/validation_points_preprocessed.csv")
+
+# Read validation dataset (pre-processed)
+valdata_proc <- read.csv("data/validation/validation_points_preprocessed2.csv")
 
 # Read stratification map
 stratdata <- rast("data/intermediate/stratification_layer_nogrnp.tif")
@@ -43,7 +46,7 @@ tmf <- valdata$tmf
 # Extract se predictions
 se <- valdata$se
 
-# Extract validation labels
+# Extract validation labels (for unprocessed)
 val1 <- valdata$defor1
 
 # Calculate number of pixels per strata
@@ -113,17 +116,23 @@ se_stats <- valstats(se, val1, "se")
 
 
 ############################################################################
-# Subtract 1 from all non-0 validation points
-val1_sub1 <- ifelse(val1 == 2013, 0, ifelse(val1 != 0, val1 - 1, 0))
+# Extract gfc processed validation data
+gfc_val <- valdata_proc$gfc_val
+
+# Extract tmf processed validation data
+tmf_val <- valdata_proc$tmf_val
+
+# Extract se processed validation data
+se_val <- valdata_proc$se_val
 
 # Calculate statistics for gfc
-gfc_substats <- valstats(gfc, val1_sub1, "sub_gfc")
+gfc_procstats <- valstats(gfc, gfc_val, "proc2_gfc")
 
 # Calculate statistics for tmf
-tmf_substats <- valstats(tmf, val1_sub1, "sub_tmf")
+tmf_procstats <- valstats(tmf, tmf_val, "proc2_tmf")
 
 # Calculate statistics for se
-se_substats <- valstats(se, val1_sub1, "sub_se")
+se_procstats <- valstats(se, se_val, "proc2_se")
 
 
 

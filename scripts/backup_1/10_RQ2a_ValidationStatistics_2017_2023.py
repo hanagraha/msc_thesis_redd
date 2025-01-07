@@ -88,7 +88,7 @@ yearlabs = [0] + list(years)
 
 ############################################################################
 # Read validation data
-val_data = pd.read_csv("data/validation/validation_points_labelled_minstrata7.csv", 
+val_data = pd.read_csv("data/backup_1/validation/validation_points_labelled_minstrata7.csv", 
                        delimiter=";")
 
 # Convert csv geometry to WKT
