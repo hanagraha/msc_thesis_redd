@@ -451,6 +451,46 @@ annual_plt(defor_time_mode, "Most Frequent Time Between Deforestation Events (Ye
 
 
 
+############################################################################
+
+
+# CONVERT VALIDATION POINTS FOR HEATMAPPING
+
+
+############################################################################
+"""
+Heat map can use intensity based on confidence and multiple deforestation
+potentially also: area proportion of each class??
+"""
+
+# Copy val_data
+val_data_heat = val_data.copy()
+
+# Create heat column out of number of deforestation events
+val_data_heat['heat'] = (val_data_heat[["defor1", "defor2", "defor3"]] != 0).sum(axis=1)
+
+# Export to shapefile
+val_data_heat.to_file("data/validation/valdata_heat.shp")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
