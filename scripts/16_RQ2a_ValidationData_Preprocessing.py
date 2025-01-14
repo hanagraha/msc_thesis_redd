@@ -61,8 +61,10 @@ yearlabs = [0] + list(years)
 
 ############################################################################
 # Read validation data
-val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
-                       delimiter=";", index_col=0)
+# val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+#                        delimiter=";", index_col=0)
+val_data = pd.read_csv("data/validation/validation_points_1200.csv", 
+                       delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
@@ -404,6 +406,8 @@ tripacc("Weighted and matched validation data", comb_val, 'gfc_val',
         'tmf_val', 'se_val', 'gfc_conf', 'tmf_conf', 'se_conf')
 
 # Write combine dataset to csv
-comb_val.to_csv('data/validation/validation_points_preprocessed2.csv', index=False)
+# comb_val.to_csv('data/validation/validation_points_preprocessed2.csv', index=False)
+comb_val.to_csv('data/validation/validation_points_1200_preprocessed.csv', index=False)
+
 
 

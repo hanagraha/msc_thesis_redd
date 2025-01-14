@@ -82,7 +82,8 @@ l8_jan = [os.path.join(l8_jan_folder, file) for file in os.listdir(l8_jan_folder
 l8_jan.insert(0, l8[0])
     
 # Read validation points
-valpoints = gpd.read_file("data/validation/validation_points.shp")
+# valpoints = gpd.read_file("data/validation/validation_points.shp")
+valpoints = gpd.read_file("data/validation/validation_points_30extra.shp")
 
 
 
@@ -253,16 +254,22 @@ jan_ndmi = extract_val(valpoints, ndmi_files, ndmi_labs)
 
 ############################################################################
 # Save annual ndvi to file
-ann_ndvi.to_csv("data/validation/annual_ndvi.csv", index=False)
+# ann_ndvi.to_csv("data/validation/annual_ndvi.csv", index=False)
+ann_ndvi.to_csv("data/validation/annual_ndvi_extra30.csv", index=False)
+
 
 # Save annual ndmi to file
-ann_ndmi.to_csv("data/validation/annual_ndmi.csv", index=False)
+# ann_ndmi.to_csv("data/validation/annual_ndmi.csv", index=False)
+ann_ndmi.to_csv("data/validation/annual_ndmi_extra30.csv", index=False)
 
 # Save january ndvi to file
-jan_ndvi.to_csv("data/validation/jan_ndvi.csv", index=False)
+# jan_ndvi.to_csv("data/validation/jan_ndvi.csv", index=False)
+jan_ndvi.to_csv("data/validation/jan_ndvi_extra30.csv", index=False)
 
 # Save january ndmi to file
-jan_ndmi.to_csv("data/validation/jan_ndmi.csv", index=False)
+# jan_ndmi.to_csv("data/validation/jan_ndmi.csv", index=False)
+jan_ndmi.to_csv("data/validation/jan_ndmi_extra30.csv", index=False)
+
 
 
 

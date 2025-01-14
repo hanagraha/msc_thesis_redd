@@ -29,7 +29,8 @@ setwd("C:/Users/hanna/Documents/WUR MSc/MSc Thesis/redd-thesis")
 valdata <- read.csv("data/validation/validation_points_preprocessed.csv")
 
 # Read validation dataset (pre-processed)
-valdata_proc <- read.csv("data/validation/validation_points_preprocessed2.csv")
+# valdata_proc <- read.csv("data/validation/validation_points_preprocessed2.csv")
+valdata_proc <- read.csv("data/validation/validation_points_1200_preprocessed.csv")
 
 # Read stratification map
 stratdata <- rast("data/intermediate/stratification_layer_nogrnp.tif")
@@ -125,7 +126,20 @@ tmf_val <- valdata_proc$tmf_val
 # Extract se processed validation data
 se_val <- valdata_proc$se_val
 
+# Extract strata data
+strata <- valdata_proc$strata
+
+# Calculate number of pixels per strata
+pixel_counts <- freq(stratdata, digits = 0)
+
+# Extract only pixel counts
+strata_counts <- pixel_counts$count
+
+# Assign strata values as name
+names(strata_counts) <- pixel_counts$value
+
 # Calculate statistics for gfc
+gfc_procstats <- valstats(gfc, gfc_val, "proc2_gfc")
 gfc_procstats <- valstats(gfc, gfc_val, "proc2_gfc")
 
 # Calculate statistics for tmf
