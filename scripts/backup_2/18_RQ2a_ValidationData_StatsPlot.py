@@ -77,7 +77,7 @@ datanames = ["GFC", "TMF", "Sensitive Early"]
 
 ############################################################################
 # Read validation data
-val_data = pd.read_csv("data/validation/validation_points.csv")
+val_data = pd.read_csv("data/validation/validation_points_preprocessed2.csv")
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
@@ -90,6 +90,10 @@ gfc_stats = pd.read_csv("data/validation/gfc_stehmanstats.csv", delimiter=",")
 gfc_cm = pd.read_csv("data/validation/gfc_confmatrix.csv", delimiter=",")
 
 # Read gfc stehman statistic data (calculated in R, pre-processed)
+proc_gfc_stats = pd.read_csv("data/validation/proc_gfc_stehmanstats.csv", delimiter=",")
+proc_gfc_cm = pd.read_csv("data/validation/proc_gfc_confmatrix.csv", delimiter=",")
+
+# Read gfc stehman statistic data (calculated in R, pre-processed 2)
 proc2_gfc_stats = pd.read_csv("data/validation/proc2_gfc_stehmanstats.csv", delimiter=",")
 
 # Read tmf stehman statistic data (calculated in R, unprocessed)
@@ -97,6 +101,10 @@ tmf_stats = pd.read_csv("data/validation/tmf_stehmanstats.csv", delimiter=",")
 tmf_cm = pd.read_csv("data/validation/tmf_confmatrix.csv", delimiter=",")
 
 # Read tmf stehman statistic data (calculated in R, pre-processed)
+proc_tmf_stats = pd.read_csv("data/validation/proc_tmf_stehmanstats.csv", delimiter=",")
+proc_tmf_cm = pd.read_csv("data/validation/proc_tmf_confmatrix.csv", delimiter=",")
+
+# Read tmf stehman statistic data (calculated in R, pre-processed 2)
 proc2_tmf_stats = pd.read_csv("data/validation/proc2_tmf_stehmanstats.csv", delimiter=",")
 
 # Read se stehman statistic data (calculated in R, unprocessed)
@@ -104,6 +112,10 @@ se_stats = pd.read_csv("data/validation/se_stehmanstats.csv", delimiter=",")
 se_cm = pd.read_csv("data/validation/se_confmatrix.csv", delimiter=",")
 
 # Read se stehman statistic data (calculated in R, pre-processed)
+proc_se_stats = pd.read_csv("data/validation/proc_se_stehmanstats.csv", delimiter=",")
+proc_se_cm = pd.read_csv("data/validation/proc_se_confmatrix.csv", delimiter=",")
+
+# Read se stehman statistic data (calculated in R, pre-processed 2)
 proc2_se_stats = pd.read_csv("data/validation/proc2_se_stehmanstats.csv", delimiter=",")
 
 
@@ -326,6 +338,39 @@ steh_dual_lineplt([gfc_stats0, tmf_stats0, se_stats0], datanames)
 
 
 # PLOT STEHMAN STATISTICS (PRE-PROCESSED)
+
+
+############################################################################
+# Remove gfc statistics for year 0
+proc_gfc_stats0 = proc_gfc_stats[2:]
+
+# Remove tmf statistics for year 0
+proc_tmf_stats0 = proc_tmf_stats[2:]
+
+# Remove se statistics for year 0
+proc_se_stats0 = proc_se_stats[2:]
+
+# Plot user's accuracy
+steh_lineplt([proc_gfc_stats0, proc_tmf_stats0, proc_se_stats0], 'ua', 'se_ua', 
+             "User's Accuracy")
+
+# Plot producer's accuracy
+steh_lineplt([proc_gfc_stats0, proc_tmf_stats0, proc_se_stats0], 'pa', 'se_pa', 
+             "Producer's Accuracy")
+
+# Plot area estimates
+steh_lineplt([proc_gfc_stats0, proc_tmf_stats0, proc_se_stats0], 'area', 'se_a', 
+             "Deforestation Area Estimates")
+
+# Plot user's and producer's accuracy side by side
+steh_dual_lineplt([proc_gfc_stats0, proc_tmf_stats0, proc_se_stats0], datanames)
+
+
+
+############################################################################
+
+
+# PLOT STEHMAN STATISTICS (PRE-PROCESSED 2)
 
 
 ############################################################################

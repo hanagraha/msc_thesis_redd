@@ -61,8 +61,10 @@ yearlabs = [0] + list(years)
 
 ############################################################################
 # Read validation data
-val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
-                       delimiter=";", index_col=0)
+# val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+#                        delimiter=";", index_col=0)
+val_data = pd.read_csv("data/validation/validation_points_1380.csv", 
+                       delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
@@ -70,14 +72,7 @@ val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
 # Convert dataframe to geodataframe
 val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
 
-# Define dataset names
 datanames = ["GFC", "TMF", "Sensitive Early"]
-
-# Read villages data
-villages = gpd.read_file("data/village polygons/village_polygons.shp")
-
-# Simplify villages dataframe into only REDD+ and non-REDD+ groups
-villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
 
 
 
@@ -212,92 +207,6 @@ tripacc("Weighted validation accuracy", val_data, col='defor1', sw1='conf1')
 
 # Calculate overall precision
 tripprec("Weighted validation precision", val_data, col='defor1', sw1='conf1')
-
-
-
-############################################################################
-
-
-# CHECK: RATIO OF REDD+, NON-REDD+
-
-
-############################################################################ 
-
-
-
-
-
-
-############################################################################
-
-
-# PROTOCOL A: IF DEFORESTATION IS DETECTED
-
-
-############################################################################
-"""
-Definition of agreement: time insensitive. mark agreement if deforestation
-is labeled in validation and detected in prediction. or if undisturbed is
-labeled in validation and detected in prediction.
-"""
-# Define function to manipulate with protocol A
-def prot_a(valdata, pred_dataname, keepcols):
-    
-    # Create a copy of the input validation data
-    val_data = valdata.copy()
-
-    # Iterate over each row in validation dataset
-    for idx, row in val_data.iterrows():
-        
-        # If deforestation IS detected in validation dataset
-        if row['defor1'] != 0:
-            
-            # If deforestation IS detected in gfc dataset
-            if row[pred_dataname] != 0:
-                
-                # Mark agreement
-                val_data.loc[idx, 'prot_a'] = 1 
-            
-            # If deforestation is NOT detected in gfc dataset
-            else: 
-                
-                # Mark disagreement
-                val_data.loc[idx, 'prot_a'] = 0
-                
-        # If deforestation is NOT detected in validation dataset
-        else:
-            
-            # If deforestation is NOT detected in gfc dataset
-            if row[pred_dataname] == 0:
-                
-                # Mark agreement
-                val_data.loc[idx, 'prot_a'] = 1 
-                
-            # If deforestation IS detected in gfc dataset
-            else:
-            
-                # Mark disagreement
-                val_data.loc[idx, 'prot_a'] = 0
-    
-    # Add data name to list
-    cols = keepcols[:2] + [pred_dataname] + keepcols[2:]
-    
-    # Only keep relevant columns
-    val_data = val_data[cols]
-    
-    return val_data
-
-# Define columns of interest
-keepcols = ["strata", "geometry", "defor1", "defor2", "defor3", "prot_a"]
-    
-# Run protocol a for gfc
-prota_gfc = prot_a(val_data, "gfc", keepcols)
-
-# Run protocol a for gfc
-prota_tmf = prot_a(val_data, "tmf", keepcols)
-
-# Run protocol a for gfc
-prota_se = prot_a(val_data, "se", keepcols)
 
 
 

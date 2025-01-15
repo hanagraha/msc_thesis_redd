@@ -64,6 +64,10 @@ valdata690 = pd.read_csv("data/validation/validation_points_labelled.csv",
 valdata510 = pd.read_csv("data/backup_1/validation/validation_points_labelled_minstrata7.csv",
                          sep = ";", index_col = 0)
 
+# Read validation data (2013-2015)
+valdata180 = pd.read_csv("data/validation/validation_points_labelled_30extra.csv",
+                         sep = ";", index_col = 0)
+
 # Define stratification map filepath
 stratmap_path = "data/intermediate/stratification_layer_nogrnp.tif"
 
@@ -304,6 +308,73 @@ valdata_comb['geometry'] = gpd.GeoSeries.from_wkt(valdata_comb['geometry'])
 
 # Write points to file (csv)
 write_csv(valdata_comb, val_dir, "validation_points_1200")
+
+
+
+############################################################################
+
+
+# AFTER VALIDATING, COMBINE AGAIN
+
+
+############################################################################
+# Combine new sample points with larger dataset
+valdata_all = pd.concat([valdata690, valdata510, valdata180], ignore_index=True)
+    
+# Sort by strata column
+valdata_all = valdata_exp.sort_values(by = "strata", ascending = True)
+
+# Reset index
+valdata_all = valdata_exp.reset_index(drop = True)
+    
+# Check for any duplicated geometries
+duplicate_points = valdata_all[valdata_all['geometry'].duplicated()]
+
+# Print the duplicate points
+print(f"Number of duplicate geometries: {len(duplicate_points)}")
+print(duplicate_points)
+
+# Count points in each strata
+strata_counts = valdata_all['strata'].value_counts().sort_index()
+
+# Print results
+print(strata_counts)
+
+
+
+############################################################################
+
+
+# WRITE TO FILE
+
+
+############################################################################
+# Convert csv geometry to WKT
+valdata_all['geometry'] = gpd.GeoSeries.from_wkt(valdata_all['geometry'])
+
+# Convert valdata to gdf
+valdata_all = gpd.GeoDataFrame(valdata_all, geometry='geometry')
+
+# Write  points to file (vector)
+shp_write(valdata_all, "validation_points_1380.shp", val_dir)
+
+# Write points to file (csv)
+write_csv(valdata_all, val_dir, "validation_points_1380")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

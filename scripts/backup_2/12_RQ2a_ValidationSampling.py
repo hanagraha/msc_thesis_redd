@@ -305,8 +305,8 @@ rast_write(nogrnp_stratarr, "stratification_layer_nogrnp.tif", out_dir, profile)
 
 ############################################################################
 """
-This thesis validation methodology will sample 60 points per 23 strata, 
-creating 1380 total validation points
+This thesis validation methodology will sample 22 points per 23 strata, 
+creating 506 total validation points
 """
 
 # Read stratification array to avoid re-running code
@@ -381,12 +381,12 @@ def shp_write(gdf, filename, out_dir):
     # Write to file
     gdf.to_file(output_filepath)
 
-# Create sample points with 60 points per strata
-points_60 = strat_sample(nogrnp_stratarr, 60, transform, profile, 
+# Create sample points with 30 points per strata
+points_30 = strat_sample(nogrnp_stratarr, 30, transform, profile, 
                          random_state = 33)
 
 # Write sample points to file
-shp_write(points_60, "validation_points.shp", val_dir)
+shp_write(points_30, "validation_points.shp", val_dir)
 
 
 
@@ -451,10 +451,10 @@ tiflist = [gfc_lossyear_path, tmf_defordegra_path, sensitive_early_path]
 tifnames = ['gfc', 'tmf', 'se']
 
 # Extract raster values
-valpoints = extract_val(points_60, tiflist, tifnames)
+valpoints = extract_val(points_30, tiflist, tifnames)
 
 # Write points to file
-write_csv(valpoints, val_dir, "validation_points")
+write_csv(valpoints, val_dir, "validation_points_labelling")
 
 
 
