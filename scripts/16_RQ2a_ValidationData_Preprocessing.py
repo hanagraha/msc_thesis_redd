@@ -30,6 +30,30 @@ import numpy as np
 
 
 ############################################################################
+# Define function to create new folders (if necessary)
+def newfolder(folderlist, parfolder):
+    
+    # Iterate over each folder name
+    for folder in folderlist:
+        
+        # Define folder path
+        path = os.path.join(parfolder, folder)
+        
+        # Check if folder does not exist
+        if not os.path.exists(path):
+            
+            # Create folder
+            os.makedirs(path)
+            
+            # Print statement
+            print(f"{path} created")
+          
+        # If folder already exists
+        else:
+            
+            # Print statement
+            print(f"{path} already exists")
+
 # Check current working directory
 print("Current Working Directory:", os.getcwd())
 
@@ -43,13 +67,19 @@ print("New Working Directory:", os.getcwd())
 nodata_val = 255
 
 # Set output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+val_dir = os.path.join('data', 'validation')
 
 # Set year range
 years = range(2013, 2024)
 
 # Define dataset labels
 yearlabs = [0] + list(years)
+
+# Define new folder names for validation protocols
+protocol_folders = ["val_prota", "val_protb", "val_protc", "val_protd"]
+
+# Create new folders (if necessary)
+newfolder(protocol_folders, val_dir)
 
 
 
@@ -62,7 +92,7 @@ yearlabs = [0] + list(years)
 ############################################################################
 # Read validation data
 val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
-                       delimiter=";", index_col=0)
+                       delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
@@ -71,7 +101,7 @@ val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
 val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
 
 # Define dataset names
-datanames = ["GFC", "TMF", "Sensitive Early"]
+datanames = ["gfc", "tmf", "se"]
 
 # Read villages data
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
@@ -79,8 +109,20 @@ villages = gpd.read_file("data/village polygons/village_polygons.shp")
 # Simplify villages dataframe into only REDD+ and non-REDD+ groups
 villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
 
+# Extract redd+ geometry
+redd = villages.loc[1].geometry
+
+# Combine multipolygon into one
+redd_union = gpd.GeoSeries(redd).unary_union
+
+# Extract non-redd+ geometry
+nonredd = villages.loc[0].geometry
+
+# Combine multipolygon into one
+nonredd_union = gpd.GeoSeries(nonredd).unary_union
 
 
+# %%
 ############################################################################
 
 
@@ -214,7 +256,7 @@ tripacc("Weighted validation accuracy", val_data, col='defor1', sw1='conf1')
 tripprec("Weighted validation precision", val_data, col='defor1', sw1='conf1')
 
 
-
+# %%
 ############################################################################
 
 
@@ -222,12 +264,25 @@ tripprec("Weighted validation precision", val_data, col='defor1', sw1='conf1')
 
 
 ############################################################################ 
+# Filter points within REDD+ multipolygon
+points_redd = val_data[val_data.geometry.within(redd_union)]
+
+# Filter points within non-REDD+ multipolygon
+points_nonredd = val_data[val_data.geometry.within(nonredd_union)]
+
+# Check for points outside polygons (just in case)
+points_outside = val_data[
+    ~val_data.geometry.within(redd_union) &
+    ~val_data.geometry.within(nonredd_union)
+]
+
+# Output results
+print("Points within REDD+ polygon:", len(points_redd))
+print("Points within non-REDD+ polygon:", len(points_nonredd))
+print("Points outside both polygons:", len(points_outside))
 
 
-
-
-
-
+# %%
 ############################################################################
 
 
@@ -236,14 +291,14 @@ tripprec("Weighted validation precision", val_data, col='defor1', sw1='conf1')
 
 ############################################################################
 """
-Definition of agreement: time insensitive. mark agreement if deforestation
+Definition of Agreement: time insensitive. mark agreement if deforestation
 is labeled in validation and detected in prediction. or if undisturbed is
 labeled in validation and detected in prediction.
 """
 # Define function to manipulate with protocol A
-def prot_a(valdata, pred_dataname, keepcols):
+def prot_a(valdata, col, keepcols):
     
-    # Create a copy of the input validation data
+    # Copy input validation data
     val_data = valdata.copy()
 
     # Iterate over each row in validation dataset
@@ -253,7 +308,7 @@ def prot_a(valdata, pred_dataname, keepcols):
         if row['defor1'] != 0:
             
             # If deforestation IS detected in gfc dataset
-            if row[pred_dataname] != 0:
+            if row[col] != 0:
                 
                 # Mark agreement
                 val_data.loc[idx, 'prot_a'] = 1 
@@ -268,7 +323,7 @@ def prot_a(valdata, pred_dataname, keepcols):
         else:
             
             # If deforestation is NOT detected in gfc dataset
-            if row[pred_dataname] == 0:
+            if row[col] == 0:
                 
                 # Mark agreement
                 val_data.loc[idx, 'prot_a'] = 1 
@@ -280,7 +335,7 @@ def prot_a(valdata, pred_dataname, keepcols):
                 val_data.loc[idx, 'prot_a'] = 0
     
     # Add data name to list
-    cols = keepcols[:2] + [pred_dataname] + keepcols[2:]
+    cols = keepcols[:2] + [col] + keepcols[2:]
     
     # Only keep relevant columns
     val_data = val_data[cols]
@@ -290,78 +345,31 @@ def prot_a(valdata, pred_dataname, keepcols):
 # Define columns of interest
 keepcols = ["strata", "geometry", "defor1", "defor2", "defor3", "prot_a"]
     
-# Run protocol a for gfc
+# Run protocol a for gfc (all)
 prota_gfc = prot_a(val_data, "gfc", keepcols)
 
-# Run protocol a for gfc
+# Run protocol a for tmf (all)
 prota_tmf = prot_a(val_data, "tmf", keepcols)
 
-# Run protocol a for gfc
+# Run protocol a for se (all)
 prota_se = prot_a(val_data, "se", keepcols)
 
+# Create list of all protocol a data
+prota_data = [prota_gfc, prota_tmf, prota_se]
 
 
+# %%
 ############################################################################
 
 
-# VALIDATION MANIPULATION: PRIORITIZE AGREEING DEFOR YEAR (PREV METHOD)
+# PROTOCOL B: IF DEFORESTED YEARS OF ANY DEFORESTED EVENT IS DETECTED
 
 
 ############################################################################
-# Define function to create new column prioritizing a certain dataset
-def agvalcol(dataset, col, newcol, confcol):
-    
-    # Create mask where any defor year matches dataset
-    mask1 = dataset[col] == dataset['defor1']
-    mask2 = (dataset[col] == dataset['defor2']) & (dataset['defor2'] != 0)
-    mask3 = (dataset[col] == dataset['defor3']) & (dataset['defor3'] != 0)
-
-    # Assign dataset year where mask is true, otherwise the first defor year
-    dataset[newcol] = np.where(mask1, dataset['defor1'], 
-                               np.where(mask2, dataset['defor2'], 
-                                        np.where(mask3, dataset['defor3'], 
-                                                 dataset['defor1'])))
-
-    # Assign corresponding confidence value
-    dataset[confcol] = np.where(mask1, dataset['conf1'], 
-                                np.where(mask2, dataset['conf2'], 
-                                         np.where(mask3, dataset['conf3'], 
-                                                  dataset['conf1'])))
-    
-    return dataset
-
-# Copy validation data
-proc_valdata = val_data.copy()
-
-# Create new column to prioritize gfc matches
-proc_valdata = agvalcol(proc_valdata, 'gfc', 'val_gfc', 'val_gfc_conf')
-
-# Create new column to prioritize tmf matches
-proc_valdata = agvalcol(proc_valdata, 'tmf', 'val_tmf', 'val_tmf_conf')
-
-# Create new colun to priotize se matches
-proc_valdata = agvalcol(proc_valdata, 'se', 'val_se', 'val_se_conf')
-
-# Plot confusion matrices for gfc, tmf, se with processed validation data
-cm_calcplot(proc_valdata, 'val_gfc')
-
-# Calculate accuracy for processed validation data
-tripacc("Weighted and matched validation data", proc_valdata, 'val_gfc', 
-        'val_tmf', 'val_se', 'val_gfc_conf', 'val_tmf_conf', 'val_se_conf')
-
-# Export pre-processed validation data
-proc_valdata.to_csv("data/validation/validation_points_preprocessed.csv", 
-                    index=False)
-
-
-
-############################################################################
-
-
-# VALIDATION MANIPULATION: PRIORITIZE AGREEING DEFOR YEAR (NEW METHOD)
-
-
-############################################################################
+"""
+Definition of Agreement: mark agreement if prediction defor year matches
+any year between observed defor and regr, for any deforestation event
+"""
 # Define function to create annual deforestation and confidence dataframes
 def val_expand(dataset):
     
@@ -431,74 +439,317 @@ def val_expand(dataset):
     return yearly_val, yearly_conf
 
 # Define function to align validation with test data
-def val_align(validation, confidence, product_data, label):
+def prot_b(valdata, col, keepcols):
+    
+    # Create a copy of the validation data
+    val_data = valdata.copy()
+    
+    # Create yearly validation data
+    yearly_val, yearly_conf = val_expand(val_data)
+    
+    # Extract dataset deforestation
+    defor = valdata[col]
     
     # Create empty lists to hold validation year and confidence
     val = []
     conf = []
     
     # Iterate over each row (validation point)
-    for row in range(len(product_data)):
+    for idx, row in yearly_val.iterrows():
         
         # Extract deforestation year
-        year = product_data.iloc[row]
+        deforyear = defor[idx]
         
         # If deforestation year is detected in validation dataset
-        if validation.iloc[row][year] == 1: 
+        if row[deforyear] == 1: 
             
             # Assign year to validation column
-            val_year = year
+            val_year = deforyear
         
         # If deforestation year is NOT detected in validation dataset
         else:
         
             # Assign first detected validation deforestation
-            val_year = validation.columns[validation.iloc[row] == 1].min()
+            val_year = yearly_val.columns[row == 1].min()
             
             # Assign 0 if no deforestation detected 2013-2023 (for 2012 case)
             if pd.isna(val_year):
                 val_year = 0
             
-        #Assign respective confidence
-        val_conf = confidence.loc[row, val_year]
+        # Assign respective confidence
+        val_conf = yearly_conf.loc[idx, val_year]
 
         # Append to the lists
         val.append(val_year)
         conf.append(val_conf)
     
-    # Create dataframe with validation results
-    val_results = pd.DataFrame({
-        label: product_data,
-        f"{label}_val": val,
-        f"{label}_conf": conf})
+    # Add new validation year
+    val_data['proc_b'] = val
     
-    return val_results
+    # Add new validation confidence
+    val_data['proc_b_conf'] = conf
+    
+    # Update columns of interest
+    cols = keepcols + [col, 'proc_b', 'proc_b_conf'] 
+    
+    # Only keep columns of interest
+    val_data = val_data[cols]
+    
+    return val_data
 
-# Create yearly validation data
-yearly_val, yearly_conf = val_expand(val_data)
+# Define columns of interest
+keepcols = ["strata", "geometry"]
 
 # Create aligned valiadtion data for gfc
-gfc_val = val_align(yearly_val, yearly_conf, val_data['gfc'], "gfc")
+protb_gfc = prot_b(val_data, "gfc", keepcols)
 
 # Create aligned validation data for tmf
-tmf_val = val_align(yearly_val, yearly_conf, val_data['tmf'], "tmf")
+protb_tmf = prot_b(val_data, "tmf", keepcols)
 
 # Create aligned validation data for se
-se_val = val_align(yearly_val, yearly_conf, val_data['se'], "se")
+protb_se = prot_b(val_data, "se", keepcols)
 
-# Combine datasets
-comb_val = pd.concat([val_data.iloc[:,:2], gfc_val, tmf_val, se_val], axis = 1)
+# Create list of all protocol b data
+protb_data = [protb_gfc, protb_tmf, protb_se]
 
-# Plot confusion matrices for gfc, tmf, se with processed validation data
-cm_calcplot(comb_val, 'gfc_val')
 
-# Calculate accuracy for processed validation data
-tripacc("Weighted and matched validation data", comb_val, 'gfc_val', 
-        'tmf_val', 'se_val', 'gfc_conf', 'tmf_conf', 'se_conf')
+# %%
+############################################################################
 
-# Write combine dataset to csv
-# comb_val.to_csv('data/validation/validation_points_preprocessed2.csv', index=False)
-comb_val.to_csv('data/validation/validation_points_1380_preprocessed.csv', index=False)
+
+# PROTOCOL C: IF FIRST YEAR OF ANY DEFORESTATION YEAR IS DETECTED
+
+
+############################################################################
+"""
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year matches validation defor year of the first, second, or third observed 
+defor event
+"""
+# Define function to create new column prioritizing a certain dataset
+def prot_c(valdata, col, keepcols):
+    
+    # Copy input validation data
+    val_data = valdata.copy()
+    
+    # Create mask where any defor year matches dataset
+    mask1 = val_data[col] == val_data['defor1']
+    mask2 = (val_data[col] == val_data['defor2']) & (val_data['defor2'] != 0)
+    mask3 = (val_data[col] == val_data['defor3']) & (val_data['defor3'] != 0)
+
+    # Assign dataset year where mask is true, otherwise the first defor year
+    val_data['prot_b'] = np.where(mask1, val_data['defor1'], 
+                                  np.where(mask2, val_data['defor2'], 
+                                           np.where(mask3, val_data['defor3'], 
+                                                    val_data['defor1'])))
+
+    # Assign corresponding confidence value
+    val_data['prot_b_conf'] = np.where(mask1, val_data['conf1'], 
+                                       np.where(mask2, val_data['conf2'], 
+                                                np.where(mask3, val_data['conf3'], 
+                                                         val_data['conf1'])))
+    
+    # Add data name to list
+    cols = keepcols + [col, 'prot_b', 'prot_b_conf']
+    
+    # Only keep relevant columns
+    val_data = val_data[cols]
+    
+    return val_data
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Run protocol b for gfc (all)
+protc_gfc = prot_c(val_data, 'gfc', keepcols)
+
+# Run protocol b for tmf (all)
+protc_tmf = prot_c(val_data, 'tmf', keepcols)
+
+# Run protocol c for se (all)
+protc_se = prot_c(val_data, 'se', keepcols)
+
+# Create list of all protocol c data
+protc_data = [protc_gfc, protc_tmf, protc_se]
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL D: IF FIRST YEAR OF FIRST DEFORESTATION YEAR IS DETECTED
+
+
+############################################################################
+"""
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year matches validation defor year of the first observed defor event
+"""
+# Define function to create new column prioritizing a certain dataset
+def prot_d(valdata, col, keepcols):
+    
+    # Copy input validation data
+    val_data = valdata.copy()
+    
+    # Re-name deforestation column
+    val_data['prot_d'] = val_data['defor1']
+    
+    # Rename confidence column
+    val_data['prot_d_conf'] = val_data['conf1']
+    
+    # Add data name to list
+    cols = keepcols[:2] + [col, 'prot_d', 'prot_d_conf']
+    
+    # Only keep relevant columns
+    val_data = val_data[cols]
+    
+    return val_data
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Run protocol b for gfc (all)
+protd_gfc = prot_d(val_data, 'gfc', keepcols)
+
+# Run protocol b for tmf (all)
+protd_tmf = prot_d(val_data, 'tmf', keepcols)
+
+# Run protocol c for se (all)
+protd_se = prot_d(val_data, 'se', keepcols)
+
+# Create list of all protocol d data
+protd_data = [protd_gfc, protd_tmf, protd_se]
+
+
+# %%
+############################################################################
+
+
+# SPLIT PRE-PROCESSED FILES BY REDD / NONREDD
+
+
+############################################################################
+# Define function to split by redd and nonredd polygons
+def reddsplit(valdata_list, datanames):
+    
+    # Create empty dictionary to hold redd and nonredd valdata
+    redd_data = {}
+    nonredd_data = {}
+    
+    # Iterate over each dataset in list
+    for valdata, name in zip(valdata_list, datanames):
+    
+        # Filter points within redd+ multipolygon
+        points_redd = valdata[valdata.geometry.within(redd_union)]
+        
+        # Filter points within nonredd+ multipolygon
+        points_nonredd = valdata[valdata.geometry.within(nonredd_union)]
+        
+        # Add redd gdf to redd dictionary
+        redd_data[name] = points_redd
+        
+        # Add nonredd gdf to nonredd dictionary
+        nonredd_data[name] = points_nonredd
+    
+    return redd_data, nonredd_data
+
+# Split protocol a datasets
+prota_redd, prota_nonredd = reddsplit(prota_data, datanames)
+
+# Split protocol b datasets
+protb_redd, protb_nonredd = reddsplit(protb_data, datanames)
+
+# Split protocol b datasets
+protc_redd, protc_nonredd = reddsplit(protc_data, datanames)
+
+# Split protocol b datasets
+protd_redd, protd_nonredd = reddsplit(protd_data, datanames)
+
+
+# %%
+############################################################################
+
+
+# WRITE PRE-PROCESSED FILES TO DISK
+
+
+############################################################################
+# Define function to write list of gdfs
+def write_list(datalist, datanames, protname):
+    
+    # Iterate over each item in list
+    for data, name in zip(datalist, datanames):
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
+        
+        # Write to csv
+        data.to_csv(outfilepath, index = False)    
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Define function to write dictionary of gdfs
+def write_dic(protdics, protname, polyname):
+    
+    # Iterate over each item in dictionary
+    for key, value in protdics.items():
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
+        
+        # Write to csv
+        value.to_csv(outfilepath, index = False)
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+
+# Write prota data to folder
+write_list(prota_data, datanames, "prota")
+
+# Write protb data to folder
+write_list(protb_data, datanames, "protb")
+
+# Write protc data to folder
+write_list(protc_data, datanames, "protc")
+
+# Write protd data to folder
+write_list(protd_data, datanames, "protd")
+
+# write redd prota data
+write_dic(prota_redd, "prota", "redd")
+
+# write redd prota data
+write_dic(prota_nonredd, "prota", "nonredd")
+
+# write redd protb data
+write_dic(protb_redd, "protb", "redd")
+
+# write redd protb data
+write_dic(protb_nonredd, "protb", "nonredd")
+
+# write redd protc data
+write_dic(protc_redd, "protc", "redd")
+
+# write redd protc data
+write_dic(protc_nonredd, "protc", "nonredd")
+
+# write redd protd data
+write_dic(protd_redd, "protd", "redd")
+
+# write redd protd data
+write_dic(protd_nonredd, "protd", "nonredd")
+
+
+
+
+
 
 
 
