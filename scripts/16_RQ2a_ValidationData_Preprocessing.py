@@ -484,13 +484,13 @@ def prot_b(valdata, col, keepcols):
         conf.append(val_conf)
     
     # Add new validation year
-    val_data['proc_b'] = val
+    val_data['prot_b'] = val
     
     # Add new validation confidence
-    val_data['proc_b_conf'] = conf
+    val_data['prot_b_conf'] = conf
     
     # Update columns of interest
-    cols = keepcols + [col, 'proc_b', 'proc_b_conf'] 
+    cols = keepcols + [col, 'prot_b', 'prot_b_conf'] 
     
     # Only keep columns of interest
     val_data = val_data[cols]
@@ -538,19 +538,19 @@ def prot_c(valdata, col, keepcols):
     mask3 = (val_data[col] == val_data['defor3']) & (val_data['defor3'] != 0)
 
     # Assign dataset year where mask is true, otherwise the first defor year
-    val_data['prot_b'] = np.where(mask1, val_data['defor1'], 
+    val_data['prot_c'] = np.where(mask1, val_data['defor1'], 
                                   np.where(mask2, val_data['defor2'], 
                                            np.where(mask3, val_data['defor3'], 
                                                     val_data['defor1'])))
 
     # Assign corresponding confidence value
-    val_data['prot_b_conf'] = np.where(mask1, val_data['conf1'], 
+    val_data['prot_c_conf'] = np.where(mask1, val_data['conf1'], 
                                        np.where(mask2, val_data['conf2'], 
                                                 np.where(mask3, val_data['conf3'], 
                                                          val_data['conf1'])))
     
     # Add data name to list
-    cols = keepcols + [col, 'prot_b', 'prot_b_conf']
+    cols = keepcols + [col, 'prot_c', 'prot_c_conf']
     
     # Only keep relevant columns
     val_data = val_data[cols]
