@@ -19,7 +19,6 @@ import geopandas as gpd
 import rasterio
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 
 
 
@@ -43,7 +42,7 @@ print("New Working Directory:", os.getcwd())
 nodata_val = 255
 
 # Set output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+val_dir = os.path.join('data', 'validation')
 
 # Set year range
 years = range(2013, 2024)
@@ -62,7 +61,7 @@ tmf_col = "#4682B4"  # Darker Blue - lighter
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
-
+# %%
 ############################################################################
 
 
@@ -70,14 +69,85 @@ datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
 ############################################################################
-# Read gfc stehman statistic data (calculated in R, pre-processed 2)
-gfc_stats = pd.read_csv("data/validation/proc2_gfc_stehmanstats.csv", delimiter=",")
+# Define function to read files in subfolder
+def folder_files(folder, suffix):
+    
+    # Define folder path
+    folderpath = os.path.join(val_dir, folder)
+    
+    # Create empty list to store files
+    paths = []
 
-# Read tmf stehman statistic data (calculated in R, pre-processed 2)
-tmf_stats = pd.read_csv("data/validation/proc2_tmf_stehmanstats.csv", delimiter=",")
+    # Iterate over every item in folder
+    for file in os.listdir(folderpath):
+        
+        # Check if file ends in suffix
+        if file.endswith(suffix):
+            
+            # Create path for file
+            filepath = os.path.join(folderpath, file)
+            
+            # Add file to list
+            paths.append(filepath)
+    
+    return paths
 
-# Read se stehman statistic data (calculated in R, pre-processed 2)
-se_stats = pd.read_csv("data/validation/proc2_se_stehmanstats.csv", delimiter=",")
+# Define function to read files from list
+def list_read(pathlist, suffix):
+    
+    # Create empty dictionary to store outputs
+    files = {}
+    
+    # Iterate over each file in list
+    for path in pathlist:
+        
+        # Read file
+        data = pd.read_csv(path)
+        
+        # Extract file name
+        filename = os.path.basename(path)
+        
+        # Remove suffix from filename
+        var = filename.replace(suffix, "")
+        
+        # Add data to dictionary
+        files[var] = data
+        
+    return files
+        
+# Read validation data
+val_data = pd.read_csv("data/validation/validation_points.csv")
+
+# Convert csv geometry to WKT
+val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
+
+# Convert dataframe to geodataframe
+val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
+
+# Read protocol a data
+prota_filepaths = folder_files("val_prota", ".csv")
+prota_files = list_read(prota_filepaths, ".csv")
+
+# Read protocol b statistics
+protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
+
+# Read protocol c statistics
+protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
+
+# Read protocol d statistics
+protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
+
+# # Read gfc stehman statistic data (calculated in R, pre-processed 2)
+# gfc_stats = pd.read_csv("data/validation/proc2_gfc_stehmanstats.csv", delimiter=",")
+
+# # Read tmf stehman statistic data (calculated in R, pre-processed 2)
+# tmf_stats = pd.read_csv("data/validation/proc2_tmf_stehmanstats.csv", delimiter=",")
+
+# # Read se stehman statistic data (calculated in R, pre-processed 2)
+# se_stats = pd.read_csv("data/validation/proc2_se_stehmanstats.csv", delimiter=",")
 
 # Define gfc lossyear filepath
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
@@ -104,7 +174,7 @@ with rasterio.open(se_file) as se:
     profile = se.profile
 
 
-
+# %%
 ############################################################################
 
 
@@ -269,10 +339,11 @@ def pred_eaa(gfc_pred, tmf_pred, error_defor, error_ci):
     plt.show()
 
 
+# %%
 ############################################################################
 
 
-# CALCULATE ERROR-ADJUSTED AREA OF DEFORESTATION
+# PROTOCOL B: CALCULATE ERROR-ADJUSTED AREA OF DEFORESTATION + CI
 
 
 ############################################################################
@@ -283,26 +354,98 @@ total_pix = np.sum(gfc_defor != np.nan)
 total_ha = total_pix * 0.09
 
 # Calculate gfc error-adjusted defor
-gfc_ha = gfc_stats['area'] * total_ha
+gfc_ha = protb_stats['protb_gfc']['area'] * total_ha
 
 # Calculate tmf error-adjusted defor
-tmf_ha = tmf_stats['area'] * total_ha
+tmf_ha = protb_stats['protb_tmf']['area'] * total_ha
 
 # Calculate se error-adjusted defor
-se_ha = se_stats['area'] * total_ha
+se_ha = protb_stats['protb_se']['area'] * total_ha
 
 
-
+# %%
 ############################################################################
 
 
-# CALCULATE 95% CONFIDENCE INTERVAL
+# PROTOCOL D: CALCULATE ERROR-ADJUSTED AREA OF DEFORESTATION + CI
 
 
 ############################################################################
 """
-Conversion of standard error to confidence interval uses the constant 1.96
-taken from https://pmc.ncbi.nlm.nih.gov/articles/PMC1255808/
+Because protocol D always takes the first deforestation event from the 
+validation dataset, the area estimation between gfc, tmf, and se are the same
+"""
+
+# Calculate error-adjusted defor area
+gfc_ha = protd_stats['protd_gfc']['area'] * total_ha
+
+# Calculate redd error-adjusted defor area
+gfc_ha_redd = protd_stats['protd_gfc_redd']['area'] * total_ha
+
+# Calculate nonredd error-adjusted defor area
+gfc_ha_nonredd = protd_stats['protd_gfc_nonredd']['area'] * total_ha
+
+# Calculate standard error of gfc area estimate
+gfc_se = total_ha * protd_stats['protd_gfc']['se_a']
+
+# Calculate standard error of redd area estimate
+gfc_se_redd = total_ha * protd_stats['protd_gfc_redd']['se_a']
+
+# Calculate standard error of nonredd area estimate
+gfc_se_nonredd = total_ha * protd_stats['protd_gfc_nonredd']['se_a']
+
+# Calculate gfc 95% confidence interval
+gfc_95ci = 1.96 * gfc_se
+
+# Calculate tmf 95% confidence interval
+redd_95ci = 1.96 * gfc_se_redd
+
+# Calculate se 95% confidence interval
+nonredd_95ci = 1.96 * gfc_se_nonredd
+
+# Calculate gfc 50% confidence interval
+gfc_50ci = 0.67 * gfc_se
+
+# Calculate tmf 50% confidence interval
+redd_50ci = 0.67 * gfc_se_redd
+
+# Calculate se 50% confidence interval
+nonredd_50ci = 0.67 * gfc_se_nonredd
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL D: PLOT ERROR ADJUSTED AREA WITH CONFIDENCE INTERVALS
+
+
+############################################################################
+# Plot area estimates with error bars
+defor_ci(gfc_ha[1:], gfc_ha_redd[1:], gfc_ha_nonredd[1:], gfc_95ci[1:], 
+         redd_95ci[1:], nonredd_95ci[1:])
+
+# Plot gfc deforestation with uncertainty
+defor_uncert(gfc_ha, gfc_95ci, gfc_50ci, "GFC")
+
+# Plot tmf deforestation with uncertainty
+defor_uncert(tmf_ha, tmf_95ci, tmf_50ci, "TMF")
+
+# Plot se deforestation with uncertainty
+defor_uncert(se_ha, se_95ci, se_50ci, "Sensitive Early")
+
+
+# %%
+############################################################################
+
+
+# CALCULATE CONFIDENCE INTERVALS
+
+
+############################################################################
+"""
+Conversion of standard error to confidence interval uses constants from 
+z-tables: https://www.ztable.net/
 """
 
 # Calculate standard error of gfc area estimate

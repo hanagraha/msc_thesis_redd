@@ -401,6 +401,88 @@ patchfreq_plot(patch_freq)
 
 
 
+############################################################################
+
+
+# SIDE BY SIDE: SPAT AGREE AND POPULATION SIZE 
+
+
+############################################################################
+# %%
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+    
+# Plot 1: gfc and tmf spatagree by defor patch size
+for lab in agratio_cleaned.columns:
+    
+    # Plot series as line graph
+    axes[0].plot(years, agratio_cleaned[lab], label=f"{lab} Pixels")
+
+# Add x axis label
+axes[0].set_xlabel('Year', fontsize=12)
+
+# Add y axis label
+axes[0].set_ylabel('Proportion of Deforestation Agreement', fontsize=12)
+
+# Add tickmarks
+axes[0].set_xticks(years)
+axes[0].tick_params(axis='both', labelsize=11)
+
+# Add legend
+# axes[0].legend(fontsize=11)
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# Initialize bottom value for stacking
+bottom = np.zeros(len(patch_freq.index))
+
+# Define bar width
+bar_width = 0.7
+
+# Plot 2: population of each defor patch size
+for lab in patch_freq.columns:
+    
+    # Plot each series as a bar with the bottom set to the current cumulative total
+    
+    axes[1].bar(years, patch_freq[lab], width=bar_width, bottom=bottom, 
+                label=f"{lab} Pixels")
+    
+    # Update the bottom for the next series to stack on top
+    bottom += patch_freq[lab]
+
+# Add x axis label
+axes[1].set_xlabel('Year', fontsize=12)
+
+# Add y axis label
+axes[1].set_ylabel('Pixel Count', fontsize=12)
+
+# Add tickmarks
+axes[1].set_xticks(years)
+axes[1].tick_params(axis='both', labelsize=11)
+
+# Add x tickmarks
+# axes[1].set_xticks([i + bar_width / 2 for i in x])  
+# axes[1].set_xticklabels(years)
+
+# Add y tickmarks
+# axes[1].yaxis.set_major_locator(MultipleLocator(0.01))
+# axes[1].yaxis.set_minor_locator(MultipleLocator(0.005))
+
+# # Add gridlines
+# axes[1].grid(axis='y', which='major', linestyle='-')
+# axes[1].grid(axis='y', which='minor', linestyle='--')
+# axes[1].grid(axis='x', linestyle = "--")
+
+# Add gridlines
+axes[1].grid(linestyle="--", alpha=0.6)
+
+# Add legend
+axes[1].legend(fontsize=11)
+
+# Show plot
+plt.tight_layout()
+plt.show()
 
 
 

@@ -331,6 +331,59 @@ tripleplot(ov_ag_redd, ov_ag_nonredd, ov_ag_grnp,
 ############################################################################
 
 
+# UNDISTURBED AGREEMENT
+
+
+############################################################################
+# Define function to calculate overall agreement
+def for_agree(spatagree_arrs):
+    
+    # Create empty list to hold statistics
+    prop_agree = []
+    
+    # Iterate over each array
+    for arr in spatagree_arrs:
+        
+        # Calculate total agreement
+        ag = (np.sum(arr == 5))
+        
+        # Calculate total disagreement
+        disag = (np.sum(arr == 6)) + (np.sum(arr == 7))
+        
+        # Calculate overall agreement
+        ov_ag = (ag / (ag + disag))*100
+        
+        # Add overall agreement to list
+        prop_agree.append(ov_ag)
+        
+    return prop_agree
+    
+# Calculate overall agreement
+for_ag_aoi = for_agree(spatagree_arrs)
+
+# Calculate overall agreement for redd
+for_ag_redd = for_agree(ag_redd)
+
+# Calculate overall agreement for nonredd area
+for_ag_nonredd = for_agree(ag_nonredd)
+
+# Calculate overall agreement for grnp area
+for_ag_grnp = for_agree(ag_grnp)
+
+# Plot overall agreement for aoi
+lineplot(for_ag_aoi, "Undisturbed Spatial Agreement between GFC and TMF Datasets", 
+         "AOI", "Undisturbed Agreement (%)", 95, 98)
+
+# Plot overall agreement for redd, nonredd, and grnp area
+tripleplot(for_ag_redd, for_ag_nonredd, for_ag_grnp, 
+           "Spatial Agreement Relative to Undisturbed Area", 
+           "Undisturbed Agreement (%)", 92, 100)
+
+
+
+############################################################################
+
+
 # DEFORESTATION AGREEMENT
 
 
@@ -381,6 +434,75 @@ tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp,
 
 
 
+############################################################################
+
+
+# PLOT SIDE BY SIDE: OVERALL AND DEFORESTATION AGREEMENT
+
+
+############################################################################
+# %%
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+
+# Plot 1: overall spatial agreement
+axes[0].plot(years, ov_ag_redd, color=reddcol, linewidth=2,
+             label='REDD+')
+axes[0].plot(years, ov_ag_nonredd, color=reddcol, linewidth=2,
+             label='non-REDD', linestyle = "--")
+axes[0].plot(years, ov_ag_grnp, color=grnpcol, linewidth=2, 
+             label='GRNP')
+
+# Add x axis label
+axes[0].set_xlabel('Year', fontsize=12)
+
+# Add y axis label
+axes[0].set_ylabel('Overall Agreement (%)', fontsize=12)
+
+# Add tickmarks
+axes[0].set_xticks(years)
+axes[0].tick_params(axis='both', labelsize=11)
+
+# Add legend
+axes[0].legend(fontsize=11)
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# Adjust yaxis limits
+axes[0].set_ylim(92, 100)
+
+# Plot 2: deforestation spatial agreement
+axes[1].plot(years, defor_ag_redd, label = "REDD+", color = reddcol)
+axes[1].plot(years, defor_ag_nonredd, label = "Non-REDD+", color = reddcol, 
+             linestyle = "--")
+axes[1].plot(years, defor_ag_grnp, label = "GRNP", color = grnpcol)
+
+# Add tickmarks
+axes[1].set_xticks(years)
+axes[1].tick_params(axis='both', labelsize=11)
+
+# Add x axis label
+axes[1].set_xlabel('Year', fontsize=12)
+
+# Add y axis label
+axes[1].set_ylabel('Deforestation Agreement (%)', fontsize=12)
+
+# Add gridlines
+axes[1].grid(True, linestyle = "--")
+
+# Add legend
+axes[1].legend(fontsize=11)
+
+# Adjust yaxis limits
+axes[1].set_ylim(0, 35)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
 ############################################################################
 
 

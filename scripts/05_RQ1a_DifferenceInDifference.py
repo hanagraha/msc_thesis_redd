@@ -396,10 +396,10 @@ plt.show()
 
 ############################################################################
 # Calculate differences for gfc data
-gfc_rdif = gfc_zonal['REDD+'] - gfc_zonal['Non-REDD+']
+gfc_rdif = gfc_zonal['Non-REDD+'] - gfc_zonal['REDD+']
 
 # Calculate differences for tmf data
-tmf_rdif = tmf_zonal['REDD+'] - tmf_zonal['Non-REDD+']
+tmf_rdif = tmf_zonal['Non-REDD+'] - tmf_zonal['REDD+']
 
 # Set bar width
 bar_width = 0.3
@@ -449,13 +449,90 @@ plt.show()
 
 
 
+############################################################################
 
 
+# SIDE BY SIDE PLOT: RATES AND DIFFERENCES BETWEEN REDD / NONREDD
 
 
+############################################################################
+# %%
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
 
+# Plot 1: line of redd/nonredd, gfc/tmf defor
+axes[0].plot(years, gfc_zonal['REDD+'], color=gfc_col, linewidth=2,
+             label='GFC Deforestation in REDD+ Villages')
+axes[0].plot(years, tmf_zonal['REDD+'], color=tmf_col, linewidth=2,
+             label='TMF Deforestation and Degradation in REDD+ Villages')
+axes[0].plot(years, gfc_zonal['Non-REDD+'], color=gfc_col, linewidth=2, 
+             label='GFC Deforestation in Non-REDD+ Villages', linestyle='--')
+axes[0].plot(years, tmf_zonal['Non-REDD+'], color=tmf_col, linewidth=2,
+             label='TMF Deforestation and Degradation in Non-REDD+ Villages', 
+             linestyle='--')
 
+# Add x axis label
+axes[0].set_xlabel('Year', fontsize=12)
 
+# Add y axis label
+axes[0].set_ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area', 
+                   fontsize=12)
+
+# Add tickmarks
+axes[0].set_xticks(years)
+axes[0].tick_params(axis='both', labelsize=11)
+
+# Add legend
+axes[0].legend(fontsize=11)
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# Add title
+# axes[0].set_title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)', 
+                  # fontsize=12)
+
+# Define bar width
+bar_width = 0.4
+
+# Define x values for bar chart
+x = range(len(years))  # Assuming `x` represents years as indices
+
+# Plot 2: bar of nonredd-redd, gfc/tmf defor
+axes[1].bar(x, gfc_rdif, width=bar_width, label='GFC Deforestation', 
+            color=redd_col1, align='center')
+axes[1].bar([i + bar_width for i in x], tmf_rdif, width=bar_width, 
+            label='TMF Deforestation', color=nonredd_col1, align='center')
+
+# Add x axis label
+axes[1].set_xlabel('Year', fontsize=12)
+
+# Add y axis label
+axes[1].set_ylabel('Difference b/w Non-REDD+ and REDD+ Deforestation (%)', 
+                   fontsize=12)
+
+# Add title
+# axes[1].set_title('Estimated Deforestation (2013-2023)', fontsize=12)
+
+# Add x tickmarks
+axes[1].set_xticks([i + bar_width / 2 for i in x])  
+axes[1].set_xticklabels(years)
+
+# Add y tickmarks
+axes[1].yaxis.set_major_locator(MultipleLocator(0.01))
+axes[1].yaxis.set_minor_locator(MultipleLocator(0.005))
+
+# Add gridlines
+axes[1].grid(axis='y', which='major', linestyle='-')
+axes[1].grid(axis='y', which='minor', linestyle='--')
+axes[1].grid(axis='x', linestyle = "--")
+
+# Add legend
+axes[1].legend(fontsize=11)
+
+# Show plot
+plt.tight_layout()
+plt.show()
 
 
 

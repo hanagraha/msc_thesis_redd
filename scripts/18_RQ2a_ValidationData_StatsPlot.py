@@ -43,19 +43,12 @@ print("New Working Directory:", os.getcwd())
 nodata_val = 255
 
 # Set output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+val_dir = os.path.join('data', 'validation')
 
 # Set year range
 years = range(2013, 2024)
 
 # Set default plotting colors
-blue1 = "#1E2A5E"
-blue2 = "#55679C"
-blue3 = "#83B4FF"
-blue4 = "#87C4FF"
-bluecols = [blue1, blue2, blue3]
-
-# other colors test
 blue1 = "#1E2A5E"
 blue2 = "#83B4FF"
 blue3 = "brown"
@@ -63,9 +56,6 @@ bluecols = [blue1, blue2, blue3]
 
 # Define dataset labels
 yearlabs = [0] + list(years)
-
-# Define dataset names
-datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
 
@@ -76,6 +66,52 @@ datanames = ["GFC", "TMF", "Sensitive Early"]
 
 
 ############################################################################
+# Define function to read files in subfolder
+def folder_files(folder, suffix):
+    
+    # Define folder path
+    folderpath = os.path.join(val_dir, folder)
+    
+    # Create empty list to store files
+    paths = []
+
+    # Iterate over every item in folder
+    for file in os.listdir(folderpath):
+        
+        # Check if file ends in suffix
+        if file.endswith(suffix):
+            
+            # Create path for file
+            filepath = os.path.join(folderpath, file)
+            
+            # Add file to list
+            paths.append(filepath)
+    
+    return paths
+
+# Define function to read files from list
+def list_read(pathlist, suffix):
+    
+    # Create empty dictionary to store outputs
+    files = {}
+    
+    # Iterate over each file in list
+    for path in pathlist:
+        
+        # Read file
+        data = pd.read_csv(path)
+        
+        # Extract file name
+        filename = os.path.basename(path)
+        
+        # Remove suffix from filename
+        var = filename.replace(suffix, "")
+        
+        # Add data to dictionary
+        files[var] = data
+        
+    return files
+        
 # Read validation data
 val_data = pd.read_csv("data/validation/validation_points.csv")
 
@@ -85,33 +121,40 @@ val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
 # Convert dataframe to geodataframe
 val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
 
-# Read gfc stehman statistic data (calculated in R, unprocessed)
-gfc_stats = pd.read_csv("data/validation/gfc_stehmanstats.csv", delimiter=",")
-gfc_cm = pd.read_csv("data/validation/gfc_confmatrix.csv", delimiter=",")
+# Read protocol a data
+prota_filepaths = folder_files("val_prota", ".csv")
+prota_files = list_read(prota_filepaths, ".csv")
 
-# Read gfc stehman statistic data (calculated in R, pre-processed)
-proc2_gfc_stats = pd.read_csv("data/validation/proc2_gfc_stehmanstats.csv", delimiter=",")
+# Read protocol b statistics
+protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
 
-# Read tmf stehman statistic data (calculated in R, unprocessed)
-tmf_stats = pd.read_csv("data/validation/tmf_stehmanstats.csv", delimiter=",")
-tmf_cm = pd.read_csv("data/validation/tmf_confmatrix.csv", delimiter=",")
+# Read protocol c statistics
+protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 
-# Read tmf stehman statistic data (calculated in R, pre-processed)
-proc2_tmf_stats = pd.read_csv("data/validation/proc2_tmf_stehmanstats.csv", delimiter=",")
+# Read protocol d statistics
+protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
-# Read se stehman statistic data (calculated in R, unprocessed)
-se_stats = pd.read_csv("data/validation/se_stehmanstats.csv", delimiter=",")
-se_cm = pd.read_csv("data/validation/se_confmatrix.csv", delimiter=",")
+# Read protocol b confusion matrices
+protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
+protb_cm = list_read(protb_cmpaths, "_confmatrix.csv")
 
-# Read se stehman statistic data (calculated in R, pre-processed)
-proc2_se_stats = pd.read_csv("data/validation/proc2_se_stehmanstats.csv", delimiter=",")
+# Read protocol c confusion matrices
+protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
+protc_cm = list_read(protc_cmpaths, "_confmatrix.csv")
+
+# Read protocol d confusion matrices
+protd_cmpaths = folder_files("val_protd", "confmatrix.csv")
+protd_cm = list_read(protd_cmpaths, "_confmatrix.csv")
 
 
-
+# %%
 ############################################################################
 
 
-# PLOT STEHMAN CONFUSION MATRICES (UNPROCESSED)
+# DEFINE CONFUSION MATRICES PLOTTING FUNCTIONS
 
 
 ############################################################################
@@ -154,48 +197,20 @@ def matrix_plt(matrices, names, fmt):
     plt.tight_layout()
     plt.show()
 
-# Format stehman's gfc confusion matrix
-gfc_scm = steh_cm(gfc_cm, 3)
-
-# Format stehman's tmf confusion matrix
-tmf_scm = steh_cm(tmf_cm, 3)
-
-# Format stehman's se confusion matrix
-se_scm = steh_cm(se_cm, 3)
-
-# Plot confusion matrices
-matrix_plt([gfc_scm, tmf_scm, se_scm], datanames, '.2f')
-
 
 
 ############################################################################
 
 
-# PLOT STEHMAN CONFUSION MATRICES (PRE-PROCESSED)
+# DEFINE STEHMAN STATISTICS PLOTTING FUNCTIONS
 
 
 ############################################################################
-# Format stehman's gfc confusion matrix
-proc_gfc_scm = steh_cm(proc_gfc_cm, 3)
-
-# Format stehman's tmf confusion matrix
-proc_tmf_scm = steh_cm(proc_tmf_cm, 3)
-
-# Format stehman's se confusion matrix
-proc_se_scm = steh_cm(proc_se_cm, 3)
-
-# Plot confusion matrices
-matrix_plt([proc_gfc_scm, proc_tmf_scm, proc_se_scm], datanames, '.2f')
-
-
-
-############################################################################
-
-
-# STEHMAN STATISTICS PLOTTING FUNCTIONS
-
-
-############################################################################
+"""
+Producer's Accuracy = 100%-Omission Error
+User's Accuracy = 100%-Commission Error
+source: https://gsp.humboldt.edu/olm/courses/GSP_216/lessons/accuracy/metrics.html
+"""
 # Define function to plot stehman stats
 def steh_lineplt(datalist, stat, se, ylab):
     
@@ -287,86 +302,6 @@ def steh_dual_lineplt(datalist, datanames):
     # Display the plot
     plt.show()
     
-
-
-############################################################################
-
-
-# PLOT STEHMAN STATISTICS (UNPROCESSED)
-
-
-############################################################################
-# Remove gfc statistics for year 0
-gfc_stats0 = gfc_stats[2:]
-
-# Remove tmf statistics for year 0
-tmf_stats0 = tmf_stats[2:]
-
-# Remove se statistics for year 0
-se_stats0 = se_stats[2:]
-
-# Plot user's accuracy
-steh_lineplt([gfc_stats0, tmf_stats0, se_stats0], 'ua', 'se_ua', 
-             "User's Accuracy")
-
-# Plot producer's accuracy
-steh_lineplt([gfc_stats0, tmf_stats0, se_stats0], 'pa', 'se_pa', 
-             "Producer's Accuracy")
-
-# Plot area estimates
-steh_lineplt([gfc_stats0, tmf_stats0, se_stats0], 'area', 'se_a', 
-             "Deforestation Area Estimates")
-
-# Plot user's and producer's accuracy side by side
-steh_dual_lineplt([gfc_stats0, tmf_stats0, se_stats0], datanames)
-
-
-
-############################################################################
-
-
-# PLOT STEHMAN STATISTICS (PRE-PROCESSED)
-
-
-############################################################################
-# Remove gfc statistics for year 0
-proc2_gfc_stats0 = proc2_gfc_stats[1:]
-
-# Remove tmf statistics for year 0
-proc2_tmf_stats0 = proc2_tmf_stats[1:]
-
-# Remove se statistics for year 0
-proc2_se_stats0 = proc2_se_stats[1:]
-
-# Plot user's accuracy
-steh_lineplt([proc2_gfc_stats0, proc2_tmf_stats0, proc2_se_stats0], 'ua', 'se_ua', 
-             "User's Accuracy")
-
-# Plot producer's accuracy
-steh_lineplt([proc2_gfc_stats0, proc2_tmf_stats0, proc2_se_stats0], 'pa', 'se_pa', 
-             "Producer's Accuracy")
-
-# Plot area estimates
-steh_lineplt([proc2_gfc_stats0, proc2_tmf_stats0, proc2_se_stats0], 'area', 'se_a', 
-             "Deforestation Area Estimates")
-
-# Plot user's and producer's accuracy side by side
-steh_dual_lineplt([proc2_gfc_stats0, proc2_tmf_stats0, proc2_se_stats0], datanames)
-
-
-
-############################################################################
-
-
-# PLOT COMMISSION / OMISSION ERROR
-
-
-############################################################################
-"""
-Producer's Accuracy = 100%-Omission Error
-User's Accuracy = 100%-Commission Error
-source: https://gsp.humboldt.edu/olm/courses/GSP_216/lessons/accuracy/metrics.html
-"""
 # Define function to calculate commission and ommission error
 def comom_err(dataset):
     
@@ -444,18 +379,262 @@ def errors_lineplt(datalist, datanames):
 
     # Display the plot
     plt.show()
+    
 
-# Calculate commission and ommission errors for gfc
-gfc_errors = comom_err(proc2_gfc_stats)
+# %%
+############################################################################
 
-# Calculate commission and ommission errors for tmf
-tmf_errors = comom_err(proc2_tmf_stats)
 
-# Calculate commission and ommission errors for se
-se_errors = comom_err(proc2_se_stats)
+# PROTOCOL A: CALCULATE STATISTICS
 
-# Plot error data
-errors_lineplt([gfc_errors[1:], tmf_errors[1:], se_errors[1:]], datanames)
+
+############################################################################
+# Define function to calculate accuracy
+def prota_acc(datavals):
+    
+    # Extract number of agreements
+    val1 = (datavals['prot_a'] == 1).sum()
+    
+    # Extract number of disagreements
+    val0 = (datavals['prot_a'] == 0).sum()
+    
+    # Calculate accuracy
+    acc = val1 / (val1 + val0)
+    
+    return acc
+
+# Define function to calculate accuracy
+def prota_accs(datadic):
+    
+    # Create empty dictionary to store information
+    accuracies = {}
+    
+    # Iterate over each item in the dictionary
+    for key, data in datadic.items():
+        
+        # Extract number of agreements
+        val1 = (data['prot_a'] == 1).sum()
+        
+        # Extract number of disagreements
+        val2 = (data['prot_a'] == 0).sum()
+        
+        # Calculate accuracy
+        acc = val1 / (val1 + val2)
+        
+        # Add accuracy to dictionary
+        accuracies[key] = acc
+    
+    return accuracies
+
+# Calculate protocol a accuracies
+prota_accuracies = prota_accs(prota_files)
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL B: PLOT CONFUSION MATRICES
+
+
+############################################################################
+# Create protocol b gfc cm
+protb_gfc_cm = steh_cm(protb_cm["protb_gfc"], 2)
+
+# Create protocol b tmf cm
+protb_tmf_cm = steh_cm(protb_cm["protb_tmf"], 2)
+
+# Create protocol b se cm
+protb_se_cm = steh_cm(protb_cm["protb_se"], 2)
+
+# Define dataset names
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot confusion matrices
+matrix_plt([protb_gfc_cm, protb_tmf_cm, protb_se_cm], datanames, '.2f')
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL B: PLOT STEHMAN STATISTICS
+
+
+############################################################################
+"""
+Definition of Agreement: mark agreement if prediction defor year matches
+any year between observed defor and regr, for any deforestation event
+"""
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protb_stats["protb_gfc"][1:], 
+                   protb_stats["protb_tmf"][1:], 
+                   protb_stats["protb_se"][1:]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protb_stats["protb_gfc"][1:]),
+                comom_err(protb_stats["protb_tmf"][1:]),
+                comom_err(protb_stats["protb_se"][1:])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats["protb_gfc_redd"][1:],
+                   protb_stats["protb_gfc_nonredd"][1:]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats["protb_gfc_redd"][1:]),
+                comom_err(protb_stats["protb_gfc_nonredd"][1:])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats["protb_tmf_redd"][1:],
+                   protb_stats["protb_tmf_nonredd"][1:]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats["protb_tmf_redd"][1:]),
+                comom_err(protb_stats["protb_tmf_nonredd"][1:])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats["protb_se_redd"][1:],
+                   protb_stats["protb_se_nonredd"][1:]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats["protb_se_redd"][1:]),
+                comom_err(protb_stats["protb_se_nonredd"][1:])], datanames)
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL C: PLOT STEHMAN STATISTICS
+
+
+############################################################################
+"""
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year matches validation defor year of the first, second, or third observed 
+defor event
+"""
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protc_stats["protc_gfc"][2:13], 
+                   protc_stats["protc_tmf"][2:13], 
+                   protc_stats["protc_se"][2:13]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protc_stats["protc_gfc"][2:13]),
+                comom_err(protc_stats["protc_tmf"][2:13]),
+                comom_err(protc_stats["protc_se"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats["protc_gfc_redd"][2:13],
+                   protc_stats["protc_gfc_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats["protc_gfc_redd"][2:13]),
+                comom_err(protc_stats["protc_gfc_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats["protc_tmf_redd"][2:13],
+                   protc_stats["protc_tmf_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats["protc_gfc_redd"][2:13]),
+                comom_err(protc_stats["protc_gfc_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats["protc_se_redd"][2:13],
+                   protc_stats["protc_se_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats["protc_gfc_redd"][2:13]),
+                comom_err(protc_stats["protc_gfc_nonredd"][2:13])], datanames)
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL D: PLOT STEHMAN STATISTICS
+
+
+############################################################################
+"""
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year matches validation defor year of the first observed defor event
+"""
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protd_stats["protd_gfc"][2:13], 
+                   protd_stats["protd_tmf"][2:13], 
+                   protd_stats["protd_se"][2:13]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protd_stats["protd_gfc"][2:13]),
+                comom_err(protd_stats["protd_tmf"][2:13]),
+                comom_err(protd_stats["protd_se"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protd_stats["protd_gfc_redd"][2:13],
+                   protd_stats["protd_gfc_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protd_stats["protd_gfc_redd"][2:13]),
+                comom_err(protd_stats["protd_gfc_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protd_stats["protd_tmf_redd"][2:13],
+                   protd_stats["protd_tmf_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protd_stats["protd_gfc_redd"][2:13]),
+                comom_err(protd_stats["protd_gfc_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protd_stats["protd_se_redd"][2:13],
+                   protd_stats["protd_se_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protd_stats["protd_gfc_redd"][2:13]),
+                comom_err(protd_stats["protd_gfc_nonredd"][2:13])], datanames)
+
+
+
+
+
 
 
 
