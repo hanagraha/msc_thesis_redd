@@ -342,17 +342,58 @@ def prot_a(valdata, col, keepcols):
     
     return val_data
 
+# Define NEW!! function to manipulate with protocol A
+def prot_aa(valdata, col, keepcols):
+    
+    # Copy input validation data
+    val_data = valdata.copy()
+
+    # Iterate over each row in validation dataset
+    for idx, row in val_data.iterrows():
+        
+        # If deforestation IS detected in validation dataset
+        if row['defor1'] != 0:
+            
+            # Label deforestation
+            val_data.loc[idx, 'prot_a_val'] = 1
+        
+        # If deforestation is NOT detected in validation dataset
+        else: 
+            
+            # Label undeforested
+            val_data.loc[idx, 'prot_a_val'] = 0
+            
+        # If deforestation IS detected in the prediction dataset
+        if row[col] != 0:
+            
+            # Mark deforestation
+            val_data.loc[idx, 'prot_a_pred'] = 1 
+            
+        # If deforestation is NOT detected in the prediction dataset
+        else: 
+            
+            # Mark undeforested
+            val_data.loc[idx, 'prot_a_pred'] = 0
+    
+    # Add data name to list
+    cols = keepcols + [col, 'prot_a_val', 'prot_a_pred']
+    
+    # Only keep relevant columns
+    val_data = val_data[cols]
+    
+    return val_data
+
 # Define columns of interest
-keepcols = ["strata", "geometry", "defor1", "defor2", "defor3", "prot_a"]
+keepcols = ["strata", "geometry", "defor1", "defor2", "defor3"]
     
 # Run protocol a for gfc (all)
-prota_gfc = prot_a(val_data, "gfc", keepcols)
+prota_gfc = prot_aa(val_data, "gfc", keepcols)
 
 # Run protocol a for tmf (all)
-prota_tmf = prot_a(val_data, "tmf", keepcols)
+prota_tmf = prot_aa(val_data, "tmf", keepcols)
 
 # Run protocol a for se (all)
-prota_se = prot_a(val_data, "se", keepcols)
+prota_se = prot_aa(val_data, "se", keepcols)
 
 # Create list of all protocol a data
 prota_data = [prota_gfc, prota_tmf, prota_se]
@@ -725,25 +766,25 @@ write_list(protd_data, datanames, "protd")
 # write redd prota data
 write_dic(prota_redd, "prota", "redd")
 
-# write redd prota data
+# write nonredd prota data
 write_dic(prota_nonredd, "prota", "nonredd")
 
 # write redd protb data
 write_dic(protb_redd, "protb", "redd")
 
-# write redd protb data
+# write nonredd protb data
 write_dic(protb_nonredd, "protb", "nonredd")
 
 # write redd protc data
 write_dic(protc_redd, "protc", "redd")
 
-# write redd protc data
+# write nonredd protc data
 write_dic(protc_nonredd, "protc", "nonredd")
 
 # write redd protd data
 write_dic(protd_redd, "protd", "redd")
 
-# write redd protd data
+# write nonredd protd data
 write_dic(protd_nonredd, "protd", "nonredd")
 
 
