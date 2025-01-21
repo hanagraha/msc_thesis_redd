@@ -173,6 +173,12 @@ with rasterio.open(se_file) as se:
     se_defor = se.read(1)
     profile = se.profile
 
+# Calculate total map pixels
+total_pix = np.sum(gfc_defor != np.nan)
+
+# Convert map pixels to map area (ha)
+total_ha = total_pix * 0.09
+
 
 # %%
 ############################################################################
@@ -347,20 +353,76 @@ def pred_eaa(gfc_pred, tmf_pred, error_defor, error_ci):
 
 
 ############################################################################
-# Calculate total map pixels
-total_pix = np.sum(gfc_defor != np.nan)
 
-# Convert map pixels to map area (ha)
-total_ha = total_pix * 0.09
 
-# Calculate gfc error-adjusted defor
+# # Calculate gfc error-adjusted defor
+# gfc_ha = protb_stats['protb_gfc']['area'] * total_ha
+
+# # Calculate tmf error-adjusted defor
+# tmf_ha = protb_stats['protb_tmf']['area'] * total_ha
+
+# # Calculate se error-adjusted defor
+# se_ha = protb_stats['protb_se']['area'] * total_ha
+
+
+
+# Calculate error-adjusted defor area
 gfc_ha = protb_stats['protb_gfc']['area'] * total_ha
 
-# Calculate tmf error-adjusted defor
-tmf_ha = protb_stats['protb_tmf']['area'] * total_ha
+# Calculate redd error-adjusted defor area
+gfc_ha_redd = protb_stats['protb_gfc_redd']['area'] * total_ha
 
-# Calculate se error-adjusted defor
-se_ha = protb_stats['protb_se']['area'] * total_ha
+# Calculate nonredd error-adjusted defor area
+gfc_ha_nonredd = protb_stats['protb_gfc_nonredd']['area'] * total_ha
+
+# Calculate standard error of gfc area estimate
+gfc_se = total_ha * protb_stats['protb_gfc']['se_a']
+
+# Calculate standard error of redd area estimate
+gfc_se_redd = total_ha * protb_stats['protb_gfc_redd']['se_a']
+
+# Calculate standard error of nonredd area estimate
+gfc_se_nonredd = total_ha * protb_stats['protb_gfc_nonredd']['se_a']
+
+# Calculate gfc 95% confidence interval
+gfc_95ci = 1.96 * gfc_se
+
+# Calculate tmf 95% confidence interval
+redd_95ci = 1.96 * gfc_se_redd
+
+# Calculate se 95% confidence interval
+nonredd_95ci = 1.96 * gfc_se_nonredd
+
+# Calculate gfc 50% confidence interval
+gfc_50ci = 0.67 * gfc_se
+
+# Calculate tmf 50% confidence interval
+redd_50ci = 0.67 * gfc_se_redd
+
+# Calculate se 50% confidence interval
+nonredd_50ci = 0.67 * gfc_se_nonredd
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL D: PLOT ERROR ADJUSTED AREA WITH CONFIDENCE INTERVALS
+
+
+############################################################################
+# Plot area estimates with error bars
+defor_ci(gfc_ha[1:], gfc_ha_redd[1:], gfc_ha_nonredd[1:], gfc_95ci[1:], 
+         redd_95ci[1:], nonredd_95ci[1:])
+
+# Plot gfc deforestation with uncertainty
+defor_uncert(gfc_ha, gfc_95ci, gfc_50ci, "GFC")
+
+# Plot tmf deforestation with uncertainty
+defor_uncert(tmf_ha, tmf_95ci, tmf_50ci, "TMF")
+
+# Plot se deforestation with uncertainty
+defor_uncert(se_ha, se_95ci, se_50ci, "Sensitive Early")
 
 
 # %%
@@ -422,11 +484,11 @@ nonredd_50ci = 0.67 * gfc_se_nonredd
 
 ############################################################################
 # Plot area estimates with error bars
-defor_ci(gfc_ha[1:], gfc_ha_redd[1:], gfc_ha_nonredd[1:], gfc_95ci[1:], 
-         redd_95ci[1:], nonredd_95ci[1:])
+defor_ci(gfc_ha[2:13], gfc_ha_redd[2:13], gfc_ha_nonredd[2:13], gfc_95ci[2:13], 
+         redd_95ci[2:13], nonredd_95ci[2:13])
 
 # Plot gfc deforestation with uncertainty
-defor_uncert(gfc_ha, gfc_95ci, gfc_50ci, "GFC")
+defor_uncert(gfc_ha[2:13], gfc_95ci[2:13], gfc_50ci[2:13], "GFC")
 
 # Plot tmf deforestation with uncertainty
 defor_uncert(tmf_ha, tmf_95ci, tmf_50ci, "TMF")
