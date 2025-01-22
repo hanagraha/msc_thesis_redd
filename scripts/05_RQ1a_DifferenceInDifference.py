@@ -5,14 +5,6 @@ Created on Mon Nov  4 13:02:49 2024
 @author: hanna
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep 23 17:56:10 2024
-
-@author: hanna
-
-Expected execution time: <1min
-"""
 
 ############################################################################
 

@@ -18,7 +18,6 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import statistics
 
 
@@ -43,7 +42,7 @@ print("New Working Directory:", os.getcwd())
 nodata_val = 255
 
 # Set output directory
-out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
+val_dir = os.path.join('data', 'validation')
 
 # Set year range
 years = range(2013, 2024)
@@ -65,25 +64,34 @@ bluecols = [blue1, blue2, blue3]
 ############################################################################
 # Read validation data (unprocessed)
 val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
-                       delimiter=";", index_col=0)
+                       delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
 val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
 
 # Convert dataframe to geodataframe
-val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
+val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629")
 
-# Read validation data (preprocessed)
-val_data_proc = pd.read_csv("data/validation/validation_points_preprocessed2.csv")
+# Read villages data
+villages = gpd.read_file("data/village polygons/village_polygons.shp")
 
-# Convert csv geometry to WKT
-val_data_proc['geometry'] = gpd.GeoSeries.from_wkt(val_data_proc['geometry'])
+# Simplify villages dataframe into only REDD+ and non-REDD+ groups
+villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
 
-# Convert dataframe to geodataframe
-val_data_proc = gpd.GeoDataFrame(val_data_proc, geometry='geometry', crs="EPSG:32629") 
+# Extract redd+ geometry
+redd = villages.loc[1].geometry
+
+# Combine multipolygon into one
+redd_union = gpd.GeoSeries(redd).unary_union
+
+# Extract non-redd+ geometry
+nonredd = villages.loc[0].geometry
+
+# Combine multipolygon into one
+nonredd_union = gpd.GeoSeries(nonredd).unary_union 
 
 
-
+# %%
 ############################################################################
 
 
@@ -199,7 +207,7 @@ def double_bar(bardata1, label1, bardata2, label2, linedata, label3):
     
     # Add axes labels
     ax.set_xlabel("Year")
-    ax.set_ylabel("Pixel Count")
+    ax.set_ylabel("Number of Validation Points")
     
     # Add legend
     ax.legend()
@@ -209,7 +217,7 @@ def double_bar(bardata1, label1, bardata2, label2, linedata, label3):
     plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -245,7 +253,22 @@ for strata in range(1, 24):
 strata_plt(strat_confs, "Average Deforestation Label Confidence (1-10)")
    
 
+# %%
+############################################################################
 
+
+# SPLIT INTO REDD/NONREDD AREAS
+
+
+############################################################################
+# Filter points within REDD+ multipolygon
+points_redd = val_data[val_data.geometry.within(redd_union)]
+
+# Filter points within non-REDD+ multipolygon
+points_nonredd = val_data[val_data.geometry.within(nonredd_union)]
+
+
+# %%
 ############################################################################
 
 
@@ -253,35 +276,50 @@ strata_plt(strat_confs, "Average Deforestation Label Confidence (1-10)")
 
 
 ############################################################################
-# Create dataframe with regrowth counts (per year)
-regr_vals = pd.concat([
+# Define function to calcualte regrowth counts
+def count_regr(datapoints):
     
-    # Count unique values for first regrowth event
-    val_data['regr1'].value_counts(),
+    # Create dataframe with regrowth counts (per year)
+    regr_vals = pd.concat([
+        
+        # Count unique values for first regrowth event
+        datapoints['regr1'].value_counts(),
+        
+        # Count unique values for second regrowth event
+        datapoints['regr2'].value_counts(),
+        
+        # Count unique values for third regrowth event
+        datapoints['regr3'].value_counts()
+        
+    # Get sum of value counts over different years
+    ], axis = 1).sum(axis = 1)
     
-    # Count unique values for second regrowth event
-    val_data['regr2'].value_counts(),
+    # Sort regrowth results by year
+    regr_vals = regr_vals.sort_index()
     
-    # Count unique values for third regrowth event
-    val_data['regr3'].value_counts()
+    # Calculate first regrowth
+    regr_first = datapoints['regr1'].value_counts().sort_index()
     
-# Get sum of value counts over different years
-], axis=1).sum(axis=1)
+    # Replace 2013 regrowth with 0
+    regr_first[2013] = 0
+    
+    return regr_vals, regr_first
 
-# Sort regrowth results by year
-regr_vals = regr_vals.sort_index()
+# Calculate regrowth for whole validation dataset
+regr_vals, regr_first = count_regr(val_data)
+
+# Calculate regrowth for redd+ areas
+redd_regr_vals, redd_regr_first = count_regr(points_redd)
+
+# Calculate regrowth for nonredd+ areas
+nonredd_regr_vals, nonredd_regr_first = count_regr(points_nonredd)
 
 # Plot annual regrowth
 annual_plt(regr_vals[1:12], "Total Labelled Regrowth Points")
 
-# Calculate only the first regrowth event
-regr_first = val_data['regr1'].value_counts().sort_index()
-
-# Replace 2013 regrowth with 0
-regr_first[2013] = 0
 
 
-
+# %%
 ############################################################################
 
 
@@ -326,7 +364,7 @@ for year in years:
 annual_plt(regr_time, "Average Regrowth Duration (Years)")
 
 
-
+# %%
 ############################################################################
 
 
@@ -334,38 +372,52 @@ annual_plt(regr_time, "Average Regrowth Duration (Years)")
 
 
 ############################################################################
-# Create dataframe with regrowth counts (per year)
-defor_vals = pd.concat([
+# Define function to calculate deforestation events
+def calc_defor(datapoints):
     
-    # Count unique values for first regrowth event
-    val_data['defor1'].value_counts(),
+    # Create dataframe with regrowth counts (per year)
+    defor_vals = pd.concat([
+        
+        # Count unique values for first regrowth event
+        datapoints['defor1'].value_counts(),
+        
+        # Count unique values for second regrowth event
+        datapoints['defor2'].value_counts(),
+        
+        # Count unique values for third regrowth event
+        datapoints['defor3'].value_counts()
+        
+    # Get sum of value counts over different years
+    ], axis=1).sort_index()
     
-    # Count unique values for second regrowth event
-    val_data['defor2'].value_counts(),
+    # Add column names for clarity
+    defor_vals.columns = ["Deforestation 1", "Deforestation 2", "Deforestation 3"]
+
+    # Sort regrowth results by year
+    defor_vals = defor_vals.sort_index()
+
+    # Fill na values with 0
+    defor_vals = defor_vals.fillna(0)
+
+    # Calculate total deforestation per year
+    total_defor = defor_vals.sum(axis=1)
     
-    # Count unique values for third regrowth event
-    val_data['defor3'].value_counts()
+    return defor_vals, total_defor
+
+# Calculate deforestation for whole aoi
+defor_vals, total_defor = calc_defor(val_data)
+
+# Calculate deforestation for redd areas
+redd_defor_vals, redd_total_defor = calc_defor(points_redd)
+
+# Calculate deforestation for nonredd areas
+nonredd_defor_vals, nonredd_total_defor = calc_defor(points_nonredd)
     
-# Get sum of value counts over different years
-], axis=1).sort_index()
-
-# Add column names for clarity
-defor_vals.columns = ["Deforestation 1", "Deforestation 2", "Deforestation 3"]
-
-# Sort regrowth results by year
-defor_vals = defor_vals.sort_index()
-
-# Fill na values with 0
-defor_vals = defor_vals.fillna(0)
-
-# Calculate total deforestation per year
-total_defor = defor_vals.sum(axis=1)
-
 # Plot deforestation counts
 stacked_bar(defor_vals[2:], total_defor[2:], "Total Deforestation")
 
 
-
+# %%
 ############################################################################
 
 
@@ -373,27 +425,220 @@ stacked_bar(defor_vals[2:], total_defor[2:], "Total Deforestation")
 
 
 ############################################################################
-# Add counts of deforestation 2 and 3
-defor_after = defor_vals["Deforestation 2"] + defor_vals["Deforestation 3"]
+# Define function to calculate deforestation proportions
+def calc_props(defor):
+    
+    # Add counts of deforestation 2 and 3
+    defor_after = defor['Deforestation 2'] + defor['Deforestation 3']
+    
+    # Calculate first deforestation
+    defor_first = defor['Deforestation 1']
+    
+    # Calculate deforestation proportion
+    defor_props = defor_after / defor_first
+    
+    return defor_after, defor_first, defor_props
 
-# Calculate first deforestation
-defor_first = defor_vals["Deforestation 1"]
+# Calculate deforestation proportions for whole aoi
+defor_after, defor_first, defor_props = calc_props(defor_vals)
 
-# Calculate deforestation proportions
-defor_props = defor_after / defor_first
+# Calculate deforestation proportions for redd areas
+redd_defor_after, redd_defor_first, redd_defor_props = calc_props(redd_defor_vals)
+
+# Calculate deforestation proportions for nonredd areas
+nonredd_defor_after, nonredd_defor_first, nonredd_defor_props = calc_props(nonredd_defor_vals)
 
 # Plot total additional defor and regrowth (all)
-double_bar(defor_after[2:], "Additional Deforestation", regr_vals[1:12],
-           "Forest Regrowth (All Deforestation Events)", defor_first[2:],
+double_bar(defor_after[2:13], "Recurrent Deforestation", regr_vals[1:12],
+           "Forest Regrowth (All Deforestation Events)", defor_first[2:13],
            "Total Deforestation (First Detection)")
 
 # Plot total additional defor and regrowth (first)
-double_bar(defor_after[2:], "Additional Deforestation", regr_first[1:12], 
-           "Forest Regrowth (After First Deforestation Event)", defor_first[2:],
+double_bar(defor_after[2:13], "Recurrent Deforestation", regr_first[1:12], 
+           "Forest Regrowth (After First Deforestation Event)", defor_first[2:13],
            "First Detected Deforestation")
 
 
+# %%
+############################################################################
 
+
+# SPECIAL PLOTTING: REDD+ AND NONREDD+ DEFORESTATION
+
+
+############################################################################
+# Initialize figure
+fig, axes = plt.subplots(1, 2, figsize = (18, 6))
+
+# Define bar width 
+bar_width = 0.4
+
+# Plot 1: redd+ deforestation
+axes[0].bar(years, redd_defor_after[2:13], width = bar_width, label = 
+            "Recurrent deforestation in REDD+ villages", color = bluecols[0])
+
+axes[0].bar([i + bar_width for i in years], redd_regr_vals[2:13], width = 
+            bar_width, label = "Regrowth in REDD+ villages", color = bluecols[1])
+
+axes[0].plot([i + bar_width / 2 for i in years], redd_defor_first[2:13],
+             color = "crimson", label = 
+             "First detected deforestation in REDD+ villages")
+
+# Add x tickmarks
+axes[0].set_xticks([i + bar_width / 2 for i in years])
+
+# Add x labels
+axes[0].set_xticklabels(years, rotation = 0)
+
+# Add gridlines
+axes[0].grid(True, linestyle = "--", alpha = 0.6)
+
+# Add axes labels
+axes[0].set_xlabel("Year")
+axes[0].set_ylabel("Number of Validation Points")
+
+# Add legend
+axes[0].legend()
+
+# Plot 2: nonredd+ deforestation
+axes[1].bar(years, nonredd_defor_after[2:13], width = bar_width, label = 
+            "Recurrent deforestation in non-REDD+ villages", color = bluecols[0])
+
+axes[1].bar([i + bar_width for i in years], nonredd_regr_vals[2:13], width = 
+            bar_width, label = "Regrowth in non-REDD+ villages", color = bluecols[1])
+
+axes[1].plot([i + bar_width / 2 for i in years], nonredd_defor_first[2:13],
+             color = "crimson", label = 
+             "First detected deforestation in non-REDD+ villages")
+
+# Add x tickmarks
+axes[1].set_xticks([i + bar_width / 2 for i in years])
+
+# Add x labels
+axes[1].set_xticklabels(years, rotation = 0)
+
+# Add gridlines
+axes[1].grid(True, linestyle = "--", alpha = 0.6)
+
+# Add axes labels
+axes[1].set_xlabel("Year")
+axes[1].set_ylabel("Number of Validation Points")
+
+# Add legend
+axes[1].legend()
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+
+# # Initialize figure
+# fig, axes = plt.subplots(1, 2, figsize = (18, 6))
+
+# # Plot 1: redd+ deforestation proportions
+# axes[0].plot(years, redd_defor_props[2:13], color = "crimson", label = 
+#              "Proportion of recurrent to first deforestation in REDD+ villages")
+
+# # Add x tickmarks
+# axes[0].set_xticks(years)
+
+# # Add x labels
+# axes[0].set_xticklabels(years, rotation = 0)
+
+# # Add gridlines
+# axes[0].grid(True, linestyle = "--", alpha = 0.6)
+
+# # Add axes labels
+# axes[0].set_xlabel("Year")
+# axes[0].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
+
+# # Add legend
+# axes[0].legend()
+
+# # Plot 2: nonredd+ deforestation proportions
+# axes[1].plot(years, nonredd_defor_props[2:13], color = "crimson", label = 
+#              "Proportion of recurrent to first deforestation in non-REDD+ villages")
+
+# # Add x tickmarks
+# axes[1].set_xticks(years)
+
+# # Add x labels
+# axes[1].set_xticklabels(years, rotation = 0)
+
+# # Add gridlines
+# axes[1].grid(True, linestyle = "--", alpha = 0.6)
+
+# # Add axes labels
+# axes[1].set_xlabel("Year")
+# axes[1].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
+
+# # Add legend
+# axes[1].legend()
+
+# # Show plot
+# plt.tight_layout()
+# plt.show()
+
+
+
+# Initialize figure
+plt.figure(figsize = (10, 6))
+
+# Plot 1: redd+ deforestation proportions
+plt.plot(years, redd_defor_props[2:13], color = "crimson", label = 
+         "Proportion of recurrent to first deforestation in REDD+ villages")
+
+# Add tickmarks for each year
+plt.gca().set_xticks(years)
+
+# Define y axis limits
+plt.ylim(0, 0.7)
+
+# Add gridlines
+plt.grid(True, linestyle = "--", alpha = 0.6)
+
+# Add axes labels
+plt.xlabel("Year", fontsize = 12)
+plt.ylabel("Recurrent Deforestation / First Deforestation (Ratio)", 
+           fontsize = 12)
+
+# Add legend
+plt.legend(fontsize = 12)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+
+# Initialize figure
+plt.figure(figsize = (10, 6))
+
+# Plot 1: redd+ deforestation proportions
+plt.plot(years, nonredd_defor_props[2:13], color = "crimson", label = 
+         "Proportion of recurrent to first deforestation in non-REDD+ villages")
+
+# Add tickmarks for each year
+plt.gca().set_xticks(years)
+
+# Add gridlines
+plt.grid(True, linestyle = "--", alpha = 0.6)
+
+# Add axes labels
+plt.xlabel("Year", fontsize = 12)
+plt.ylabel("Recurrent Deforestation / First Deforestation (Ratio)", 
+           fontsize = 12)
+
+# Add legend
+plt.legend(fontsize = 12)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
 ############################################################################
 
 
@@ -450,7 +695,7 @@ annual_plt(defor_time_avg, "Average Time Between Deforestation Events (Years)")
 annual_plt(defor_time_mode, "Most Frequent Time Between Deforestation Events (Years)")
 
 
-
+# %%
 ############################################################################
 
 
@@ -472,8 +717,17 @@ val_data_heat['heat'] = (val_data_heat[["defor1", "defor2", "defor3"]] != 0).sum
 # Export to shapefile
 val_data_heat.to_file("data/validation/valdata_heat.shp")
 
+# Split heat points from redd areas
+heat_redd = val_data_heat[val_data_heat.geometry.within(redd_union)]
 
+# Split heat points from nonredd areas
+heat_nonredd = val_data_heat[val_data_heat.geometry.within(nonredd_union)]
 
+# Export to shapefile
+heat_redd.to_file("data/validation/valdata_heat_redd.shp")
+
+# Export to shapefile
+heat_nonredd.to_file("data/validation/valdata_heat_nonredd.shp")
 
 
 
