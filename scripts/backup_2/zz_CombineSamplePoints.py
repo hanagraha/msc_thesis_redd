@@ -57,16 +57,24 @@ val_dir = os.path.join(os.getcwd(), 'data', 'validation')
 
 ############################################################################
 # Read validation data (2013-2023)
-valdata690 = pd.read_csv("data/validation/validation_points_labelled.csv", 
-                         sep = ";", index_col = 0)
+valdata690 = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_690.csv", 
+                         sep = ",", index_col = 0)
 
 # Read validation data (2016-2023)
-valdata510 = pd.read_csv("data/backup_1/validation/validation_points_labelled_minstrata7.csv",
-                         sep = ";", index_col = 0)
+valdata510 = pd.read_csv("data/validation/validation_datasets/validation_points_2016_2023_510.csv",
+                         sep = ",", index_col = 0)
 
 # Read validation data (2013-2015)
-valdata180 = pd.read_csv("data/validation/validation_points_labelled_30extra.csv",
-                         sep = ";", index_col = 0)
+valdata180 = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2015_180.csv",
+                         sep = ",", index_col = 0)
+
+# Read validation data (2013-2023)
+valdata1440 = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_1440.csv",
+                          sep = ",", index_col = 0)
+
+# Read validation data (buffer)
+valdata_buff = pd.read_csv("data/validation/validation_datasets/validation_points_buffer_60.csv",
+                          sep = ",", index_col = 0)
 
 # Define stratification map filepath
 stratmap_path = "data/intermediate/stratification_layer_nogrnp.tif"
@@ -90,7 +98,7 @@ with rasterio.open(stratmap_path) as rast:
     stratmap_profile = rast.profile
 
 
-
+# %%
 ############################################################################
 
 
@@ -362,7 +370,134 @@ shp_write(valdata_all, "validation_points_1380.shp", val_dir)
 write_csv(valdata_all, val_dir, "validation_points_1380")
 
 
+# %%
+############################################################################
 
+
+# COMBINE BUFFER AND 1380 DATASETS
+
+
+############################################################################
+# Read 1380 dataset
+valdata1380 = pd.read_csv("data/validation/validation_points_labelled.csv", 
+                          index_col = 0)
+
+# Convert csv geometry to WKT
+valdata1380['geometry'] = gpd.GeoSeries.from_wkt(valdata1380['geometry'])
+
+# Convert dataframe to geodataframe
+valdata1380 = gpd.GeoDataFrame(valdata1380, geometry='geometry', crs="EPSG:32629") 
+
+# Read buffer dataset
+valdata60 = pd.read_csv("data/validation/validation_points_missing_labelled.csv", 
+                        sep = ";", index_col = 0)
+
+# Convert csv geometry to WKT
+valdata60['geometry'] = gpd.GeoSeries.from_wkt(valdata60['geometry'])
+
+# Convert dataframe to geodataframe
+valdata60 = gpd.GeoDataFrame(valdata60, geometry='geometry', crs="EPSG:32629") 
+
+# Define strata file path
+strat_path = "data/intermediate/stratification_layer_buffered.tif"
+
+# Define function to extract raster values per point
+def extract_val(points_gdf, tiflist, tifnames):
+    
+    # Copy points gdf
+    gdf = points_gdf.copy()
+    
+    # Iterate over each tif file
+    for tif, name in zip(tiflist, tifnames):
+        
+        # Create empty list to store pixel values
+        pix_vals = []
+        
+        # Read tif file
+        with rasterio.open(tif) as src:
+        
+            # Iterate over each point
+            for pnt in gdf.geometry:
+                
+                # Get row and column indices
+                row, col = src.index(pnt.x, pnt.y)
+                
+                # Extract pixel value at point location
+                pix_val = src.read(1)[row, col]
+                
+                # Append pixel value to list
+                pix_vals.append(pix_val)
+            
+        # Add new column to geodataframe
+        gdf[name] = pix_vals
+        
+    return gdf
+
+# Combine new sample points with larger dataset
+valdata_comb = pd.concat([valdata1380, valdata60], ignore_index=True)
+    
+# Sort by strata column
+valdata_comb = valdata_comb.sort_values(by = "strata", ascending = True)
+
+# Reset index
+valdata_comb = valdata_comb.reset_index(drop = True)
+
+# Check strata counts
+strat_counts = valdata_comb['strata'].value_counts()    
+
+# Extract buffered strata
+valdata_strat = extract_val(valdata_comb, [strat_path], ["buff_strat"])
+
+# Check strata counts again
+valdata_strat_counts = valdata_strat['buff_strat'].value_counts()
+
+# Copy validation data gdf
+valdata_copy = valdata_strat.copy()
+
+# Remove strata column
+valdata_copy = valdata_copy.drop(columns=['strata'])
+
+# # Convert csv geometry to WKT
+# valdata_copy['geometry'] = gpd.GeoSeries.from_wkt(valdata_copy['geometry'])
+
+# # Convert dataframe to geodataframe
+# valdata_copy = gpd.GeoDataFrame(valdata_copy, geometry='geometry', crs="EPSG:32629") 
+
+# Rename 'buff_strat' to 'strata'
+valdata_copy = valdata_copy.rename(columns={'buff_strat': 'strata'})
+
+# Define new column order
+new_column_order = ['strata'] + [col for col in valdata_copy.columns if col != 'strata']
+
+# Reorder columns
+valdata_copy = valdata_copy[new_column_order]
+
+# Write to file
+write_csv(valdata_copy, val_dir, "validation_points_with_buffer_labelled")
+
+
+# %%
+
+# Extract strata 1-22 from valdata 660
+valdata660 = valdata690[valdata690['strata'].between(1,22)]
+
+# Take strata 23 and 24 from valdata 1440
+valdata120 = valdata1440[valdata1440['strata'].between(23,24)]
+
+# Combine all strata
+valdata_comb = pd.concat([valdata660, valdata120], ignore_index = True)
+
+# # Convert csv geometry to WKT
+valdata_comb['geometry'] = gpd.GeoSeries.from_wkt(valdata_comb['geometry'])
+
+# Convert dataframe to geodataframe
+valdata_comb = gpd.GeoDataFrame(valdata_comb, geometry='geometry', crs="EPSG:32629") 
+
+# Define folder path
+valdat_dir = os.path.join("data", "validation", "validation_datasets")
+
+# Write to file
+write_csv(valdata_comb, valdat_dir, "validation_points_2013_2023_780")
 
 
 

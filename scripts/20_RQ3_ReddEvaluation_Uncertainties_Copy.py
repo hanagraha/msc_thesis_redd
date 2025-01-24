@@ -15,7 +15,6 @@ Created on Tue Jan 21 10:37:07 2025
 
 import os
 import pandas as pd
-import geopandas as gpd
 import rasterio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -114,30 +113,24 @@ def list_read(pathlist, suffix):
         files[var] = data
         
     return files
-        
-# Read validation data
-val_data = pd.read_csv("data/validation/validation_points.csv")
 
-# Convert csv geometry to WKT
-val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
-
-# Convert dataframe to geodataframe
-val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
-
-# Read protocol a data
-prota_filepaths = folder_files("val_prota", ".csv")
-prota_files = list_read(prota_filepaths, ".csv")
+# # Read protocol a data
+# prota_filepaths = folder_files("val_prota", ".csv")
+# prota_files = list_read(prota_filepaths, ".csv")
 
 # Read protocol b statistics
-protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+# protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
 protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
 
 # Read protocol c statistics
-protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+# protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
 protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 
 # Read protocol d statistics
-protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+# protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
 protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 # Define gfc lossyear filepath
@@ -341,7 +334,7 @@ def redd_comp(defor_dict, lab):
 
     # Add a title and legend
     # axes[0].set_title("REDD+ Error-Adjusted Deforestation Area")
-    axes[0].legend(fontsize=11)
+    axes[0].legend(fontsize=11, loc = "upper right")
 
     # Add gridlines
     axes[0].grid(linestyle="--", alpha=0.6)
@@ -388,7 +381,7 @@ def redd_comp(defor_dict, lab):
 
     # Add a title and legend
     # axes[1].set_title("Non-REDD+ Error-Adjusted Deforestation Area")
-    axes[1].legend(fontsize=11)
+    axes[1].legend(fontsize=11, loc = "upper right")
 
     # Add gridlines
     axes[1].grid(linestyle="--", alpha=0.6)

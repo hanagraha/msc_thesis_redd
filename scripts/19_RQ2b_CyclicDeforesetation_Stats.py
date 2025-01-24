@@ -63,7 +63,10 @@ bluecols = [blue1, blue2, blue3]
 
 ############################################################################
 # Read validation data (unprocessed)
-val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+# val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+#                        delimiter=",", index_col=0)
+
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
                        delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
@@ -533,52 +536,52 @@ plt.show()
 
 
 
-# # Initialize figure
-# fig, axes = plt.subplots(1, 2, figsize = (18, 6))
+# Initialize figure
+fig, axes = plt.subplots(1, 2, figsize = (18, 6))
 
-# # Plot 1: redd+ deforestation proportions
-# axes[0].plot(years, redd_defor_props[2:13], color = "crimson", label = 
-#              "Proportion of recurrent to first deforestation in REDD+ villages")
+# Plot 1: redd+ deforestation proportions
+axes[0].plot(years, redd_defor_props[2:13], color = "crimson", label = 
+             "Proportion of recurrent to first deforestation in REDD+ villages")
 
-# # Add x tickmarks
-# axes[0].set_xticks(years)
+# Add x tickmarks
+axes[0].set_xticks(years)
 
-# # Add x labels
-# axes[0].set_xticklabels(years, rotation = 0)
+# Add x labels
+axes[0].set_xticklabels(years, rotation = 0)
 
-# # Add gridlines
-# axes[0].grid(True, linestyle = "--", alpha = 0.6)
+# Add gridlines
+axes[0].grid(True, linestyle = "--", alpha = 0.6)
 
-# # Add axes labels
-# axes[0].set_xlabel("Year")
-# axes[0].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
+# Add axes labels
+axes[0].set_xlabel("Year")
+axes[0].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
 
-# # Add legend
-# axes[0].legend()
+# Add legend
+axes[0].legend()
 
-# # Plot 2: nonredd+ deforestation proportions
-# axes[1].plot(years, nonredd_defor_props[2:13], color = "crimson", label = 
-#              "Proportion of recurrent to first deforestation in non-REDD+ villages")
+# Plot 2: nonredd+ deforestation proportions
+axes[1].plot(years, nonredd_defor_props[2:13], color = "crimson", label = 
+             "Proportion of recurrent to first deforestation in non-REDD+ villages")
 
-# # Add x tickmarks
-# axes[1].set_xticks(years)
+# Add x tickmarks
+axes[1].set_xticks(years)
 
-# # Add x labels
-# axes[1].set_xticklabels(years, rotation = 0)
+# Add x labels
+axes[1].set_xticklabels(years, rotation = 0)
 
-# # Add gridlines
-# axes[1].grid(True, linestyle = "--", alpha = 0.6)
+# Add gridlines
+axes[1].grid(True, linestyle = "--", alpha = 0.6)
 
-# # Add axes labels
-# axes[1].set_xlabel("Year")
-# axes[1].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
+# Add axes labels
+axes[1].set_xlabel("Year")
+axes[1].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
 
-# # Add legend
-# axes[1].legend()
+# Add legend
+axes[1].legend()
 
-# # Show plot
-# plt.tight_layout()
-# plt.show()
+# Show plot
+plt.tight_layout()
+plt.show()
 
 
 
@@ -724,10 +727,10 @@ heat_redd = val_data_heat[val_data_heat.geometry.within(redd_union)]
 heat_nonredd = val_data_heat[val_data_heat.geometry.within(nonredd_union)]
 
 # Export to shapefile
-heat_redd.to_file("data/validation/valdata_heat_redd.shp")
+heat_redd.to_file("data/validation/valdata_heat_redd_780.shp")
 
 # Export to shapefile
-heat_nonredd.to_file("data/validation/valdata_heat_nonredd.shp")
+heat_nonredd.to_file("data/validation/valdata_heat_nonredd_780.shp")
 
 
 

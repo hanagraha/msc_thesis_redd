@@ -16,7 +16,6 @@ Created on Fri Dec 20 11:43:31 2024
 
 import os
 import pandas as pd
-import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -111,42 +110,40 @@ def list_read(pathlist, suffix):
         files[var] = data
         
     return files
-        
-# Read validation data
-val_data = pd.read_csv("data/validation/validation_points.csv")
-
-# Convert csv geometry to WKT
-val_data['geometry'] = gpd.GeoSeries.from_wkt(val_data['geometry'])
-
-# Convert dataframe to geodataframe
-val_data = gpd.GeoDataFrame(val_data, geometry='geometry', crs="EPSG:32629") 
 
 # Read protocol a data
-prota_filepaths = folder_files("val_prota", ".csv")
+# prota_filepaths = folder_files("val_prota", ".csv")
+prota_filepaths = folder_files("val_prota_sub", ".csv")
 prota_files = list_read(prota_filepaths, ".csv")
 
 # Read protocol b statistics
-protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+# protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
 protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
 
 # Read protocol c statistics
-protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+# protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
 protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 
 # Read protocol d statistics
-protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+# protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
+protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
 protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 # Read protocol b confusion matrices
-protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
+# protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
+protb_cmpaths = folder_files("val_protb_sub", "confmatrix.csv")
 protb_cm = list_read(protb_cmpaths, "_confmatrix.csv")
 
 # Read protocol c confusion matrices
-protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
+# protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
+protc_cmpaths = folder_files("val_protc_sub", "confmatrix.csv")
 protc_cm = list_read(protc_cmpaths, "_confmatrix.csv")
 
 # Read protocol d confusion matrices
-protd_cmpaths = folder_files("val_protd", "confmatrix.csv")
+# protd_cmpaths = folder_files("val_protd", "confmatrix.csv")
+protd_cmpaths = folder_files("val_protd_sub", "confmatrix.csv")
 protd_cm = list_read(protd_cmpaths, "_confmatrix.csv")
 
 
@@ -558,8 +555,8 @@ steh_dual_lineplt([protc_stats["protc_tmf_redd"][2:13],
                    protc_stats["protc_tmf_nonredd"][2:13]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protc_stats["protc_gfc_redd"][2:13]),
-                comom_err(protc_stats["protc_gfc_nonredd"][2:13])], datanames)
+errors_lineplt([comom_err(protc_stats["protc_tmf_redd"][2:13]),
+                comom_err(protc_stats["protc_tmf_nonredd"][2:13])], datanames)
 
 # Define dataset names
 datanames = ["SE REDD+", "SE Non-REDD+"]
@@ -569,8 +566,8 @@ steh_dual_lineplt([protc_stats["protc_se_redd"][2:13],
                    protc_stats["protc_se_nonredd"][2:13]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protc_stats["protc_gfc_redd"][2:13]),
-                comom_err(protc_stats["protc_gfc_nonredd"][2:13])], datanames)
+errors_lineplt([comom_err(protc_stats["protc_se_redd"][2:13]),
+                comom_err(protc_stats["protc_se_nonredd"][2:13])], datanames)
 
 
 # %%
@@ -617,8 +614,8 @@ steh_dual_lineplt([protd_stats["protd_tmf_redd"][2:13],
                    protd_stats["protd_tmf_nonredd"][2:13]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protd_stats["protd_gfc_redd"][2:13]),
-                comom_err(protd_stats["protd_gfc_nonredd"][2:13])], datanames)
+errors_lineplt([comom_err(protd_stats["protd_tmf_redd"][2:13]),
+                comom_err(protd_stats["protd_tmf_nonredd"][2:13])], datanames)
 
 # Define dataset names
 datanames = ["SE REDD+", "SE Non-REDD+"]
@@ -628,8 +625,8 @@ steh_dual_lineplt([protd_stats["protd_se_redd"][2:13],
                    protd_stats["protd_se_nonredd"][2:13]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protd_stats["protd_gfc_redd"][2:13]),
-                comom_err(protd_stats["protd_gfc_nonredd"][2:13])], datanames)
+errors_lineplt([comom_err(protd_stats["protd_se_redd"][2:13]),
+                comom_err(protd_stats["protd_se_nonredd"][2:13])], datanames)
 
 
 

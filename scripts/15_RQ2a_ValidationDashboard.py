@@ -104,11 +104,8 @@ def_img = "/assets/def_ts_small.png"
 # Read ndvi data
 pnt_ndvi = pd.read_csv("data/validation/jan_ndvi.csv")
 
-
 # Read ndmi data
 pnt_ndmi = pd.read_csv("data/validation/jan_ndmi.csv")
-
-
 
 
 # %%

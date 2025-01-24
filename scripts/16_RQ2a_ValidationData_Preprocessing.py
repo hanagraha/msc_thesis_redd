@@ -91,7 +91,13 @@ newfolder(protocol_folders, val_dir)
 
 ############################################################################
 # Read validation data
-val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+# val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
+#                        delimiter=",", index_col=0)
+
+# val_data = pd.read_csv("data/validation/validation_points_with_buffer_labelled.csv", 
+#                        delimiter=",", index_col=0)
+
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
                        delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
@@ -788,9 +794,164 @@ write_dic(protd_redd, "protd", "redd")
 write_dic(protd_nonredd, "protd", "nonredd")
 
 
+# %%
+############################################################################
 
 
+# WRITE PRE-PROCESSED FILES TO DISK (WITH BUFFER)
 
 
+############################################################################
+# Define function to write list of gdfs
+def write_list_buff(datalist, datanames, protname):
+    
+    # Iterate over each item in list
+    for data, name in zip(datalist, datanames):
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_buffered")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
+        
+        # Write to csv
+        data.to_csv(outfilepath, index = False)    
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Define function to write dictionary of gdfs
+def write_dic_buff(protdics, protname, polyname):
+    
+    # Iterate over each item in dictionary
+    for key, value in protdics.items():
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_buffered")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
+        
+        # Write to csv
+        value.to_csv(outfilepath, index = False)
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
 
+# Write prota data to folder
+write_list_buff(prota_data, datanames, "prota")
+
+# Write protb data to folder
+write_list_buff(protb_data, datanames, "protb")
+
+# Write protc data to folder
+write_list_buff(protc_data, datanames, "protc")
+
+# Write protd data to folder
+write_list_buff(protd_data, datanames, "protd")
+
+# write redd prota data
+write_dic_buff(prota_redd, "prota", "redd")
+
+# write nonredd prota data
+write_dic_buff(prota_nonredd, "prota", "nonredd")
+
+# write redd protb data
+write_dic_buff(protb_redd, "protb", "redd")
+
+# write nonredd protb data
+write_dic_buff(protb_nonredd, "protb", "nonredd")
+
+# write redd protc data
+write_dic_buff(protc_redd, "protc", "redd")
+
+# write nonredd protc data
+write_dic_buff(protc_nonredd, "protc", "nonredd")
+
+# write redd protd data
+write_dic_buff(protd_redd, "protd", "redd")
+
+# write nonredd protd data
+write_dic_buff(protd_nonredd, "protd", "nonredd")
+
+
+# %%
+############################################################################
+
+
+# WRITE PRE-PROCESSED FILES TO DISK (780 SUBSET)
+
+
+############################################################################
+# Define function to write list of gdfs
+def write_list_sub(datalist, datanames, protname):
+    
+    # Iterate over each item in list
+    for data, name in zip(datalist, datanames):
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_sub")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
+        
+        # Write to csv
+        data.to_csv(outfilepath, index = False)    
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Define function to write dictionary of gdfs
+def write_dic_sub(protdics, protname, polyname):
+    
+    # Iterate over each item in dictionary
+    for key, value in protdics.items():
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_sub")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
+        
+        # Write to csv
+        value.to_csv(outfilepath, index = False)
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+
+# Write prota data to folder
+write_list_sub(prota_data, datanames, "prota")
+
+# Write protb data to folder
+write_list_sub(protb_data, datanames, "protb")
+
+# Write protc data to folder
+write_list_sub(protc_data, datanames, "protc")
+
+# Write protd data to folder
+write_list_sub(protd_data, datanames, "protd")
+
+# write redd prota data
+write_dic_sub(prota_redd, "prota", "redd")
+
+# write nonredd prota data
+write_dic_sub(prota_nonredd, "prota", "nonredd")
+
+# write redd protb data
+write_dic_sub(protb_redd, "protb", "redd")
+
+# write nonredd protb data
+write_dic_sub(protb_nonredd, "protb", "nonredd")
+
+# write redd protc data
+write_dic_sub(protc_redd, "protc", "redd")
+
+# write nonredd protc data
+write_dic_sub(protc_nonredd, "protc", "nonredd")
+
+# write redd protd data
+write_dic_sub(protd_redd, "protd", "redd")
+
+# write nonredd protd data
+write_dic_sub(protd_nonredd, "protd", "nonredd")
 
