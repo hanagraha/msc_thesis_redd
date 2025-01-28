@@ -76,10 +76,16 @@ years = range(2013, 2024)
 yearlabs = [0] + list(years)
 
 # Define new folder names for validation protocols
-protocol_folders = ["val_prota", "val_protb", "val_protc", "val_protd"]
+protocol_folders = ["val_prota", "val_protb", "val_protc", "val_protd", "val_prote"]
 
 # Create new folders (if necessary)
 newfolder(protocol_folders, val_dir)
+
+# Set default plotting colors
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
 
 
 
@@ -286,6 +292,45 @@ points_outside = val_data[
 print("Points within REDD+ polygon:", len(points_redd))
 print("Points within non-REDD+ polygon:", len(points_nonredd))
 print("Points outside both polygons:", len(points_outside))
+
+# Check strata counts in redd points
+redd_strata = np.unique(points_redd['strata'], return_counts = True)
+
+# Check strata counts in nonredd points
+nonredd_strata = np.unique(points_nonredd['strata'], return_counts = True)
+
+# Plot in bar chart
+plt.figure(figsize=(10, 6))
+
+# Define bar width
+width = 0.4
+
+# Add redd+ bars
+plt.bar(redd_strata[0]- width/2, redd_strata[1], width, label = 
+        "REDD+ Villages", color = bluecols[0])
+
+# Add nonredd+ bars
+plt.bar(nonredd_strata[0] + width/2, nonredd_strata[1], width, label = 
+        "Non-REDD+ Villages", color = bluecols[1])
+
+# Add axes tiitles
+plt.xlabel("Strata", fontsize = 12)
+plt.ylabel("Point Count", fontsize = 12)
+
+# Add tickmarks
+plt.xticks(redd_strata[0])
+
+# Add gridlines
+plt.grid(True, linestyle = "--")
+
+# Add legend
+plt.legend(fontsize = 12)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+
+
 
 
 # %%
@@ -672,6 +717,54 @@ protd_data = [protd_gfc, protd_tmf, protd_se]
 ############################################################################
 
 
+# PROTOCOL E: IF FIRST YEAR OF FIRST DEFORESTATION YEAR IS DETECTED
+# WITH 1 YEAR BUFFER
+
+
+############################################################################
+"""
+Same as protocol D but with a 1 year buffer
+"""
+# Define function to create new column prioritizing a certain dataset
+def prot_e(valdata, col, keepcols):
+    
+    # Copy input validation data
+    val_data = valdata.copy()
+    
+    # Create mask where any defor year matches dataset
+    mask = val_data[col].between(val_data['defor1'] - 1, val_data['defor1'] + 1)
+
+    # Assign dataset year where mask is true, otherwise first defor year
+    val_data['prot_e'] = np.where(mask, val_data[col], val_data['defor1'])
+    
+    # Add data name to list
+    cols = keepcols + [col, 'prot_e']
+    
+    # Only keep relevant columns
+    val_data = val_data[cols]
+    
+    return val_data
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Run protocol b for gfc (all)
+prote_gfc = prot_e(val_data, 'gfc', keepcols)
+
+# Run protocol b for tmf (all)
+prote_tmf = prot_e(val_data, 'tmf', keepcols)
+
+# Run protocol c for se (all)
+prote_se = prot_e(val_data, 'se', keepcols)
+
+# Create list of all protocol d data
+prote_data = [prote_gfc, prote_tmf, prote_se]
+
+
+# %%
+############################################################################
+
+
 # SPLIT PRE-PROCESSED FILES BY REDD / NONREDD
 
 
@@ -706,11 +799,15 @@ prota_redd, prota_nonredd = reddsplit(prota_data, datanames)
 # Split protocol b datasets
 protb_redd, protb_nonredd = reddsplit(protb_data, datanames)
 
-# Split protocol b datasets
+# Split protocol c datasets
 protc_redd, protc_nonredd = reddsplit(protc_data, datanames)
 
-# Split protocol b datasets
+# Split protocol d datasets
 protd_redd, protd_nonredd = reddsplit(protd_data, datanames)
+
+# Split protocol e datasets
+prote_redd, prote_nonredd = reddsplit(prote_data, datanames)
+
 
 
 # %%
@@ -769,6 +866,9 @@ write_list(protc_data, datanames, "protc")
 # Write protd data to folder
 write_list(protd_data, datanames, "protd")
 
+# Write prote data to folder
+write_list(prote_data, datanames, "prote")
+
 # write redd prota data
 write_dic(prota_redd, "prota", "redd")
 
@@ -792,6 +892,12 @@ write_dic(protd_redd, "protd", "redd")
 
 # write nonredd protd data
 write_dic(protd_nonredd, "protd", "nonredd")
+
+# Write redd prote data
+write_dic(prote_redd, "prote", "redd")
+
+# Write nonredd prote data
+write_dic(prote_nonredd, "prote", "nonredd")
 
 
 # %%
@@ -931,6 +1037,9 @@ write_list_sub(protc_data, datanames, "protc")
 # Write protd data to folder
 write_list_sub(protd_data, datanames, "protd")
 
+# Write prote data to folder
+write_list_sub(prote_data, datanames, "prote")
+
 # write redd prota data
 write_dic_sub(prota_redd, "prota", "redd")
 
@@ -954,4 +1063,224 @@ write_dic_sub(protd_redd, "protd", "redd")
 
 # write nonredd protd data
 write_dic_sub(protd_nonredd, "protd", "nonredd")
+
+# Write redd prote data
+write_dic_sub(prote_redd, "prote", "redd")
+
+# Write nonredd prote data
+write_dic_sub(prote_nonredd, "prote", "nonredd")
+
+
+# %%
+############################################################################
+
+
+# FILTER BASED ON CONFIDENCE
+
+
+############################################################################
+# Filter to keep only points with confidence > 6
+valdata_filt = val_data[val_data['conf1'] > 6]
+
+# Count how many points per strata
+valdata_filt_strat = np.unique(valdata_filt['strata'], return_counts = True)
+
+# Convert to dataframe
+valdata_filt_strat = pd.DataFrame({'strata': valdata_filt_strat[0],
+                                  'count': valdata_filt_strat[1]})
+
+# Plot in bar chart
+plt.figure(figsize=(10, 6))
+
+# Define bar width
+width = 0.4
+
+# Add redd+ bars
+plt.bar(valdata_filt_strat['strata']- width/2, valdata_filt_strat['count'], 
+        width, label = "REDD+ Villages", color = bluecols[0])
+
+# Add axes tiitles
+plt.xlabel("Strata", fontsize = 12)
+plt.ylabel("Sample Count", fontsize = 12)
+
+# Add tickmarks
+plt.xticks(valdata_filt_strat['strata'])
+
+# Add gridlines
+plt.grid(True, linestyle = "--")
+
+# Add legend
+plt.legend(fontsize = 12)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
+############################################################################
+
+
+# RE-RUN PROTOCOLS BASED ON FILTERED DATASET
+
+
+############################################################################        
+# Define columns of interest
+keepcols = ["strata", "geometry", "defor1", "defor2", "defor3"]
+    
+# Run protocol a for gfc (all)
+prota_gfc_filt = prot_aa(valdata_filt, "gfc", keepcols)
+
+# Run protocol a for tmf (all)
+prota_tmf_filt = prot_aa(valdata_filt, "tmf", keepcols)
+
+# Run protocol a for se (all)
+prota_se_filt = prot_aa(valdata_filt, "se", keepcols)
+
+# Create list of all protocol a data
+prota_data_filt = [prota_gfc_filt, prota_tmf_filt, prota_se_filt]
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Create aligned valiadtion data for gfc
+protb_gfc_filt = prot_b(valdata_filt, "gfc", keepcols)
+
+# Create aligned validation data for tmf
+protb_tmf_filt = prot_b(valdata_filt, "tmf", keepcols)
+
+# Create aligned validation data for se
+protb_se_filt = prot_b(valdata_filt, "se", keepcols)
+
+# Create list of all protocol b data
+protb_data_filt = [protb_gfc_filt, protb_tmf_filt, protb_se_filt]
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Run protocol b for gfc (all)
+protc_gfc_filt = prot_c(valdata_filt, 'gfc', keepcols)
+
+# Run protocol b for tmf (all)
+protc_tmf_filt = prot_c(valdata_filt, 'tmf', keepcols)
+
+# Run protocol c for se (all)
+protc_se_filt = prot_c(valdata_filt, 'se', keepcols)
+
+# Create list of all protocol c data
+protc_data_filt = [protc_gfc_filt, protc_tmf_filt, protc_se_filt]
+
+# Define columns of interest
+keepcols = ["strata", "geometry"]
+
+# Run protocol d for gfc (all)
+protd_gfc_filt = prot_d(valdata_filt, 'gfc', keepcols)
+
+# Run protocol d for tmf (all)
+protd_tmf_filt = prot_d(valdata_filt, 'tmf', keepcols)
+
+# Run protocol d for se (all)
+protd_se_filt = prot_d(valdata_filt, 'se', keepcols)
+
+# Create list of all protocol d data
+protd_data_filt = [protd_gfc_filt, protd_tmf_filt, protd_se_filt]
+
+# Split filtered protocol a datasets
+prota_redd_filt, prota_nonredd_filt = reddsplit(prota_data_filt, datanames)
+
+# Split filtered protocol b datasets
+protb_redd_filt, protb_nonredd_filt = reddsplit(protb_data_filt, datanames)
+
+# Split filtered protocol v datasets
+protc_redd_filt, protc_nonredd_filt = reddsplit(protc_data_filt, datanames)
+
+# Split filtered protocol d datasets
+protd_redd_filt, protd_nonredd_filt = reddsplit(protd_data_filt, datanames)
+
+
+# %%
+############################################################################
+
+
+# WRITE FILTERED DATASET
+
+
+############################################################################
+# Define function to write list of gdfs
+def write_list_filt(datalist, datanames, protname):
+    
+    # Iterate over each item in list
+    for data, name in zip(datalist, datanames):
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_filt")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
+        
+        # Write to csv
+        data.to_csv(outfilepath, index = False)    
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Define function to write dictionary of gdfs
+def write_dic_filt(protdics, protname, polyname):
+    
+    # Iterate over each item in dictionary
+    for key, value in protdics.items():
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_filt")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
+        
+        # Write to csv
+        value.to_csv(outfilepath, index = False)
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Write prota data to folder
+write_list_filt(prota_data_filt, datanames, "prota")
+
+# Write protb data to folder
+write_list_filt(protb_data_filt, datanames, "protb")
+
+# Write protc data to folder
+write_list_filt(protc_data_filt, datanames, "protc")
+        
+# Write protd data to folder
+write_list_filt(protd_data_filt, datanames, "protd")
+
+# write redd prota data
+write_dic_filt(prota_redd_filt, "prota", "redd")
+
+# write nonredd prota data
+write_dic_filt(prota_nonredd_filt, "prota", "nonredd")
+
+# write redd protb data
+write_dic_filt(protb_redd_filt, "protb", "redd")
+
+# write nonredd protb data
+write_dic_filt(protb_nonredd_filt, "protb", "nonredd")
+
+# write redd protc data
+write_dic_filt(protc_redd_filt, "protc", "redd")
+
+# write nonredd protc data
+write_dic_filt(protc_nonredd_filt, "protc", "nonredd")
+
+# write redd protd data
+write_dic_filt(protd_redd_filt, "protd", "redd")
+
+# write nonredd protd data
+write_dic_filt(protd_nonredd_filt, "protd", "nonredd")
+
+
+
+
+
+
 

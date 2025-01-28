@@ -131,6 +131,10 @@ protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
 protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
+# Read protocol e statistics
+prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
+prote_stats = list_read(prote_statpaths, "_stehmanstats.csv")
+
 # Read protocol b confusion matrices
 # protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
 protb_cmpaths = folder_files("val_protb_sub", "confmatrix.csv")
@@ -145,6 +149,10 @@ protc_cm = list_read(protc_cmpaths, "_confmatrix.csv")
 # protd_cmpaths = folder_files("val_protd", "confmatrix.csv")
 protd_cmpaths = folder_files("val_protd_sub", "confmatrix.csv")
 protd_cm = list_read(protd_cmpaths, "_confmatrix.csv")
+
+# # EXTRA
+# protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
+# protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 
 # %%
@@ -629,7 +637,64 @@ errors_lineplt([comom_err(protd_stats["protd_se_redd"][2:13]),
                 comom_err(protd_stats["protd_se_nonredd"][2:13])], datanames)
 
 
+# %%
+############################################################################
 
+
+# PROTOCOL E: PLOT STEHMAN STATISTICS
+
+
+############################################################################
+"""
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year matches validation defor year of the first observed defor event, with a 
+one year buffer
+"""
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([prote_stats["prote_gfc"][2:13], 
+                   prote_stats["prote_tmf"][2:13], 
+                   prote_stats["prote_se"][2:13]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(prote_stats["prote_gfc"][2:13]),
+                comom_err(prote_stats["prote_tmf"][2:13]),
+                comom_err(prote_stats["prote_se"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([prote_stats["prote_gfc_redd"][2:13],
+                   prote_stats["prote_gfc_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(prote_stats["prote_gfc_redd"][2:13]),
+                comom_err(prote_stats["prote_gfc_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([prote_stats["prote_tmf_redd"][2:13],
+                   prote_stats["prote_tmf_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(prote_stats["prote_tmf_redd"][2:13]),
+                comom_err(prote_stats["prote_tmf_nonredd"][2:13])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([prote_stats["prote_se_redd"][2:13],
+                   prote_stats["prote_se_nonredd"][2:13]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(prote_stats["prote_se_redd"][2:13]),
+                comom_err(prote_stats["prote_se_nonredd"][2:13])], datanames)
 
 
 

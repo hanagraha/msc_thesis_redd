@@ -133,6 +133,10 @@ protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
 protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
+# Read protocol e statistics
+prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
+prote_stats = list_read(prote_statpaths, "_stehmanstats.csv")
+
 # Define gfc lossyear filepath
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
 
@@ -162,6 +166,10 @@ total_pix = np.sum(gfc_defor != np.nan)
 
 # Convert map pixels to map area (ha)
 total_ha = total_pix * 0.09
+
+# EXTRA
+protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
+protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 
 # %%
@@ -224,6 +232,15 @@ protd_eea = calc_eea(protd_stats)
 # Subset to only keep years 2013-2023
 for key in protd_eea:
     protd_eea[key] = protd_eea[key].iloc[2:13].reset_index(drop = True)
+    
+# Calculate eea and ci for prot e
+prote_eea = calc_eea(prote_stats)
+
+# Subset to only keep years 2013-2023
+for key in prote_eea:    
+    prote_eea[key] = prote_eea[key][(prote_eea[key]['year'] >= 2013) & \
+                                    (prote_eea[key]['year'] <= 2023)]
+    prote_eea[key] = prote_eea[key].reset_index(drop = True)
 
 
 # %%
@@ -499,6 +516,15 @@ redd_comp(protc_eea, "protc_se")
 
 # Plot prot d redd and nonredd (gfc/tmf/se)
 redd_comp(protd_eea, "protd_gfc")
+
+# Plot prot e redd and nonredd (gfc)
+redd_comp(prote_eea, "prote_gfc")
+
+# Plot prot e redd and nonredd (tmf)
+redd_comp(prote_eea, "prote_tmf")
+
+# Plot prot e redd and nonredd (se)
+redd_comp(prote_eea, "prote_se")
 
 
 # %%
