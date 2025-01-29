@@ -103,7 +103,10 @@ bluecols = [blue1, blue2, blue3]
 # val_data = pd.read_csv("data/validation/validation_points_with_buffer_labelled.csv", 
 #                        delimiter=",", index_col=0)
 
-val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
+# val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
+#                        delimiter=",", index_col=0)
+
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780_nobuffer.csv", 
                        delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
@@ -1075,6 +1078,96 @@ write_dic_sub(prote_nonredd, "prote", "nonredd")
 ############################################################################
 
 
+# WRITE PRE-PROCESSED FILES TO DISK (780 SUBSET WITH NO BUFFER)
+
+
+############################################################################
+# Define function to write list of gdfs
+def write_list_merg(datalist, datanames, protname):
+    
+    # Iterate over each item in list
+    for data, name in zip(datalist, datanames):
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_780nobuff")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
+        
+        # Write to csv
+        data.to_csv(outfilepath, index = False)    
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+        
+# Define function to write dictionary of gdfs
+def write_dic_merg(protdics, protname, polyname):
+    
+    # Iterate over each item in dictionary
+    for key, value in protdics.items():
+        
+        # Define output folder
+        outfolder = os.path.join(val_dir, f"val_{protname}_780nobuff")
+        
+        # Define output filename
+        outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
+        
+        # Write to csv
+        value.to_csv(outfilepath, index = False)
+        
+        # Print statement
+        print(f"{outfilepath} saved to file")
+
+# Write prota data to folder
+write_list_merg(prota_data, datanames, "prota")
+
+# Write protb data to folder
+write_list_merg(protb_data, datanames, "protb")
+
+# Write protc data to folder
+write_list_merg(protc_data, datanames, "protc")
+
+# Write protd data to folder
+write_list_merg(protd_data, datanames, "protd")
+
+# Write prote data to folder
+write_list_merg(prote_data, datanames, "prote")
+
+# write redd prota data
+write_dic_merg(prota_redd, "prota", "redd")
+
+# write nonredd prota data
+write_dic_merg(prota_nonredd, "prota", "nonredd")
+
+# write redd protb data
+write_dic_merg(protb_redd, "protb", "redd")
+
+# write nonredd protb data
+write_dic_merg(protb_nonredd, "protb", "nonredd")
+
+# write redd protc data
+write_dic_merg(protc_redd, "protc", "redd")
+
+# write nonredd protc data
+write_dic_merg(protc_nonredd, "protc", "nonredd")
+
+# write redd protd data
+write_dic_merg(protd_redd, "protd", "redd")
+
+# write nonredd protd data
+write_dic_merg(protd_nonredd, "protd", "nonredd")
+
+# Write redd prote data
+write_dic_merg(prote_redd, "prote", "redd")
+
+# Write nonredd prote data
+write_dic_merg(prote_nonredd, "prote", "nonredd")
+
+
+# %%
+############################################################################
+
+
 # FILTER BASED ON CONFIDENCE
 
 
@@ -1191,7 +1284,7 @@ prota_redd_filt, prota_nonredd_filt = reddsplit(prota_data_filt, datanames)
 # Split filtered protocol b datasets
 protb_redd_filt, protb_nonredd_filt = reddsplit(protb_data_filt, datanames)
 
-# Split filtered protocol v datasets
+# Split filtered protocol c datasets
 protc_redd_filt, protc_nonredd_filt = reddsplit(protc_data_filt, datanames)
 
 # Split filtered protocol d datasets
@@ -1278,6 +1371,20 @@ write_dic_filt(protd_redd_filt, "protd", "redd")
 # write nonredd protd data
 write_dic_filt(protd_nonredd_filt, "protd", "nonredd")
 
+
+# %%
+############################################################################
+
+
+# MERGE 780 FOR NO BUFFER AREA
+
+
+############################################################################
+# Copy validation data
+val_data_merg = val_data.copy()
+
+# Reclassify strata 24 as strata23
+val_data_merg.loc[val_data_merg["strata"] == 24, "strata"] = 23
 
 
 

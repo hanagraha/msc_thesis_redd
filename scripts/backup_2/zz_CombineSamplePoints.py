@@ -500,12 +500,27 @@ valdat_dir = os.path.join("data", "validation", "validation_datasets")
 write_csv(valdata_comb, valdat_dir, "validation_points_2013_2023_780")
 
 
+# Read 780 validation dataset
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
+                       delimiter=",", index_col=0)
 
+# Copy validation data
+val_data_merg = val_data.copy()
 
+# Reclassify strata 24 as strata23
+val_data_merg.loc[val_data_merg["strata"] == 24, "strata"] = 23
 
+# # Convert csv geometry to WKT
+val_data_merg['geometry'] = gpd.GeoSeries.from_wkt(val_data_merg['geometry'])
 
+# Convert dataframe to geodataframe
+val_data_merg = gpd.GeoDataFrame(val_data_merg, geometry='geometry', crs="EPSG:32629") 
 
+# Define folder path
+valdat_dir = os.path.join("data", "validation", "validation_datasets")
 
+# Write to file
+write_csv(val_data_merg, valdat_dir, "validation_points_2013_2023_780_nobuffer")
 
 
 

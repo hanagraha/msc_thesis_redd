@@ -18,6 +18,7 @@ import pandas as pd
 import rasterio
 import matplotlib.pyplot as plt
 import numpy as np
+import geopandas as gpd
 
 
 
@@ -58,6 +59,18 @@ tmf_col = "#4682B4"  # Darker Blue - lighter
 
 # Define dataset names
 datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Read villages data
+villages = gpd.read_file("data/village polygons/village_polygons.shp")
+
+# Simplify villages dataframe into only REDD+ and non-REDD+ groups
+villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
+
+# Extract redd+ polygon area (ha)
+redd_ha = villages.loc[1].geometry.area / 10000
+
+# Extract non-redd+ polygon area (ha)
+nonredd_ha = villages.loc[0].geometry.area / 10000
 
 
 # %%
@@ -120,21 +133,25 @@ def list_read(pathlist, suffix):
 
 # Read protocol b statistics
 # protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
-protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
+# protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
+protb_statpaths = folder_files("val_protb_780nobuff", "stehmanstats.csv")
 protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
 
 # Read protocol c statistics
 # protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
-protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
+# protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
+protc_statpaths = folder_files("val_protc_780nobuff", "stehmanstats.csv")
 protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
 
 # Read protocol d statistics
 # protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
-protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
+# protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
+protd_statpaths = folder_files("val_protd_780nobuff", "stehmanstats.csv")
 protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 # Read protocol e statistics
-prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
+# prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
+prote_statpaths = folder_files("val_prote_780nobuff", "stehmanstats.csv")
 prote_stats = list_read(prote_statpaths, "_stehmanstats.csv")
 
 # Define gfc lossyear filepath
@@ -167,9 +184,9 @@ total_pix = np.sum(gfc_defor != np.nan)
 # Convert map pixels to map area (ha)
 total_ha = total_pix * 0.09
 
-# EXTRA
-protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
-protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
+# # EXTRA
+# protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
+# protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 
 # %%
@@ -188,12 +205,33 @@ def calc_eea(data_dict):
     
     # Iterate over each dictionary iem
     for key, value in eea_dict.items():
-    
-        # Calculate error adjusted area
-        area = value['area'] * total_ha
         
-        # Extract area standard error
-        error = value['se_a'] * total_ha
+        # If the key is for nonredd areas
+        if "nonredd" in key:
+            
+            # Calculate error adjsuted area
+            area = value['area'] * nonredd_ha
+            
+            # Calculate area standard error
+            error = value['se_a'] * nonredd_ha
+            
+        # If the key is for redd areas
+        elif "redd" in key:
+            
+            # Calculate error adjusted area
+            area = value['area'] * redd_ha
+            
+            # Calculate area standard error
+            error = value['se_a'] * redd_ha 
+            
+        # If the key is for the whole area
+        else: 
+    
+            # Calculate error adjusted area
+            area = value['area'] * total_ha
+            
+            # Extract area standard error
+            error = value['se_a'] * total_ha
         
         # Calculate 95% confidence interval
         ci95 = 1.96 * error
@@ -216,23 +254,45 @@ def calc_eea(data_dict):
 protb_eea = calc_eea(protb_stats)
 
 # Subset to only keep years 2013-2023
-for key in protb_eea:
-    protb_eea[key] = protb_eea[key].iloc[1:].reset_index(drop = True)
+for key in protb_eea:    
+    protb_eea[key] = protb_eea[key][(protb_eea[key]['year'] >= 2013) & \
+                                    (protb_eea[key]['year'] <= 2023)]
+    protb_eea[key] = protb_eea[key].reset_index(drop = True)
+    
+# for key in protb_eea:
+#     protb_eea[key] = protb_eea[key].iloc[1:].reset_index(drop = True)
+
+
+
 
 # Calculate eea and ci for prot c
 protc_eea = calc_eea(protc_stats)
 
 # Subset to only keep years 2013-2023
-for key in protc_eea:
-    protc_eea[key] = protc_eea[key].iloc[2:13].reset_index(drop = True)
+for key in protc_eea:    
+    protc_eea[key] = protc_eea[key][(protc_eea[key]['year'] >= 2013) & \
+                                    (protc_eea[key]['year'] <= 2023)]
+    protc_eea[key] = protc_eea[key].reset_index(drop = True)
+    
+# for key in protc_eea:
+#     protc_eea[key] = protc_eea[key].iloc[2:13].reset_index(drop = True)
+
+
 
 # Calculate eea and ci for prot d
 protd_eea = calc_eea(protd_stats)
 
 # Subset to only keep years 2013-2023
-for key in protd_eea:
-    protd_eea[key] = protd_eea[key].iloc[2:13].reset_index(drop = True)
+for key in protd_eea:    
+    protd_eea[key] = protd_eea[key][(protd_eea[key]['year'] >= 2013) & \
+                                    (protd_eea[key]['year'] <= 2023)]
+    protd_eea[key] = protd_eea[key].reset_index(drop = True)
+
+# for key in protd_eea:
+#     protd_eea[key] = protd_eea[key].iloc[2:13].reset_index(drop = True)
     
+
+
 # Calculate eea and ci for prot e
 prote_eea = calc_eea(prote_stats)
 
@@ -308,6 +368,7 @@ def redd_comp(defor_dict, lab):
     
     # Set y-axis limits for both axes
     axes[0].set_ylim(min_y, max_y)
+    axes[1].set_ylim(min_y, max_y)
     
     # PLOT 1: REDD DEFOR AREA
     
@@ -344,14 +405,17 @@ def redd_comp(defor_dict, lab):
     
     # Add x-axis tick marks
     axes[0].set_xticks(years)
+    
+    # Adjust fontsize of tick labels
+    axes[0].tick_params(axis='both', which='major', labelsize=14)
 
     # Add axes labels
-    axes[0].set_xlabel("Year", fontsize=12)
-    axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=12)
+    axes[0].set_xlabel("Year", fontsize=16)
+    axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=16)
 
     # Add a title and legend
     # axes[0].set_title("REDD+ Error-Adjusted Deforestation Area")
-    axes[0].legend(fontsize=11, loc = "upper right")
+    axes[0].legend(fontsize=14, loc = "upper right")
 
     # Add gridlines
     axes[0].grid(linestyle="--", alpha=0.6)
@@ -391,14 +455,17 @@ def redd_comp(defor_dict, lab):
     
     # Add x-axis tick marks
     axes[1].set_xticks(years)
+    
+    # Adjust font size of tick labels
+    axes[1].tick_params(axis='both', which='major', labelsize=14)
 
     # Add axes labels
-    axes[1].set_xlabel("Year", fontsize=12)
-    axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=12)
+    axes[1].set_xlabel("Year", fontsize=16)
+    axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=16)
 
     # Add a title and legend
     # axes[1].set_title("Non-REDD+ Error-Adjusted Deforestation Area")
-    axes[1].legend(fontsize=11, loc = "upper right")
+    axes[1].legend(fontsize=14, loc = "upper right")
 
     # Add gridlines
     axes[1].grid(linestyle="--", alpha=0.6)
