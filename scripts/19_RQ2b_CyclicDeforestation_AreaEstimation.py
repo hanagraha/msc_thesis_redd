@@ -134,17 +134,11 @@ villages = gpd.read_file("data/village polygons/village_polygons.shp")
 # Simplify villages dataframe into only REDD+ and non-REDD+ groups
 villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
 
-# Extract redd+ geometry
-redd = villages.loc[1].geometry
+# Extract redd+ polygon area (ha)
+redd_ha = villages.loc[1].geometry.area / 10000
 
-# Combine multipolygon into one
-redd_union = gpd.GeoSeries(redd).unary_union
-
-# Extract non-redd+ geometry
-nonredd = villages.loc[0].geometry
-
-# Combine multipolygon into one
-nonredd_union = gpd.GeoSeries(nonredd).unary_union 
+# Extract non-redd+ polygon area (ha)
+nonredd_ha = villages.loc[0].geometry.area / 10000
 
 # Define protocol d filepaths
 protd_statpaths = folder_files("val_protd_780nobuff", "stehmanstats.csv")
@@ -160,19 +154,35 @@ for key in protd_stats:
                                     (protd_stats[key]['year'] <= 2023)]
     protd_stats[key] = protd_stats[key].reset_index(drop = True)
 
-# Define gfc lossyear filepath
-gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
-
-# Read gfc deforestation data
-with rasterio.open(gfc_lossyear_file) as gfc:
-    gfc_defor = gfc.read(1)
-    gfc_profile = gfc.profile
-
 # Calculate total map pixels
-total_pix = np.sum(gfc_defor != np.nan)
+total_pix = np.sum(stratmap != 255)
 
 # Convert map pixels to map area (ha)
 total_ha = total_pix * 0.09
+
+# Read stratification map (redd)
+with rasterio.open("data/intermediate/stratification_layer_redd.tif") as rast:
+    
+    # Read data
+    strat_redd = rast.read()
+    
+    # Get profile 
+    profile = rast.profile
+    
+# Read stratification map (nonredd)
+with rasterio.open("data/intermediate/stratification_layer_nonredd.tif") as rast:
+    
+    # Read data
+    strat_nonredd = rast.read()
+    
+    # Get profile
+    profile = rast.profile
+    
+# Calculate redd pixels
+redd_pix = np.sum(strat_redd != 255)
+
+# Calculate nonredd pixels
+nonredd_pix = np.sum(strat_nonredd != 255)
 
 
 # %%
@@ -182,7 +192,7 @@ total_ha = total_pix * 0.09
 # CALCULATE RECURRING AREA ESTIMATION (WHOLE AREA)
 
 
-############################################################################\
+############################################################################
 # Define function to calculate deforestation area per year
 def defor_area(valpoints, stratamap, defor1 = True, defor2 = True, defor3 = True):
     
@@ -273,20 +283,277 @@ stehman_area.index = pd.Index(years)
     
 
 # %%
+############################################################################
 
 
+# PROPORTIONAL AREAS MANUAL
 
 
+############################################################################
+"""
+Y = (strata_size(proportion of class in strata) + ....) / map size
+
+eg. [40,000(0.20) + 30,000(0.00) + 20,000(0.50) + 10,000(0.20)]/100,000
+
+where strata 1, 2, 3, 4 have sizes 40,0000, 30,000, 20,000, and 10,000
+sample size per strata = 10 points
+occurence of class C in strata 1 = 2, 2 = 0, 3 = 5, 4 = 2
+"""
+# Define function to calculate proportional areas
+def steh_area(valdata, stratmap, deforlist):
+    
+    # Calculate number of pixels per strata
+    pixvals, pixcounts = np.unique(stratmap, return_counts = True)
+
+    # Create dataframe
+    strata_size = pd.DataFrame({'strata': pixvals[:-1],
+                                'size': pixcounts[:-1]})
+
+    # Create empty list to hold deforestation area 
+    year_defor = pd.DataFrame(index=strata_size['strata'])
+
+    # Iterate over each year
+    for year in years:
+        
+        # Create empty list to hold year deforestation area
+        strata_defor = []
+        
+        # Iterate over each strata
+        for idx, row in strata_size.iterrows():
+            
+            # Extract strata number
+            strata = row['strata']
+            
+            # Extract strata size
+            size = row['size']
+            
+            # Subset validation data for that strata
+            data = valdata[valdata['strata'] == strata]
+            
+            # Count sum of deforestation in that year
+            defor = data[deforlist].eq(year).sum().sum()
+            
+            # Calculate class proportion in that strata
+            cp = defor / len(data)
+            
+            # Multiply by strata size
+            area = (cp * size) / total_pix
+            
+            # Add deforestation area to list
+            strata_defor.append(area)
+            
+        # Add the list as a column in the DataFrame
+        year_defor[year] = strata_defor
+
+    # Take the sum per year
+    total_defor = year_defor.sum(axis=0) 
+    
+    return total_defor
+
+# Estimate deforestation for the first year
+first_defor = steh_area(valdata, stratmap, ['defor1'])
+
+# Estimate deforestation for second year
+second_defor = steh_area(valdata, stratmap, ['defor2'])
+
+# Estimate deforestation for third year
+third_defor = steh_area(valdata, stratmap, ['defor3'])
+
+# Estimate deforestation for all years
+all_defor = steh_area(valdata, stratmap, ['defor1', 'defor2', 'defor3'])
 
 
+# %%
+############################################################################
 
 
+# CALCULATE STANDARD ERROR
 
 
+############################################################################
+def calc_eea(data_dict):
+    
+    # Create a copy of the input dictionary
+    eea_dict = data_dict.copy()
+    
+    # Iterate over each dictionary iem
+    for key, value in eea_dict.items():
+        
+        # If the key is for nonredd areas
+        if "nonredd" in key:
+            
+            # Calculate error adjsuted area
+            area = value['area'] * nonredd_ha
+            
+            # Calculate area standard error
+            error = value['se_a'] * nonredd_ha
+            
+        # If the key is for redd areas
+        elif "redd" in key:
+            
+            # Calculate error adjusted area
+            area = value['area'] * redd_ha
+            
+            # Calculate area standard error
+            error = value['se_a'] * redd_ha 
+            
+        # If the key is for the whole area
+        else: 
+    
+            # Calculate error adjusted area
+            area = value['area'] * total_ha
+            
+            # Extract area standard error
+            error = value['se_a'] * total_ha
+        
+        # Calculate 95% confidence interval
+        ci95 = 1.96 * error
+        
+        # Calculate 50% confidence interval
+        ci50 = 0.67 * error
+        
+        # Add error adjusted area to df
+        value['eea'] = area
+        
+        # Add 95ci to df
+        value['ci95'] = ci95
+        
+        # Add 50ci to df
+        value['ci50'] = ci50
+    
+    return eea_dict
+
+# Calculate eea and ci for prot b
+protd_eea = calc_eea(protd_stats)
 
 
+# %%
+############################################################################
 
 
+# PLOT MULTIPLE DEFORESTATION EVENTS
+
+
+############################################################################
+# Initialize figure
+plt.figure(figsize=(10, 6))
+
+# Add all deforestation data
+plt.plot(years, all_defor * total_ha, linestyle='--', color = bluecols[2], 
+         label='All Deforestation')
+
+# Add first deforestation data
+plt.errorbar(
+    years,
+    protd_eea['protd_gfc']['eea'],
+    yerr = protd_eea['protd_gfc']['ci50'],
+    fmt="-o",
+    capsize = 5,
+    color = bluecols[0],
+    label = "First Deforestation"
+)
+
+# Create 95% ci rectangle
+plt.fill_between(
+    years, 
+    protd_eea['protd_gfc']['eea'][0] - protd_eea['protd_gfc']['ci95'][0],
+    protd_eea['protd_gfc']['eea'][0] + protd_eea['protd_gfc']['ci95'][0],
+    color = bluecols[1],
+    alpha = 0.2,
+    label = "95% confidence interval"
+    )
+
+# Create 95% ci rectangle
+plt.fill_between(
+    years, 
+    protd_eea['protd_gfc']['eea'][0] - protd_eea['protd_gfc']['ci50'][0],
+    protd_eea['protd_gfc']['eea'][0] + protd_eea['protd_gfc']['ci50'][0],
+    color = bluecols[1],
+    alpha = 0.3,
+    label = "50% confidence interval"
+    )
+
+# Add axes labels
+plt.xlabel("Year", fontsize = 16)
+plt.ylabel("Deforestation Area (ha)", fontsize = 16)
+
+# Get handles if plot items
+handles, labels = plt.gca().get_legend_handles_labels()
+
+# Define order of legend items
+order = [0, 3, 1, 2] 
+
+# Add legend with manual item ordering
+plt.legend([handles[i] for i in order], [labels[i] for i in order], 
+           fontsize=14, loc="upper right")
+
+# Add gridlines
+plt.grid(linestyle = "--", alpha = 0.6)
+
+# Adjust tickmarks
+plt.xticks(years, fontsize = 14)
+plt.yticks(fontsize = 14)
+
+# Show the plot
+plt.show()
+
+
+# %%
+############################################################################
+
+
+# CALCULATE STANDARD ERROR FOR AREA ESTIMATION
+
+
+############################################################################
+"""
+V(Y) = (1/N2) * (strata_size^2 * ((1-proportion of class in strata / sample size)))
+"""
+# Extract gfc area errors
+gfc_errors = protd_stats['protd_gfc']['se_a']
+
+# Extract tmf area errors
+tmf_errors = protd_stats['protd_tmf']['se_a']
+
+# Extract se area errors
+se_errors = protd_stats['protd_se']['se_a']
+
+
+# Calculate sample variance
+
+# Calculate number of pixels per strata
+pixvals, pixcounts = np.unique(stratmap, return_counts = True)
+
+# Create dataframe
+strata_size = pd.DataFrame({'strata': pixvals[:-1],
+                            'size': pixcounts[:-1]})
+
+# Iterate over each strata
+for idx, row in strata_size.iterrows():
+    
+    # Extract strata number
+    strata = row['strata']
+    
+    # Extract strata size
+    size = row['size']
+    
+    # Subset validation data for that strata
+    data = valdata[valdata['strata'] == strata]
+    
+    # Separate all deforestation events
+    defor = 
+    
+    # Calculate indicator row (correct/incorrect classification)
+    if data['gfc'] == data['defor1']
+    
+    # Define sample mean of strata
+    mean = 
+    
+    # Iterate over each point in strata
+    for point in data:
+        
+        # Define y_u indicator variable
+        y_u = 
 
 
 

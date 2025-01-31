@@ -20,6 +20,8 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import rasterio
+from rasterio.mask import mask
 
 
 
@@ -135,6 +137,18 @@ nonredd = villages.loc[0].geometry
 
 # Combine multipolygon into one
 nonredd_union = gpd.GeoSeries(nonredd).unary_union
+
+# Define stratification map path
+strat_path = "data/intermediate/stratification_layer_nogrnp.tif"
+
+# Read stratification map
+with rasterio.open("data/intermediate/stratification_layer_nogrnp.tif") as rast:
+    
+    # Read data
+    stratmap = rast.read()
+    
+    # Get profile
+    profile = rast.profile
 
 
 # %%
@@ -275,10 +289,59 @@ tripprec("Weighted validation precision", val_data, col='defor1', sw1='conf1')
 ############################################################################
 
 
-# CHECK: RATIO OF REDD+, NON-REDD+
+# SPLIT STRATIFICATION MAP INTO REDD+ / NONREDD+ AREAS
 
 
-############################################################################ 
+############################################################################
+# Define function to crop to geometry
+def geom_crop(geometry, output_path):
+    
+    # Read stratification map
+    with rasterio.open(strat_path) as rast:
+        
+        # Mask to geometry
+        out_image, out_transform = mask(rast, [geometry], crop = True)
+        
+        # Extract metadata
+        meta = rast.meta.copy()
+        
+        # Update metadata
+        meta.update({
+            "height": out_image.shape[1],
+            "width": out_image.shape[2],
+            "transform": out_transform
+            })
+        
+        # Save clipped raster
+        with rasterio.open(output_path, "w", **meta) as dst:
+            dst.write(out_image)
+            
+    return out_image
+
+# Define function to calculate strata size
+def incl_prob(stratmap, valdata):
+    
+    # Calculate number of pixels per strata
+    pixvals, pixcounts = np.unique(stratmap, return_counts = True)
+
+    # Create dataframe
+    strata_size = pd.DataFrame({'strata': pixvals[:-1],
+                                'size': pixcounts[:-1]})
+    
+    # Calculate number of samples per strata
+    sampvals, sampcounts = np.unique(valdata['strata'], return_counts = True)
+    
+    # Create dataframe
+    samples = pd.DataFrame({'strata': sampvals,
+                            'samples': sampcounts})
+    
+    # Calculate inclusion probability
+    prob = pd.DataFrame({'strata': sampvals,
+                         'incl_prob': (samples['samples'] / strata_size['size'])
+                         })
+    
+    return prob
+
 # Filter points within REDD+ multipolygon
 points_redd = val_data[val_data.geometry.within(redd_union)]
 
@@ -301,7 +364,34 @@ redd_strata = np.unique(points_redd['strata'], return_counts = True)
 
 # Check strata counts in nonredd points
 nonredd_strata = np.unique(points_nonredd['strata'], return_counts = True)
+            
+# Define output path for redd+ geometry
+redd_path = os.path.join("data", "intermediate", "stratification_layer_redd.tif")
 
+# Define output path for nonredd+ geometry
+nonredd_path = os.path.join("data", "intermediate", "stratification_layer_nonredd.tif")
+
+# Clip to redd geometry
+redd_strat = geom_crop(redd_union, redd_path)
+
+# Clip to nonredd geometry
+nonredd_strat = geom_crop(nonredd_union, nonredd_path)
+
+# Calculate inclusion probability for redd
+redd_prob = incl_prob(redd_strat, points_redd)
+
+# Calculate inclusion probability for nonredd
+nonredd_prob = incl_prob(nonredd_strat, points_nonredd)
+            
+        
+# %%        
+############################################################################
+
+
+# MAP: RATIO OF REDD+, NON-REDD+
+
+
+############################################################################ 
 # Plot in bar chart
 plt.figure(figsize=(10, 6))
 
@@ -332,8 +422,6 @@ plt.legend(fontsize = 12)
 # Display the plot
 plt.tight_layout()
 plt.show()
-
-
 
 
 # %%
