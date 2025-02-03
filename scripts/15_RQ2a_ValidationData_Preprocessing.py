@@ -300,10 +300,10 @@ def prot_b(valdata, col, keepcols):
     mask = val_data[col].between(val_data['defor1'] - 1, val_data['defor1'] + 1)
 
     # Assign dataset year where mask is true, otherwise first defor year
-    val_data['prot_e'] = np.where(mask, val_data[col], val_data['defor1'])
+    val_data['prot_b'] = np.where(mask, val_data[col], val_data['defor1'])
     
     # Add data name to list
-    cols = keepcols + [col, 'prot_e']
+    cols = keepcols + [col, 'prot_b']
     
     # Only keep relevant columns
     val_data = val_data[cols]
@@ -357,13 +357,13 @@ def prot_c(valdata, col, keepcols):
     val_data = valdata.copy()
     
     # Re-name deforestation column
-    val_data['prot_d'] = val_data['defor1']
+    val_data['prot_c'] = val_data['defor1']
     
     # Rename confidence column
-    val_data['prot_d_conf'] = val_data['conf1']
+    val_data['prot_c_conf'] = val_data['conf1']
     
     # Add data name to list
-    cols = keepcols[:2] + [col, 'prot_d', 'prot_d_conf']
+    cols = keepcols[:2] + [col, 'prot_c', 'prot_c_conf']
     
     # Only keep relevant columns
     val_data = val_data[cols]

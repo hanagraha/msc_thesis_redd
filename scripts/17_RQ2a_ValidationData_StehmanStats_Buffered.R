@@ -70,7 +70,7 @@ valstats_a <- function(valdata, stratmap, varname, protname, ext = NULL){
   )
   
   # Define subfolder
-  subfolder <- sprintf("val_%s_buffered", protname)
+  subfolder <- sprintf("val_%s_buff", protname)
   
   # Define suffix
   suffix <- if (!is.null(ext)) paste0("_", ext) else ""
@@ -131,7 +131,7 @@ valstats <- function(valdata, stratmap, varname, protname, ext = NULL){
   )
   
   # Define subfolder
-  subfolder <- sprintf("val_%s_buffered", protname)
+  subfolder <- sprintf("val_%s_buff", protname)
   
   # Define suffix
   suffix <- if (!is.null(ext)) paste0("_", ext) else ""
