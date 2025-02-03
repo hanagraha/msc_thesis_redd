@@ -25,8 +25,14 @@ library(mapaccuracy)
 # Set working directory
 setwd("C:/Users/hanna/Documents/WUR MSc/MSc Thesis/redd-thesis")
 
-# Read stratification map
-stratmap <- rast("data/intermediate/stratification_layer_buffered.tif")
+# Read stratification map (with buffer)
+stratmap <- rast("data/validation/stratification_maps/stratification_layer_buffered.tif")
+
+# Read stratification map (redd, with buffer)
+stratmap_redd <- rast("data/validation/stratification_maps/stratification_layer_redd_buff.tif")
+
+# Read stratification map (redd, with buffer)
+stratmap_nonredd <- rast("data/validation/stratification_maps/stratification_layer_nonredd_buff.tif")
 
 # Define function to calculate and save statistics (specifically for prota)
 valstats_a <- function(valdata, stratmap, varname, protname, ext = NULL){
@@ -183,34 +189,34 @@ ov_acc <- function(stats_list) {
 
 ############################################################################
 # Read gfc validation datasets
-gfc_prota <- read.csv("data/validation/val_prota_buffered/prota_gfc.csv")
-gfc_prota_redd <- read.csv("data/validation/val_prota_buffered/prota_gfc_redd.csv")
-gfc_prota_nonredd <- read.csv("data/validation/val_prota_buffered/prota_gfc_nonredd.csv")
+gfc_prota <- read.csv("data/validation/val_prota_buff/prota_gfc.csv")
+gfc_prota_redd <- read.csv("data/validation/val_prota_buff/prota_gfc_redd.csv")
+gfc_prota_nonredd <- read.csv("data/validation/val_prota_buff/prota_gfc_nonredd.csv")
 
 # Read tmf validation datasets
-tmf_prota <- read.csv("data/validation/val_prota_buffered/prota_tmf.csv")
-tmf_prota_redd <- read.csv("data/validation/val_prota_buffered/prota_tmf_redd.csv")
-tmf_prota_nonredd <- read.csv("data/validation/val_prota_buffered/prota_tmf_nonredd.csv")
+tmf_prota <- read.csv("data/validation/val_prota_buff/prota_tmf.csv")
+tmf_prota_redd <- read.csv("data/validation/val_prota_buff/prota_tmf_redd.csv")
+tmf_prota_nonredd <- read.csv("data/validation/val_prota_buff/prota_tmf_nonredd.csv")
 
 # Read se validation datasets
-se_prota <- read.csv("data/validation/val_prota_buffered/prota_se.csv")
-se_prota_redd <- read.csv("data/validation/val_prota_buffered/prota_se_redd.csv")
-se_prota_nonredd <- read.csv("data/validation/val_prota_buffered/prota_se_nonredd.csv")
+se_prota <- read.csv("data/validation/val_prota_buff/prota_se.csv")
+se_prota_redd <- read.csv("data/validation/val_prota_buff/prota_se_redd.csv")
+se_prota_nonredd <- read.csv("data/validation/val_prota_buff/prota_se_nonredd.csv")
 
 # Calculate statistics for gfc
 gfc_prota_stats <- valstats_a(gfc_prota, stratmap, "gfc", "prota")
-gfc_prota_redd_stats <- valstats_a(gfc_prota_redd, stratmap, "gfc", "prota", "redd")
-gfc_prota_nonredd_stats <- valstats_a(gfc_prota_nonredd, stratmap, "gfc", "prota", "nonredd")
+gfc_prota_redd_stats <- valstats_a(gfc_prota_redd, stratmap_redd, "gfc", "prota", "redd")
+gfc_prota_nonredd_stats <- valstats_a(gfc_prota_nonredd, stratmap_nonredd, "gfc", "prota", "nonredd")
 
 # Calculate statistics for tmf
 tmf_prota_stats <- valstats_a(tmf_prota, stratmap, "tmf", "prota")
-tmf_prota_redd_stats <- valstats_a(tmf_prota_redd, stratmap, "tmf", "prota", "redd")
-tmf_prota_nonredd_stats <- valstats_a(tmf_prota_nonredd, stratmap, "tmf", "prota", "nonredd")
+tmf_prota_redd_stats <- valstats_a(tmf_prota_redd, stratmap_redd, "tmf", "prota", "redd")
+tmf_prota_nonredd_stats <- valstats_a(tmf_prota_nonredd, stratmap_nonredd, "tmf", "prota", "nonredd")
 
 # Calculate statistics for se
 se_prota_stats <- valstats_a(se_prota, stratmap, "se", "prota")
-se_prota_redd_stats <- valstats_a(se_prota_redd, stratmap, "se", "prota", "redd")
-se_prota_nonredd_stats <- valstats_a(se_prota_nonredd, stratmap, "se", "prota", "nonredd")
+se_prota_redd_stats <- valstats_a(se_prota_redd, stratmap_redd, "se", "prota", "redd")
+se_prota_nonredd_stats <- valstats_a(se_prota_nonredd, stratmap_nonredd, "se", "prota", "nonredd")
 
 # Store variables in list
 prota_stats <- list(
@@ -229,7 +235,7 @@ prota_stats <- list(
 prota_acc <- ov_acc(prota_stats)
 
 # Write to file
-write.csv(prota_acc, "data/validation/val_prota_buffered/prota_overall_accuracy.csv", 
+write.csv(prota_acc, "data/validation/val_prota_buff/prota_overall_accuracy.csv", 
           row.names = FALSE)
 
 
@@ -242,34 +248,34 @@ write.csv(prota_acc, "data/validation/val_prota_buffered/prota_overall_accuracy.
 
 ############################################################################
 # Read gfc validation datasets
-gfc_protb <- read.csv("data/validation/val_protb_buffered/protb_gfc.csv")
-gfc_protb_redd <- read.csv("data/validation/val_protb_buffered/protb_gfc_redd.csv")
-gfc_protb_nonredd <- read.csv("data/validation/val_protb_buffered/protb_gfc_nonredd.csv")
+gfc_protb <- read.csv("data/validation/val_protb_buff/protb_gfc.csv")
+gfc_protb_redd <- read.csv("data/validation/val_protb_buff/protb_gfc_redd.csv")
+gfc_protb_nonredd <- read.csv("data/validation/val_protb_buff/protb_gfc_nonredd.csv")
 
 # Read tmf validation datasets
-tmf_protb <- read.csv("data/validation/val_protb_buffered/protb_tmf.csv")
-tmf_protb_redd <- read.csv("data/validation/val_protb_buffered/protb_tmf_redd.csv")
-tmf_protb_nonredd <- read.csv("data/validation/val_protb_buffered/protb_tmf_nonredd.csv")
+tmf_protb <- read.csv("data/validation/val_protb_buff/protb_tmf.csv")
+tmf_protb_redd <- read.csv("data/validation/val_protb_buff/protb_tmf_redd.csv")
+tmf_protb_nonredd <- read.csv("data/validation/val_protb_buff/protb_tmf_nonredd.csv")
 
 # Read se validation datasets
-se_protb <- read.csv("data/validation/val_protb_buffered/protb_se.csv")
-se_protb_redd <- read.csv("data/validation/val_protb_buffered/protb_se_redd.csv")
-se_protb_nonredd <- read.csv("data/validation/val_protb_buffered/protb_se_nonredd.csv")
+se_protb <- read.csv("data/validation/val_protb_buff/protb_se.csv")
+se_protb_redd <- read.csv("data/validation/val_protb_buff/protb_se_redd.csv")
+se_protb_nonredd <- read.csv("data/validation/val_protb_buff/protb_se_nonredd.csv")
 
 # Calculate statistics for gfc
 gfc_protb_stats <- valstats(gfc_protb, stratmap, "gfc", "protb")
-gfc_protb_redd_stats <- valstats(gfc_protb_redd, stratmap, "gfc", "protb", "redd")
-gfc_protb_nonredd_stats <- valstats(gfc_protb_nonredd, stratmap, "gfc", "protb", "nonredd")
+gfc_protb_redd_stats <- valstats(gfc_protb_redd, stratmap_redd, "gfc", "protb", "redd")
+gfc_protb_nonredd_stats <- valstats(gfc_protb_nonredd, stratmap_nonredd, "gfc", "protb", "nonredd")
 
 # Calculate statistics for tmf
 tmf_protb_stats <- valstats(tmf_protb, stratmap, "tmf", "protb")
-tmf_protb_redd_stats <- valstats(tmf_protb_redd, stratmap, "tmf", "protb", "redd")
-tmf_protb_nonredd_stats <- valstats(tmf_protb_nonredd, stratmap, "tmf", "protb", "nonredd")
+tmf_protb_redd_stats <- valstats(tmf_protb_redd, stratmap_redd, "tmf", "protb", "redd")
+tmf_protb_nonredd_stats <- valstats(tmf_protb_nonredd, stratmap_nonredd, "tmf", "protb", "nonredd")
 
 # Calculate statistics for se
 se_protb_stats <- valstats(se_protb, stratmap, "se", "protb")
-se_protb_redd_stats <- valstats(se_protb_redd, stratmap, "se", "protb", "redd")
-se_protb_nonredd_stats <- valstats(se_protb_nonredd, stratmap, "se", "protb", "nonredd")
+se_protb_redd_stats <- valstats(se_protb_redd, stratmap_redd, "se", "protb", "redd")
+se_protb_nonredd_stats <- valstats(se_protb_nonredd, stratmap_nonredd, "se", "protb", "nonredd")
 
 # Store variables in list
 protb_stats <- list(
@@ -288,7 +294,7 @@ protb_stats <- list(
 protb_acc <- ov_acc(protb_stats)
 
 # Write to file
-write.csv(protb_acc, "data/validation/val_protb_buffered/protb_overall_accuracy.csv", 
+write.csv(protb_acc, "data/validation/val_protb_buff/protb_overall_accuracy.csv", 
           row.names = FALSE)
 
 
@@ -301,34 +307,34 @@ write.csv(protb_acc, "data/validation/val_protb_buffered/protb_overall_accuracy.
 
 ############################################################################
 # Read gfc validation datasets
-gfc_protc <- read.csv("data/validation/val_protc_buffered/protc_gfc.csv")
-gfc_protc_redd <- read.csv("data/validation/val_protc_buffered/protc_gfc_redd.csv")
-gfc_protc_nonredd <- read.csv("data/validation/val_protc_buffered/protc_gfc_nonredd.csv")
+gfc_protc <- read.csv("data/validation/val_protc_buff/protc_gfc.csv")
+gfc_protc_redd <- read.csv("data/validation/val_protc_buff/protc_gfc_redd.csv")
+gfc_protc_nonredd <- read.csv("data/validation/val_protc_buff/protc_gfc_nonredd.csv")
 
 # Read tmf validation datasets
-tmf_protc <- read.csv("data/validation/val_protc_buffered/protc_tmf.csv")
-tmf_protc_redd <- read.csv("data/validation/val_protc_buffered/protc_tmf_redd.csv")
-tmf_protc_nonredd <- read.csv("data/validation/val_protc_buffered/protc_tmf_nonredd.csv")
+tmf_protc <- read.csv("data/validation/val_protc_buff/protc_tmf.csv")
+tmf_protc_redd <- read.csv("data/validation/val_protc_buff/protc_tmf_redd.csv")
+tmf_protc_nonredd <- read.csv("data/validation/val_protc_buff/protc_tmf_nonredd.csv")
 
 # Read se validation datasets
-se_protc <- read.csv("data/validation/val_protc_buffered/protc_se.csv")
-se_protc_redd <- read.csv("data/validation/val_protc_buffered/protc_se_redd.csv")
-se_protc_nonredd <- read.csv("data/validation/val_protc_buffered/protc_se_nonredd.csv")
+se_protc <- read.csv("data/validation/val_protc_buff/protc_se.csv")
+se_protc_redd <- read.csv("data/validation/val_protc_buff/protc_se_redd.csv")
+se_protc_nonredd <- read.csv("data/validation/val_protc_buff/protc_se_nonredd.csv")
 
 # Calculate statistics for gfc
 gfc_protc_stats <- valstats(gfc_protc, stratmap, "gfc", "protc")
-gfc_protc_redd_stats <- valstats(gfc_protc_redd, stratmap, "gfc", "protc", "redd")
-gfc_protc_nonredd_stats <- valstats(gfc_protc_nonredd, stratmap, "gfc", "protc", "nonredd")
+gfc_protc_redd_stats <- valstats(gfc_protc_redd, stratmap_redd, "gfc", "protc", "redd")
+gfc_protc_nonredd_stats <- valstats(gfc_protc_nonredd, stratmap_nonredd, "gfc", "protc", "nonredd")
 
 # Calculate statistics for tmf
 tmf_protc_stats <- valstats(tmf_protc, stratmap, "tmf", "protc")
-tmf_protc_redd_stats <- valstats(tmf_protc_redd, stratmap, "tmf", "protc", "redd")
-tmf_protc_nonredd_stats <- valstats(tmf_protc_nonredd, stratmap, "tmf", "protc", "nonredd")
+tmf_protc_redd_stats <- valstats(tmf_protc_redd, stratmap_redd, "tmf", "protc", "redd")
+tmf_protc_nonredd_stats <- valstats(tmf_protc_nonredd, stratmap_nonredd, "tmf", "protc", "nonredd")
 
 # Calculate statistics for se
 se_protc_stats <- valstats(se_protc, stratmap, "se", "protc")
-se_protc_redd_stats <- valstats(se_protc_redd, stratmap, "se", "protc", "redd")
-se_protc_nonredd_stats <- valstats(se_protc_nonredd, stratmap, "se", "protc", "nonredd")
+se_protc_redd_stats <- valstats(se_protc_redd, stratmap_redd, "se", "protc", "redd")
+se_protc_nonredd_stats <- valstats(se_protc_nonredd, stratmap_nonredd, "se", "protc", "nonredd")
 
 # Store variables in a list
 protc_stats <- list(
@@ -347,66 +353,7 @@ protc_stats <- list(
 protc_acc <- ov_acc(protc_stats)
 
 # Write to file
-write.csv(protc_acc, "data/validation/val_protc_buffered/protc_overall_accuracy.csv", 
-          row.names = FALSE)
-
-
-
-############################################################################
-
-
-# STATISTICS FOR PROTOCOL D
-
-
-############################################################################
-# Read gfc validation datasets
-gfc_protd <- read.csv("data/validation/val_protd_buffered/protd_gfc.csv")
-gfc_protd_redd <- read.csv("data/validation/val_protd_buffered/protd_gfc_redd.csv")
-gfc_protd_nonredd <- read.csv("data/validation/val_protd_buffered/protd_gfc_nonredd.csv")
-
-# Read tmf validation datasets
-tmf_protd <- read.csv("data/validation/val_protd_buffered/protd_tmf.csv")
-tmf_protd_redd <- read.csv("data/validation/val_protd_buffered/protd_tmf_redd.csv")
-tmf_protd_nonredd <- read.csv("data/validation/val_protd_buffered/protd_tmf_nonredd.csv")
-
-# Read se validation datasets
-se_protd <- read.csv("data/validation/val_protd_buffered/protd_se.csv")
-se_protd_redd <- read.csv("data/validation/val_protd_buffered/protd_se_redd.csv")
-se_protd_nonredd <- read.csv("data/validation/val_protd_buffered/protd_se_nonredd.csv")
-
-# Calculate statistics for gfc
-gfc_protd_stats <- valstats(gfc_protd, stratmap, "gfc", "protd")
-gfc_protd_redd_stats <- valstats(gfc_protd_redd, stratmap, "gfc", "protd", "redd")
-gfc_protd_nonredd_stats <- valstats(gfc_protd_nonredd, stratmap, "gfc", "protd", "nonredd")
-
-# Calculate statistics for tmf
-tmf_protd_stats <- valstats(tmf_protd, stratmap, "tmf", "protd")
-tmf_protd_redd_stats <- valstats(tmf_protd_redd, stratmap, "tmf", "protd", "redd")
-tmf_protd_nonredd_stats <- valstats(tmf_protd_nonredd, stratmap, "tmf", "protd", "nonredd")
-
-# Calculate statistics for se
-se_protd_stats <- valstats(se_protd, stratmap, "se", "protd")
-se_protd_redd_stats <- valstats(se_protd_redd, stratmap, "se", "protd", "redd")
-se_protd_nonredd_stats <- valstats(se_protd_nonredd, stratmap, "se", "protd", "nonredd")
-
-# Store variables in a list
-protd_stats <- list(
-  gfc_protd_stats = gfc_protd_stats, 
-  gfc_protd_redd_stats = gfc_protd_redd_stats, 
-  gfc_protd_nonredd_stats = gfc_protd_nonredd_stats, 
-  tmf_protd_stats = tmf_protd_stats, 
-  tmf_protd_redd_stats = tmf_protd_redd_stats, 
-  tmf_protd_nonredd_stats = tmf_protd_nonredd_stats, 
-  se_protd_stats = se_protd_stats, 
-  se_protd_redd_stats = se_protd_redd_stats, 
-  se_protd_nonredd_stats = se_protd_nonredd_stats
-)
-
-# Extract overall accuracies
-protd_acc <- ov_acc(protd_stats)
-
-# Write to file
-write.csv(protd_acc, "data/validation/val_protd_buffered/protd_overall_accuracy.csv", 
+write.csv(protc_acc, "data/validation/val_protc_buff/protc_overall_accuracy.csv", 
           row.names = FALSE)
 
 
