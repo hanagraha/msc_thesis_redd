@@ -18,8 +18,6 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
-import rasterio
-from rasterio.mask import mask
 
 
 
@@ -137,59 +135,10 @@ nonredd_union = gpd.GeoSeries(villages.loc[0].geometry).unary_union
 ############################################################################
 
 
-# SPLIT STRATIFICATION MAP INTO REDD+ / NONREDD+ AREAS
+# MAP: RATIO OF REDD+, NON-REDD+
 
 
 ############################################################################
-# Define function to crop to geometry
-def geom_crop(geometry, output_path):
-    
-    # Read stratification map
-    with rasterio.open(strat_path) as rast:
-        
-        # Mask to geometry
-        out_image, out_transform = mask(rast, [geometry], crop = True)
-        
-        # Extract metadata
-        meta = rast.meta.copy()
-        
-        # Update metadata
-        meta.update({
-            "height": out_image.shape[1],
-            "width": out_image.shape[2],
-            "transform": out_transform
-            })
-        
-        # Save clipped raster
-        with rasterio.open(output_path, "w", **meta) as dst:
-            dst.write(out_image)
-            
-    return out_image
-
-# Define function to calculate strata size
-def incl_prob(stratmap, valdata):
-    
-    # Calculate number of pixels per strata
-    pixvals, pixcounts = np.unique(stratmap, return_counts = True)
-
-    # Create dataframe
-    strata_size = pd.DataFrame({'strata': pixvals[:-1],
-                                'size': pixcounts[:-1]})
-    
-    # Calculate number of samples per strata
-    sampvals, sampcounts = np.unique(valdata['strata'], return_counts = True)
-    
-    # Create dataframe
-    samples = pd.DataFrame({'strata': sampvals,
-                            'samples': sampcounts})
-    
-    # Calculate inclusion probability
-    prob = pd.DataFrame({'strata': sampvals,
-                         'incl_prob': (samples['samples'] / strata_size['size'])
-                         })
-    
-    return prob
-
 # Filter points within REDD+ multipolygon
 points_redd = val_data[val_data.geometry.within(redd_union)]
 
@@ -212,34 +161,7 @@ redd_strata = np.unique(points_redd['strata'], return_counts = True)
 
 # Check strata counts in nonredd points
 nonredd_strata = np.unique(points_nonredd['strata'], return_counts = True)
-            
-# Define output path for redd+ geometry
-redd_path = os.path.join("data", "intermediate", "stratification_layer_redd.tif")
 
-# Define output path for nonredd+ geometry
-nonredd_path = os.path.join("data", "intermediate", "stratification_layer_nonredd.tif")
-
-# Clip to redd geometry
-redd_strat = geom_crop(redd_union, redd_path)
-
-# Clip to nonredd geometry
-nonredd_strat = geom_crop(nonredd_union, nonredd_path)
-
-# Calculate inclusion probability for redd
-redd_prob = incl_prob(redd_strat, points_redd)
-
-# Calculate inclusion probability for nonredd
-nonredd_prob = incl_prob(nonredd_strat, points_nonredd)
-            
-        
-# %%        
-############################################################################
-
-
-# MAP: RATIO OF REDD+, NON-REDD+
-
-
-############################################################################ 
 # Plot in bar chart
 plt.figure(figsize=(10, 6))
 
@@ -297,53 +219,6 @@ def prot_a(valdata, col, keepcols):
         # If deforestation IS detected in validation dataset
         if row['defor1'] != 0:
             
-            # If deforestation IS detected in gfc dataset
-            if row[col] != 0:
-                
-                # Mark agreement
-                val_data.loc[idx, 'prot_a'] = 1 
-            
-            # If deforestation is NOT detected in gfc dataset
-            else: 
-                
-                # Mark disagreement
-                val_data.loc[idx, 'prot_a'] = 0
-                
-        # If deforestation is NOT detected in validation dataset
-        else:
-            
-            # If deforestation is NOT detected in gfc dataset
-            if row[col] == 0:
-                
-                # Mark agreement
-                val_data.loc[idx, 'prot_a'] = 1 
-                
-            # If deforestation IS detected in gfc dataset
-            else:
-            
-                # Mark disagreement
-                val_data.loc[idx, 'prot_a'] = 0
-    
-    # Add data name to list
-    cols = keepcols[:2] + [col] + keepcols[2:]
-    
-    # Only keep relevant columns
-    val_data = val_data[cols]
-    
-    return val_data
-
-# Define NEW!! function to manipulate with protocol A
-def prot_aa(valdata, col, keepcols):
-    
-    # Copy input validation data
-    val_data = valdata.copy()
-
-    # Iterate over each row in validation dataset
-    for idx, row in val_data.iterrows():
-        
-        # If deforestation IS detected in validation dataset
-        if row['defor1'] != 0:
-            
             # Label deforestation
             val_data.loc[idx, 'prot_a_val'] = 1
         
@@ -376,17 +251,29 @@ def prot_aa(valdata, col, keepcols):
 # Define columns of interest
 keepcols = ["strata", "geometry", "defor1", "defor2", "defor3"]
     
-# Run protocol a for gfc (all)
-prota_gfc = prot_aa(val_data, "gfc", keepcols)
+# Run protocol a for gfc 
+prota_gfc = prot_a(val_data, "gfc", keepcols)
 
-# Run protocol a for tmf (all)
-prota_tmf = prot_aa(val_data, "tmf", keepcols)
+# Run protocol a for tmf
+prota_tmf = prot_a(val_data, "tmf", keepcols)
 
-# Run protocol a for se (all)
-prota_se = prot_aa(val_data, "se", keepcols)
+# Run protocol a for se 
+prota_se = prot_a(val_data, "se", keepcols)
 
 # Create list of all protocol a data
 prota_data = [prota_gfc, prota_tmf, prota_se]
+
+# Run protocol a for gfc (buffered)
+prota_gfc_buff = prot_a(val_data_buff, "gfc", keepcols)
+
+# Run protocol a for tmf (buffered)
+prota_tmf_buff = prot_a(val_data_buff, "tmf", keepcols)
+
+# Run protocol a for se (buffered)
+prota_se_buff = prot_a(val_data_buff, "se", keepcols)
+
+# Create list of all protocol a data (buffered)
+prota_data_buff = [prota_gfc_buff, prota_tmf_buff, prota_se_buff]
 
 
 # %%
@@ -399,7 +286,9 @@ prota_data = [prota_gfc, prota_tmf, prota_se]
 
 ############################################################################
 """
-Same as protocol D but with a 1 year buffer
+Definition of Agreement: time sensitive. mark agreement if predicted defor
+year is within one year of validation defor year of the first observed defor 
+event
 """
 # Define function to create new column prioritizing a certain dataset
 def prot_b(valdata, col, keepcols):
@@ -424,17 +313,29 @@ def prot_b(valdata, col, keepcols):
 # Define columns of interest
 keepcols = ["strata", "geometry"]
 
-# Run protocol b for gfc (all)
+# Run protocol b for gfc 
 protb_gfc = prot_b(val_data, 'gfc', keepcols)
 
-# Run protocol b for tmf (all)
+# Run protocol b for tmf 
 protb_tmf = prot_b(val_data, 'tmf', keepcols)
 
-# Run protocol c for se (all)
+# Run protocol c for se 
 protb_se = prot_b(val_data, 'se', keepcols)
 
 # Create list of all protocol d data
 protb_data = [protb_gfc, protb_tmf, protb_se]
+
+# Run protocol b for gfc (buffered)
+protb_gfc_buff = prot_b(val_data_buff, 'gfc', keepcols)
+
+# Run protocol b for tmf (buffered)
+protb_tmf_buff = prot_b(val_data_buff, 'tmf', keepcols)
+
+# Run protocol c for se (buffered)
+protb_se_buff = prot_b(val_data_buff, 'se', keepcols)
+
+# Create list of all protocol d data (buffered)
+protb_data_buff = [protb_gfc_buff, protb_tmf_buff, protb_se_buff]
 
 
 # %%
@@ -472,17 +373,29 @@ def prot_c(valdata, col, keepcols):
 # Define columns of interest
 keepcols = ["strata", "geometry"]
 
-# Run protocol b for gfc (all)
+# Run protocol b for gfc
 protc_gfc = prot_c(val_data, 'gfc', keepcols)
 
-# Run protocol b for tmf (all)
+# Run protocol b for tmf
 protc_tmf = prot_c(val_data, 'tmf', keepcols)
 
-# Run protocol c for se (all)
+# Run protocol c for se
 protc_se = prot_c(val_data, 'se', keepcols)
 
 # Create list of all protocol d data
 protc_data = [protc_gfc, protc_tmf, protc_se]
+
+# Run protocol b for gfc (buffered)
+protc_gfc_buff = prot_c(val_data_buff, 'gfc', keepcols)
+
+# Run protocol b for tmf (buffered)
+protc_tmf_buff = prot_c(val_data_buff, 'tmf', keepcols)
+
+# Run protocol c for se (buffered)
+protc_se_buff = prot_c(val_data_buff, 'se', keepcols)
+
+# Create list of all protocol d data (buffered)
+protc_data_buff = [protc_gfc_buff, protc_tmf_buff, protc_se_buff]
 
 
 # %%
@@ -526,6 +439,15 @@ protb_redd, protb_nonredd = reddsplit(protb_data, datanames)
 # Split protocol c datasets
 protc_redd, protc_nonredd = reddsplit(protc_data, datanames)
 
+# Split protocol a datasets (buffered)
+prota_redd_buff, prota_nonredd_buff = reddsplit(prota_data_buff, datanames)
+
+# Split protocol b datasets (buffered)
+protb_redd_buff, protb_nonredd_buff = reddsplit(protb_data_buff, datanames)
+
+# Split protocol c datasets (buffered)
+protc_redd_buff, protc_nonredd_buff = reddsplit(protc_data_buff, datanames)
+
 
 # %%
 ############################################################################
@@ -536,13 +458,22 @@ protc_redd, protc_nonredd = reddsplit(protc_data, datanames)
 
 ############################################################################
 # Define function to write list of gdfs
-def write_list(datalist, datanames, protname):
+def write_list(datalist, datanames, protname, ext = False):
     
     # Iterate over each item in list
     for data, name in zip(datalist, datanames):
         
-        # Define output folder
-        outfolder = os.path.join(val_dir, f"val_{protname}")
+        # If the extension is provided
+        if ext != False:
+            
+            # Define output folder
+            outfolder = os.path.join(val_dir, f"val_{protname}_{ext}")
+        
+        # If the extension is not provided
+        else: 
+            
+            # Define output folder
+            outfolder = os.path.join(val_dir, f"val_{protname}")
         
         # Define output filename
         outfilepath = os.path.join(outfolder, f"{protname}_{name}.csv")
@@ -554,13 +485,22 @@ def write_list(datalist, datanames, protname):
         print(f"{outfilepath} saved to file")
         
 # Define function to write dictionary of gdfs
-def write_dic(protdics, protname, polyname):
+def write_dic(protdics, protname, polyname, ext = False):
     
     # Iterate over each item in dictionary
     for key, value in protdics.items():
         
-        # Define output folder
-        outfolder = os.path.join(val_dir, f"val_{protname}")
+        # If the extension is provided
+        if ext != False:
+            
+            # Define output folder
+            outfolder = os.path.join(val_dir, f"val_{protname}_{ext}")
+            
+        # If the extension is not provided
+        else:
+        
+            # Define output folder
+            outfolder = os.path.join(val_dir, f"val_{protname}")
         
         # Define output filename
         outfilepath = os.path.join(outfolder, f"{protname}_{key}_{polyname}.csv")
@@ -598,7 +538,32 @@ write_dic(protc_redd, "protc", "redd")
 # write nonredd protc data
 write_dic(protc_nonredd, "protc", "nonredd")
 
+# Write prota data to folder (buffered)
+write_list(prota_data_buff, datanames, "prota", "buff")
 
+# Write protb data to folder (buffered)
+write_list(protb_data, datanames, "protb", "buff")
+
+# Write protc data to folder (buffered)
+write_list(protc_data, datanames, "protc", "buff")
+
+# write redd prota data (buffered)
+write_dic(prota_redd, "prota", "redd", "buff")
+
+# write nonredd prota data (buffered)
+write_dic(prota_nonredd, "prota", "nonredd", "buff")
+
+# write redd protb data (buffered)
+write_dic(protb_redd, "protb", "redd", "buff")
+
+# write nonredd protb data (buffered)
+write_dic(protb_nonredd, "protb", "nonredd", "buff")
+
+# write redd protc data (buffered)
+write_dic(protc_redd, "protc", "redd", "buff")
+
+# write nonredd protc data (buffered)
+write_dic(protc_nonredd, "protc", "nonredd", "buff")
 
 
 

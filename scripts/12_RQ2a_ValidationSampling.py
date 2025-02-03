@@ -642,6 +642,30 @@ def geom_crop(strat_path, geometry, lab):
             
     return out_image
 
+# Define function to calculate strata size
+def incl_prob(stratmap, valdata):
+    
+    # Calculate number of pixels per strata
+    pixvals, pixcounts = np.unique(stratmap, return_counts = True)
+
+    # Create dataframe
+    strata_size = pd.DataFrame({'strata': pixvals[:-1],
+                                'size': pixcounts[:-1]})
+    
+    # Calculate number of samples per strata
+    sampvals, sampcounts = np.unique(valdata['strata'], return_counts = True)
+    
+    # Create dataframe
+    samples = pd.DataFrame({'strata': sampvals,
+                            'samples': sampcounts})
+    
+    # Calculate inclusion probability
+    prob = pd.DataFrame({'strata': sampvals,
+                         'incl_prob': (samples['samples'] / strata_size['size'])
+                         })
+    
+    return prob
+
 # Define stratification map path (no buffer)
 strat_nobuff = os.path.join(strat_dir, "stratification_layer_nogrnp.tif")
 
@@ -660,7 +684,17 @@ redd_strat_buff = geom_crop(strat_buff, redd_union, "redd_buff")
 # Clip to nonredd geometry
 nonredd_strat_buff = geom_crop(strat_buff, nonredd_union, "nonredd_buff")
 
+# Filter points within REDD+ multipolygon
+points_redd = valpoints_buff[valpoints_buff.geometry.within(redd_union)]
 
+# Filter points within non-REDD+ multipolygon
+points_nonredd = valpoints_buff[valpoints_buff.geometry.within(nonredd_union)]
+
+# Calculate inclusion probability for redd
+redd_prob = incl_prob(redd_strat, points_redd)
+
+# Calculate inclusion probability for nonredd
+nonredd_prob = incl_prob(nonredd_strat, points_nonredd)
 
 
 
