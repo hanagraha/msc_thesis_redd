@@ -54,7 +54,10 @@ blue3 = "brown"
 bluecols = [blue1, blue2, blue3]
 
 # Define dataset labels
-yearlabs = [0] + list(years)
+yearlabs = [0] + list(years) + ['sum']
+
+# Generate year strings for 2013-2023
+year_strings = [str(y) for y in yearlabs]
 
 
 
@@ -89,7 +92,7 @@ def folder_files(folder, suffix):
     return paths
 
 # Define function to read files from list
-def list_read(pathlist, suffix):
+def list_read(pathlist, suffix, filt = False, cmfilt = False):
     
     # Create empty dictionary to store outputs
     files = {}
@@ -108,56 +111,86 @@ def list_read(pathlist, suffix):
         
         # Add data to dictionary
         files[var] = data
+    
+    # If filter is true
+    if filt == True:
         
+        # Iterate over each read file
+        for key in files:
+            
+            # Subset to only keep years 2013-2023
+            files[key] = files[key][(files[key]['year'] >= 2013) & (files[key]['year'] <= 2023)]
+            
+            # Reset index
+            files[key] = files[key].reset_index(drop = True)
+    
+    # If confusion matrix filter is true
+    if cmfilt == True:
+        
+        # Iterate over each read file
+        for key in files:
+            
+            # Define the rows to keep
+            keeprows = files[key]['Unnamed: 0'].isin(year_strings)
+        
+            # Define the columns to keep
+            keepcols = year_strings
+            
+            # Subset the DataFrame
+            files[key] = files[key].loc[keeprows, keepcols]
+            
+            # Set index of dataframe
+            files[key].index = keepcols
+    
     return files
-
+    
 # Read protocol a data
-# prota_filepaths = folder_files("val_prota", ".csv")
-# prota_filepaths = folder_files("val_prota_sub", ".csv")
-prota_filepaths = folder_files("val_prota_780nobuff", ".csv")
-prota_files = list_read(prota_filepaths, ".csv")
+prota_filepaths = folder_files("val_prota", "stehmanstats.csv")
+prota_files = list_read(prota_filepaths, "_stehmanstats.csv")
 
 # Read protocol b statistics
-# protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
-# protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
-protb_statpaths = folder_files("val_protb_780nobuff", "stehmanstats.csv")
-protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
+protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_stats = list_read(protb_statpaths, "_stehmanstats.csv", filt = True)
 
 # Read protocol c statistics
-# protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
-# protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
-protc_statpaths = folder_files("val_protc_780nobuff", "stehmanstats.csv")
-protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
+protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_stats = list_read(protc_statpaths, "_stehmanstats.csv", filt = True)
 
-# Read protocol d statistics
-# protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
-# protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
-protd_statpaths = folder_files("val_protd_780nobuff", "stehmanstats.csv")
-protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
+# Read protocol a data (buffered)
+prota_filepaths_buff = folder_files("val_prota_buff", "stehmanstats.csv")
+prota_files_buff = list_read(prota_filepaths_buff, "_stehmanstats.csv")
 
-# Read protocol e statistics
-# prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
-prote_statpaths = folder_files("val_prote_780nobuff", "stehmanstats.csv")
-prote_stats = list_read(prote_statpaths, "_stehmanstats.csv")
+# Read protocol b statistics (buffered)
+protb_statpaths_buff = folder_files("val_protb_buff", "stehmanstats.csv")
+protb_stats_buff = list_read(protb_statpaths_buff, "_stehmanstats.csv", filt = True)
+
+# Read protocol c statistics (buffered)
+protc_statpaths_buff = folder_files("val_protc_buff", "stehmanstats.csv")
+protc_stats_buff = list_read(protc_statpaths_buff, "_stehmanstats.csv", filt = True)
+
+# Read protocol a confusion matrices
+prota_cmpaths = folder_files("val_prota", "confmatrix.csv")
+prota_cm = list_read(prota_cmpaths, "_confmatrix.csv")
 
 # Read protocol b confusion matrices
-# protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
-protb_cmpaths = folder_files("val_protb_sub", "confmatrix.csv")
-protb_cm = list_read(protb_cmpaths, "_confmatrix.csv")
+protb_cmpaths = folder_files("val_protb", "confmatrix.csv")
+protb_cm = list_read(protb_cmpaths, "_confmatrix.csv", cmfilt = True)
 
 # Read protocol c confusion matrices
-# protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
-protc_cmpaths = folder_files("val_protc_sub", "confmatrix.csv")
-protc_cm = list_read(protc_cmpaths, "_confmatrix.csv")
+protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
+protc_cm = list_read(protc_cmpaths, "_confmatrix.csv", cmfilt = True)
 
-# Read protocol d confusion matrices
-# protd_cmpaths = folder_files("val_protd", "confmatrix.csv")
-protd_cmpaths = folder_files("val_protd_sub", "confmatrix.csv")
-protd_cm = list_read(protd_cmpaths, "_confmatrix.csv")
+# Read protocol a confusion matrices (buffered)
+prota_cmpaths_buff = folder_files("val_prota_buff", "confmatrix.csv")
+prota_cm_buff = list_read(prota_cmpaths_buff, "_confmatrix.csv")
 
-# # EXTRA
-# protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
-# protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
+# Read protocol b confusion matrices (buffered)
+protb_cmpaths_buff = folder_files("val_protb_buff", "confmatrix.csv")
+protb_cm_buff = list_read(protb_cmpaths_buff, "_confmatrix.csv", cmfilt = True)
+
+# Read protocol c confusion matrices (buffered)
+protc_cmpaths_buff = folder_files("val_protc_buff", "confmatrix.csv")
+protc_cm_buff = list_read(protc_cmpaths_buff, "_confmatrix.csv", cmfilt = True)
 
 
 # %%
@@ -171,14 +204,17 @@ protd_cm = list_read(protd_cmpaths, "_confmatrix.csv")
 # Define function to formate stehman confusion matrix
 def steh_cm(stehman_cm, deci):
     
-    # Exclude the sum row and indices
-    cm = stehman_cm.iloc[:-1, 1:-1]
+    # Exclude the sum row and 0 year
+    cm = stehman_cm.iloc[1:-1, 1:-1]
     
     # Fill na values with 0
     cm = cm.fillna(0)
     
     # Convert dataframe to array
     cm = cm.to_numpy()
+    
+    # Multiply by 100 to convert to %
+    cm = cm * 100
     
     # Round to (deci) number of decimals
     cm = np.round(cm, deci)
@@ -196,12 +232,15 @@ def matrix_plt(matrices, names, fmt):
         
         # Create heatmap
         sns.heatmap(matrices[i], annot=True, fmt=fmt, cmap='Blues', ax=axes[i],
-                    xticklabels=yearlabs, yticklabels=yearlabs)
+                    xticklabels=years, yticklabels=years, vmax = 6)
         
         # Add title
-        axes[i].set_title(f'{names[i]} Confusion Matrix')
-        axes[i].set_xlabel(f'{names[i]} Predicted Labels')
-        axes[i].set_ylabel('Validation Labels')
+        axes[i].set_title(f'{names[i]} Confusion Matrix', fontsize = 16)
+        axes[i].set_xlabel(f'{names[i]} Predicted Labels', fontsize = 14)
+        axes[i].set_ylabel('Validation Labels', fontsize = 14)
+    
+        # Adjust tick labels font size
+        axes[i].tick_params(axis='both', labelsize=12)
     
     # Adjust layout
     plt.tight_layout()
@@ -260,7 +299,7 @@ def steh_dual_lineplt(datalist, datanames):
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
 
     # Subplot for User's Accuracy
-    axes[0].set_title("User's Accuracy")
+    axes[0].set_title("User's Accuracy", fontsize = 16)
     
     # Iterate over datasets
     for data, col, name in zip(datalist, bluecols, datanames):
@@ -276,15 +315,18 @@ def steh_dual_lineplt(datalist, datanames):
     # Add x ticks for every year
     axes[0].set_xticks(years)
     
+    # Adjust tickmark font size
+    axes[0].tick_params(axis='both', labelsize = 14)
+    
     # Add axes labels
-    axes[0].set_xlabel('Year')
-    axes[0].set_ylabel("Accuracy")
+    axes[0].set_xlabel('Year', fontsize = 14)
+    axes[0].set_ylabel("Accuracy", fontsize = 14)
     
     # Add legend
-    axes[0].legend()
+    axes[0].legend(fontsize = 16)
 
     # Subplot for Producer's Accuracy
-    axes[1].set_title("Producer's Accuracy")
+    axes[1].set_title("Producer's Accuracy", fontsize = 16)
     
     # Iterate over datasets
     for data, col, name in zip(datalist, bluecols, datanames):
@@ -300,11 +342,14 @@ def steh_dual_lineplt(datalist, datanames):
     # Add x ticks for every year
     axes[1].set_xticks(years)
     
+    # Adjust tickmark font size
+    axes[1].tick_params(axis='both', labelsize = 14)
+    
     # Add x labels
-    axes[1].set_xlabel('Year')
+    axes[1].set_xlabel('Year', fontsize = 14)
     
     # Add legend
-    axes[1].legend()
+    axes[1].legend(fontsize = 16)
 
     # Add tight layout for better spacing
     plt.tight_layout()
@@ -342,13 +387,13 @@ def errors_lineplt(datalist, datanames):
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
 
     # Subplot for User's Accuracy
-    axes[0].set_title("Ommission Error")
+    axes[0].set_title("Commission Error", fontsize = 16)
     
     # Iterate over datasets
     for data, col, name in zip(datalist, bluecols, datanames):
         
         # Add ommission error data
-        axes[0].plot(data['year'], data['oe'], color=col, label=name, linewidth=2)
+        axes[0].plot(data['year'], data['ce'], color=col, label=name, linewidth=2)
     
     # Add gridlines
     axes[0].grid(True, linestyle="--")
@@ -356,21 +401,24 @@ def errors_lineplt(datalist, datanames):
     # Add x ticks for every year
     axes[0].set_xticks(data['year'])
     
+    # Adjust tickmark font size
+    axes[0].tick_params(axis='both', labelsize = 14)
+    
     # Add axes labels
-    axes[0].set_xlabel('Year')
-    axes[0].set_ylabel("Error")
+    axes[0].set_xlabel('Year', fontsize = 14)
+    axes[0].set_ylabel("Error", fontsize = 14)
     
     # Add legend
-    axes[0].legend()
+    axes[0].legend(fontsize = 16)
 
     # Subplot for Producer's Accuracy
-    axes[1].set_title("Commission Error")
+    axes[1].set_title("Omission Error", fontsize = 16)
     
     # Iterate over datasets
     for data, col, name in zip(datalist, bluecols, datanames):
         
         # Add commission error data
-        axes[1].plot(data['year'], data['ce'], color=col, label=name, linewidth=2)
+        axes[1].plot(data['year'], data['oe'], color=col, label=name, linewidth=2)
     
     # Add gridlines
     axes[1].grid(True, linestyle="--")
@@ -378,73 +426,27 @@ def errors_lineplt(datalist, datanames):
     # Add x ticks for every year
     axes[1].set_xticks(data['year'])
     
+    # Adjust tickmark font size
+    axes[1].tick_params(axis='both', labelsize = 14)
+    
     # Add x labels
-    axes[1].set_xlabel('Year')
+    axes[1].set_xlabel('Year', fontsize = 14)
     
     # Add legend
-    axes[1].legend()
+    axes[1].legend(fontsize = 16)
 
     # Add tight layout for better spacing
     plt.tight_layout()
 
     # Display the plot
     plt.show()
-    
-
-# %%
-############################################################################
-
-
-# PROTOCOL A: CALCULATE STATISTICS
-
-
-############################################################################
-# Define function to calculate accuracy
-def prota_acc(datavals):
-    
-    # Extract number of agreements
-    val1 = (datavals['prot_a'] == 1).sum()
-    
-    # Extract number of disagreements
-    val0 = (datavals['prot_a'] == 0).sum()
-    
-    # Calculate accuracy
-    acc = val1 / (val1 + val0)
-    
-    return acc
-
-# Define function to calculate accuracy
-def prota_accs(datadic):
-    
-    # Create empty dictionary to store information
-    accuracies = {}
-    
-    # Iterate over each item in the dictionary
-    for key, data in datadic.items():
-        
-        # Extract number of agreements
-        val1 = (data['prot_a'] == 1).sum()
-        
-        # Extract number of disagreements
-        val2 = (data['prot_a'] == 0).sum()
-        
-        # Calculate accuracy
-        acc = val1 / (val1 + val2)
-        
-        # Add accuracy to dictionary
-        accuracies[key] = acc
-    
-    return accuracies
-
-# Calculate protocol a accuracies
-prota_accuracies = prota_accs(prota_files)
 
 
 # %%
 ############################################################################
 
 
-# PROTOCOL B: PLOT CONFUSION MATRICES
+# PLOT CONFUSION MATRICES (PROTOCOL B AND C)
 
 
 ############################################################################
@@ -460,29 +462,54 @@ protb_se_cm = steh_cm(protb_cm["protb_se"], 2)
 # Define dataset names
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
-# Plot confusion matrices
+# Plot confusion matrices (protocol b)
 matrix_plt([protb_gfc_cm, protb_tmf_cm, protb_se_cm], datanames, '.2f')
+
+# Create protocol b gfc cm (buffered)
+protb_gfc_cm_buff = steh_cm(protb_cm_buff["protb_gfc"], 2)
+
+# Create protocol b tmf cm (buffered)
+protb_tmf_cm_buff = steh_cm(protb_cm_buff["protb_tmf"], 2)
+
+# Create protocol b se cm (buffered)
+protb_se_cm_buff = steh_cm(protb_cm["protb_se"], 2)
+
+# Plot confusion matrices (protocol b buff)
+matrix_plt([protb_gfc_cm_buff, protb_tmf_cm_buff, protb_se_cm_buff], datanames, '.2f')
+
+# Create protocol c gfc cm
+protc_gfc_cm = steh_cm(protc_cm["protc_gfc"], 2)
+
+# Create protocol c tmf cm
+protc_tmf_cm = steh_cm(protc_cm["protc_tmf"], 2)
+
+# Create protocol c se cm
+protc_se_cm = steh_cm(protc_cm["protc_se"], 2)
+
+# Plot confusion matrices (protocol c)
+matrix_plt([protc_gfc_cm, protc_tmf_cm, protc_se_cm], datanames, '.2f')
+
+# Create protocol c gfc cm (buffered)
+protc_gfc_cm_buff = steh_cm(protc_cm_buff["protc_gfc"], 2)
+
+# Create protocol c tmf cm (buffered)
+protc_tmf_cm_buff = steh_cm(protc_cm_buff["protc_tmf"], 2)
+
+# Create protocol c se cm (buffered)
+protc_se_cm_buff = steh_cm(protc_cm_buff["protc_se"], 2)
+
+# Plot confusion matrices (protocol c buff)
+matrix_plt([protc_gfc_cm_buff, protc_tmf_cm_buff, protc_se_cm_buff], datanames, '.2f')
 
 
 # %%
 ############################################################################
 
 
-# PROTOCOL B: PLOT STEHMAN STATISTICS
+# PROTOCOL B: PLOT STEHMAN STATISTICS (NO BUFFER)
 
 
-############################################################################
-"""
-Definition of Agreement: mark agreement if prediction defor year matches
-any year between observed defor and regr, for any deforestation event
-"""
-
-# Subset to only keep years 2013-2023
-for key in protb_stats:    
-    protb_stats[key] = protb_stats[key][(protb_stats[key]['year'] >= 2013) & \
-                                    (protb_stats[key]['year'] <= 2023)]
-    protb_stats[key] = protb_stats[key].reset_index(drop = True)
-    
+############################################################################   
 # Define datanames
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
@@ -534,22 +561,65 @@ errors_lineplt([comom_err(protb_stats["protb_se_redd"]),
 ############################################################################
 
 
+# PROTOCOL B: PLOT STEHMAN STATISTICS (WITH BUFFER)
+
+
+############################################################################
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protb_stats_buff["protb_gfc"], 
+                   protb_stats_buff["protb_tmf"], 
+                   protb_stats_buff["protb_se"]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protb_stats_buff["protb_gfc"]),
+                comom_err(protb_stats_buff["protb_tmf"]),
+                comom_err(protb_stats_buff["protb_se"])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_gfc_redd"],
+                   protb_stats_buff["protb_gfc_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_gfc_redd"]),
+                comom_err(protb_stats_buff["protb_gfc_nonredd"])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_tmf_redd"],
+                   protb_stats_buff["protb_tmf_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_tmf_redd"]),
+                comom_err(protb_stats_buff["protb_tmf_nonredd"])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_se_redd"],
+                   protb_stats_buff["protb_se_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_se_redd"]),
+                comom_err(protb_stats_buff["protb_se_nonredd"])], datanames)
+
+
+# %%
+############################################################################
+
+
 # PROTOCOL C: PLOT STEHMAN STATISTICS
 
 
 ############################################################################
-"""
-Definition of Agreement: time sensitive. mark agreement if predicted defor
-year matches validation defor year of the first, second, or third observed 
-defor event
-"""
-
-# Subset to only keep years 2013-2023
-for key in protc_stats:    
-    protc_stats[key] = protc_stats[key][(protc_stats[key]['year'] >= 2013) & \
-                                    (protc_stats[key]['year'] <= 2023)]
-    protc_stats[key] = protc_stats[key].reset_index(drop = True)
-
 # Define datanames
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
@@ -601,139 +671,55 @@ errors_lineplt([comom_err(protc_stats["protc_se_redd"]),
 ############################################################################
 
 
-# PROTOCOL D: PLOT STEHMAN STATISTICS
+# PROTOCOL C: PLOT STEHMAN STATISTICS (WITH BUFFER)
 
 
 ############################################################################
-"""
-Definition of Agreement: time sensitive. mark agreement if predicted defor
-year matches validation defor year of the first observed defor event
-"""
-
-# Subset to only keep years 2013-2023
-for key in protd_stats:    
-    protd_stats[key] = protd_stats[key][(protd_stats[key]['year'] >= 2013) & \
-                                    (protd_stats[key]['year'] <= 2023)]
-    protd_stats[key] = protd_stats[key].reset_index(drop = True)
-    
 # Define datanames
 datanames = ["GFC", "TMF", "Sensitive Early"]
 
 # Plot gfc, tmf, and se accuracies
-steh_dual_lineplt([protd_stats["protd_gfc"], 
-                   protd_stats["protd_tmf"], 
-                   protd_stats["protd_se"]], datanames)
+steh_dual_lineplt([protc_stats_buff["protc_gfc"], 
+                   protc_stats_buff["protc_tmf"], 
+                   protc_stats_buff["protc_se"]], datanames)
 
 # Plot gfc, tmf, and se errors
-errors_lineplt([comom_err(protd_stats["protd_gfc"]),
-                comom_err(protd_stats["protd_tmf"]),
-                comom_err(protd_stats["protd_se"])], datanames)
+errors_lineplt([comom_err(protc_stats_buff["protc_gfc"]),
+                comom_err(protc_stats_buff["protc_tmf"]),
+                comom_err(protc_stats_buff["protc_se"])], datanames)
 
 # Define dataset names
 datanames = ["GFC REDD+", "GFC Non-REDD+"]
 
 # Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([protd_stats["protd_gfc_redd"],
-                   protd_stats["protd_gfc_nonredd"]], datanames)
+steh_dual_lineplt([protc_stats_buff["protc_gfc_redd"],
+                   protc_stats_buff["protc_gfc_nonredd"]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protd_stats["protd_gfc_redd"]),
-                comom_err(protd_stats["protd_gfc_nonredd"])], datanames)
+errors_lineplt([comom_err(protc_stats_buff["protc_gfc_redd"]),
+                comom_err(protc_stats_buff["protc_gfc_nonredd"])], datanames)
 
 # Define dataset names
 datanames = ["TMF REDD+", "TMF Non-REDD+"]
 
 # Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([protd_stats["protd_tmf_redd"],
-                   protd_stats["protd_tmf_nonredd"]], datanames)
+steh_dual_lineplt([protc_stats_buff["protc_tmf_redd"],
+                   protc_stats_buff["protc_tmf_nonredd"]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protd_stats["protd_tmf_redd"]),
-                comom_err(protd_stats["protd_tmf_nonredd"])], datanames)
+errors_lineplt([comom_err(protc_stats_buff["protc_tmf_redd"]),
+                comom_err(protc_stats_buff["protc_tmf_nonredd"])], datanames)
 
 # Define dataset names
 datanames = ["SE REDD+", "SE Non-REDD+"]
 
 # Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([protd_stats["protd_se_redd"],
-                   protd_stats["protd_se_nonredd"]], datanames)
+steh_dual_lineplt([protc_stats_buff["protc_se_redd"],
+                   protc_stats_buff["protc_se_nonredd"]], datanames)
 
 # Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(protd_stats["protd_se_redd"]),
-                comom_err(protd_stats["protd_se_nonredd"])], datanames)
-
-
-# %%
-############################################################################
-
-
-# PROTOCOL E: PLOT STEHMAN STATISTICS
-
-
-############################################################################
-"""
-Definition of Agreement: time sensitive. mark agreement if predicted defor
-year matches validation defor year of the first observed defor event, with a 
-one year buffer
-"""
-
-# Subset to only keep years 2013-2023
-for key in prote_stats:    
-    prote_stats[key] = prote_stats[key][(prote_stats[key]['year'] >= 2013) & \
-                                    (prote_stats[key]['year'] <= 2023)]
-    prote_stats[key] = prote_stats[key].reset_index(drop = True)
-    
-    
-# Define datanames
-datanames = ["GFC", "TMF", "Sensitive Early"]
-
-# Plot gfc, tmf, and se accuracies
-steh_dual_lineplt([prote_stats["prote_gfc"], 
-                   prote_stats["prote_tmf"], 
-                   prote_stats["prote_se"]], datanames)
-
-# Plot gfc, tmf, and se errors
-errors_lineplt([comom_err(prote_stats["prote_gfc"]),
-                comom_err(prote_stats["prote_tmf"]),
-                comom_err(prote_stats["prote_se"])], datanames)
-
-# Define dataset names
-datanames = ["GFC REDD+", "GFC Non-REDD+"]
-
-# Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([prote_stats["prote_gfc_redd"],
-                   prote_stats["prote_gfc_nonredd"]], datanames)
-
-# Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(prote_stats["prote_gfc_redd"]),
-                comom_err(prote_stats["prote_gfc_nonredd"])], datanames)
-
-# Define dataset names
-datanames = ["TMF REDD+", "TMF Non-REDD+"]
-
-# Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([prote_stats["prote_tmf_redd"],
-                   prote_stats["prote_tmf_nonredd"]], datanames)
-
-# Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(prote_stats["prote_tmf_redd"]),
-                comom_err(prote_stats["prote_tmf_nonredd"])], datanames)
-
-# Define dataset names
-datanames = ["SE REDD+", "SE Non-REDD+"]
-
-# Plot redd+ and non-redd+ accuracies
-steh_dual_lineplt([prote_stats["prote_se_redd"],
-                   prote_stats["prote_se_nonredd"]], datanames)
-
-# Plot redd+ and nonredd+ errors
-errors_lineplt([comom_err(prote_stats["prote_se_redd"]),
-                comom_err(prote_stats["prote_se_nonredd"])], datanames)
-
-
-
-
-
+errors_lineplt([comom_err(protc_stats_buff["protc_se_redd"]),
+                comom_err(protc_stats_buff["protc_se_nonredd"])], datanames)
 
 
 

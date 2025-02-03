@@ -105,7 +105,7 @@ def folder_files(folder, suffix):
     return paths
 
 # Define function to read files from list
-def list_read(pathlist, suffix):
+def list_read(pathlist, suffix, filt = False):
     
     # Create empty dictionary to store outputs
     files = {}
@@ -124,69 +124,74 @@ def list_read(pathlist, suffix):
         
         # Add data to dictionary
         files[var] = data
+    
+    # If filter is true
+    if filt == True:
         
+        # Iterate over each read file
+        for key in files:
+            
+            # Subset to only keep years 2013-2023
+            files[key] = files[key][(files[key]['year'] >= 2013) & (files[key]['year'] <= 2023)]
+            
+            # Reset index
+            files[key] = files[key].reset_index(drop = True)
+    
     return files
 
-# # Read protocol a data
-# prota_filepaths = folder_files("val_prota", ".csv")
-# prota_files = list_read(prota_filepaths, ".csv")
+# Define function to extract area from map
+def map_area(path):
+    
+    # Read raster
+    with rasterio.open(path) as rast:
+        
+        # Read data
+        data = rast.read()
+        
+        # Calculate number of non-na pixels
+        pixels = np.sum(data != nodata_val)
+        
+        # Convert pixels to ha
+        ha = pixels * 0.09
+        
+    return ha
 
-# Read protocol b statistics
-# protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
-# protb_statpaths = folder_files("val_protb_sub", "stehmanstats.csv")
-protb_statpaths = folder_files("val_protb_780nobuff", "stehmanstats.csv")
-protb_stats = list_read(protb_statpaths, "_stehmanstats.csv")
+# Read protocol b statistics (no buffer)
+protb_statpaths = folder_files("val_protb", "stehmanstats.csv")
+protb_stats = list_read(protb_statpaths, "_stehmanstats.csv", filt = True)
 
-# Read protocol c statistics
-# protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
-# protc_statpaths = folder_files("val_protc_sub", "stehmanstats.csv")
-protc_statpaths = folder_files("val_protc_780nobuff", "stehmanstats.csv")
-protc_stats = list_read(protc_statpaths, "_stehmanstats.csv")
+# Read protocol b statistics (with buffer)
+protb_statpaths_buff = folder_files("val_protb_buff", "stehmanstats.csv")
+protb_stats_buff = list_read(protb_statpaths_buff, "_stehmanstats.csv", filt = True)
 
-# Read protocol d statistics
-# protd_statpaths = folder_files("val_protd", "stehmanstats.csv")
-# protd_statpaths = folder_files("val_protd_sub", "stehmanstats.csv")
-protd_statpaths = folder_files("val_protd_780nobuff", "stehmanstats.csv")
-protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
+# Read protocol c statistics (no buffer)
+protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
+protc_stats = list_read(protc_statpaths, "_stehmanstats.csv", filt = True)
 
-# Read protocol e statistics
-# prote_statpaths = folder_files("val_prote_sub", "stehmanstats.csv")
-prote_statpaths = folder_files("val_prote_780nobuff", "stehmanstats.csv")
-prote_stats = list_read(prote_statpaths, "_stehmanstats.csv")
+# Read protocol c statistics (with buffer)
+protc_statpaths_buff = folder_files("val_protc_buff", "stehmanstats.csv")
+protc_stats_buff = list_read(protc_statpaths_buff, "_stehmanstats.csv", filt = True)
 
-# Define gfc lossyear filepath
-gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+# Calculate aoi map area
+total_ha = map_area("data/validation/stratification_maps/stratification_layer_nogrnp.tif")
 
-# Define tmf defordegra filepath
-tmf_defordegra_file = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
+# Calculate redd+ map area
+redd_ha = map_area("data/validation/stratification_maps/stratification_layer_redd.tif")
 
-# Define sensitive early filepath
-se_file = "data/intermediate/gfc_tmf_sensitive_early.tif"
+# Calculate nonredd+ map area
+nonredd_ha = map_area("data/validation/stratification_maps/stratification_layer_nonredd.tif")
 
 # Read gfc deforestation data
-with rasterio.open(gfc_lossyear_file) as gfc:
+with rasterio.open("data/hansen_preprocessed/gfc_lossyear_fm.tif") as gfc:
     gfc_defor = gfc.read(1)
-    gfc_profile = gfc.profile
-
+    
 # Read tmf deforestation data
-with rasterio.open(tmf_defordegra_file) as tmf:
+with rasterio.open("data/jrc_preprocessed/tmf_defordegrayear_fm.tif") as tmf:
     tmf_defor = tmf.read(1)
-    profile = tmf.profile
 
 # Read se deforestation data
-with rasterio.open(se_file) as se:
+with rasterio.open("data/intermediate/gfc_tmf_sensitive_early.tif") as se:
     se_defor = se.read(1)
-    profile = se.profile
-
-# Calculate total map pixels
-total_pix = np.sum(gfc_defor != np.nan)
-
-# Convert map pixels to map area (ha)
-total_ha = total_pix * 0.09
-
-# # EXTRA
-# protd_statpaths = folder_files("val_protd_filt", "stehmanstats.csv")
-# protd_stats = list_read(protd_statpaths, "_stehmanstats.csv")
 
 
 # %%
@@ -250,57 +255,17 @@ def calc_eea(data_dict):
     
     return eea_dict
 
-# Calculate eea and ci for prot b
-protb_eea = calc_eea(protb_stats)
+# Calculate eea and ci for prot b (no buffer)
+protb_eea = calc_eea(protb_stats) 
 
-# Subset to only keep years 2013-2023
-for key in protb_eea:    
-    protb_eea[key] = protb_eea[key][(protb_eea[key]['year'] >= 2013) & \
-                                    (protb_eea[key]['year'] <= 2023)]
-    protb_eea[key] = protb_eea[key].reset_index(drop = True)
-    
-# for key in protb_eea:
-#     protb_eea[key] = protb_eea[key].iloc[1:].reset_index(drop = True)
+# Calculate eea and ci for prot b (with buffer)
+protb_eea_buff = calc_eea(protb_stats_buff)    
 
+# Calculate eea and ci for prot c (no buffer)
+protc_eea = calc_eea(protc_stats)   
 
-
-
-# Calculate eea and ci for prot c
-protc_eea = calc_eea(protc_stats)
-
-# Subset to only keep years 2013-2023
-for key in protc_eea:    
-    protc_eea[key] = protc_eea[key][(protc_eea[key]['year'] >= 2013) & \
-                                    (protc_eea[key]['year'] <= 2023)]
-    protc_eea[key] = protc_eea[key].reset_index(drop = True)
-    
-# for key in protc_eea:
-#     protc_eea[key] = protc_eea[key].iloc[2:13].reset_index(drop = True)
-
-
-
-# Calculate eea and ci for prot d
-protd_eea = calc_eea(protd_stats)
-
-# Subset to only keep years 2013-2023
-for key in protd_eea:    
-    protd_eea[key] = protd_eea[key][(protd_eea[key]['year'] >= 2013) & \
-                                    (protd_eea[key]['year'] <= 2023)]
-    protd_eea[key] = protd_eea[key].reset_index(drop = True)
-
-# for key in protd_eea:
-#     protd_eea[key] = protd_eea[key].iloc[2:13].reset_index(drop = True)
-    
-
-
-# Calculate eea and ci for prot e
-prote_eea = calc_eea(prote_stats)
-
-# Subset to only keep years 2013-2023
-for key in prote_eea:    
-    prote_eea[key] = prote_eea[key][(prote_eea[key]['year'] >= 2013) & \
-                                    (prote_eea[key]['year'] <= 2023)]
-    prote_eea[key] = prote_eea[key].reset_index(drop = True)
+# Calculate eea and ci for prot c (with buffer)
+protc_eea_buff = calc_eea(protc_stats_buff)  
 
 
 # %%
@@ -410,12 +375,12 @@ def redd_comp(defor_dict, lab):
     axes[0].tick_params(axis='both', which='major', labelsize=14)
 
     # Add axes labels
-    axes[0].set_xlabel("Year", fontsize=16)
-    axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=16)
+    axes[0].set_xlabel("Year", fontsize=14)
+    axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=14)
 
     # Add a title and legend
     # axes[0].set_title("REDD+ Error-Adjusted Deforestation Area")
-    axes[0].legend(fontsize=14, loc = "upper right")
+    axes[0].legend(fontsize=16, loc = "upper right")
 
     # Add gridlines
     axes[0].grid(linestyle="--", alpha=0.6)
@@ -460,12 +425,12 @@ def redd_comp(defor_dict, lab):
     axes[1].tick_params(axis='both', which='major', labelsize=14)
 
     # Add axes labels
-    axes[1].set_xlabel("Year", fontsize=16)
-    axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=16)
+    axes[1].set_xlabel("Year", fontsize=14)
+    axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=14)
 
     # Add a title and legend
     # axes[1].set_title("Non-REDD+ Error-Adjusted Deforestation Area")
-    axes[1].legend(fontsize=14, loc = "upper right")
+    axes[1].legend(fontsize=16, loc = "upper right")
 
     # Add gridlines
     axes[1].grid(linestyle="--", alpha=0.6)
@@ -498,54 +463,17 @@ def defor_comp(defor_dict, lab):
                  label = "Error Adjusted Deforestation")
     
     # Add axes abels
-    plt.xlabel("Year", fontsize = 12)
-    plt.ylabel("Deforestation Area (ha)", fontsize = 12)
+    plt.xlabel("Year", fontsize = 14)
+    plt.ylabel("Deforestation Area (ha)", fontsize = 14)
     
     # Add x tickmarks
-    plt.xticks(years, fontsize = 11)
+    plt.xticks(years)
+    
+    # Adjust font size of tick labels
+    plt.tick_params(axis='both', which='major', labelsize = 14)
     
     # Add legend
-    plt.legend(fontsize = 11)
-    
-    # Add gridlines 
-    plt.grid(linestyle = "--", alpha = 0.6)
-    
-    # Show plot
-    plt.tight_layout()
-    plt.show()
-    
-# Define function to plot eea and pred defor
-def defor_comp_redd(defor_dict, lab):
-    
-    # Initialize figure with subplots
-    plt.figure(figsize = (10, 6))
-    
-    # Add gfc data to figure
-    plt.plot(years, gfc_att['defor_ha'], color = bluecols[0], linewidth = 2, 
-             label = "GFC Deforestation")
-    
-    # Add tmf data to figure
-    plt.plot(years, tmf_att['defor_ha'], color = bluecols[1], linewidth = 2, 
-             label = "TMF Deforestation")
-    
-    # Add se data to figure
-    plt.plot(years, se_att['defor_ha'], color = bluecols[1], linewidth = 2, 
-             label = "Sensitive Early Deforestation", linestyle = "--")
-    
-    # Add eea data to figure
-    plt.errorbar(years, defor_dict[lab]['eea'], yerr = defor_dict[f"{lab}_nonredd"]['ci95'], 
-                 fmt="-o", capsize = 5, color = bluecols[2], linewidth = 2, 
-                 label = "Error Adjusted Deforestation")
-    
-    # Add axes abels
-    plt.xlabel("Year", fontsize = 12)
-    plt.ylabel("Deforestation Area (ha)", fontsize = 12)
-    
-    # Add x tickmarks
-    plt.xticks(years, fontsize = 11)
-    
-    # Add legend
-    plt.legend(fontsize = 11)
+    plt.legend(fontsize = 16)
     
     # Add gridlines 
     plt.grid(linestyle = "--", alpha = 0.6)
@@ -581,17 +509,23 @@ redd_comp(protc_eea, "protc_tmf")
 # Plot prot c redd and nonredd (se)
 redd_comp(protc_eea, "protc_se")
 
-# Plot prot d redd and nonredd (gfc/tmf/se)
-redd_comp(protd_eea, "protd_gfc")
+# Plot prot b redd and nonredd (gfc, buffered)
+redd_comp(protb_eea_buff, "protb_gfc")
 
-# Plot prot e redd and nonredd (gfc)
-redd_comp(prote_eea, "prote_gfc")
+# Plot prot b redd and nonredd (tmf, buffered)
+redd_comp(protb_eea_buff, "protb_tmf")
 
-# Plot prot e redd and nonredd (tmf)
-redd_comp(prote_eea, "prote_tmf")
+# Plot prot b redd and nonredd (se, buffered)
+redd_comp(protb_eea_buff, "protb_se")
 
-# Plot prot e redd and nonredd (se)
-redd_comp(prote_eea, "prote_se")
+# Plot prot c redd and nonredd (gfc, buffered)
+redd_comp(protc_eea_buff, "protc_gfc")
+
+# Plot prot c redd and nonredd (tmf, buffered)
+redd_comp(protc_eea_buff, "protc_tmf")
+
+# Plot prot c redd and nonredd (se, buffered)
+redd_comp(protc_eea_buff, "protc_se")
 
 
 # %%
@@ -602,9 +536,11 @@ redd_comp(prote_eea, "prote_se")
 
 
 ############################################################################
-# Plot prot d map and eea
-defor_comp(protd_eea, "protd_gfc")
+# Plot prot c map and eea
+defor_comp(protc_eea, "protc_gfc")
 
+# Plot prot c map and eea (buffered)
+defor_comp(protc_eea_buff, "protc_gfc")
 
 
 
