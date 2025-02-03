@@ -19,12 +19,7 @@ import numpy as np
 import geopandas as gpd
 from rasterio.features import geometry_mask
 from shapely.geometry import Point
-from rasterio.mask import mask
-from scipy import ndimage
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 import pandas as pd
-
 
 
 ############################################################################
@@ -34,30 +29,6 @@ import pandas as pd
 
 
 ############################################################################
-# Define function to create new folders (if necessary)
-def newfolder(folderlist, parfolder):
-    
-    # Iterate over each folder name
-    for folder in folderlist:
-        
-        # Define folder path
-        path = os.path.join(parfolder, folder)
-        
-        # Check if folder does not exist
-        if not os.path.exists(path):
-            
-            # Create folder
-            os.makedirs(path)
-            
-            # Print statement
-            print(f"{path} created")
-          
-        # If folder already exists
-        else:
-            
-            # Print statement
-            print(f"{path} already exists")
-            
 # Check current working directory
 print("Current Working Directory:", os.getcwd())
 
@@ -67,32 +38,20 @@ os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
 
-# Define output directory (validation data)
-val_dir = os.path.join("data", "validation")
-
-# Create new folders (if necessary)
-newfolder(["stratification_maps", "validation_datasets"], val_dir)
-
 # Set nodata value
 nodata_val = 255
 
-# Define output directory (stratification maps)
-strat_dir = os.path.join("data", "validation", "stratification_maps")
+# Define output directory
+out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 
-# Redefine output directory (validation data)
-val_dir = os.path.join("data", "validation", "validation_datasets")
+# Define output directory
+val_dir = os.path.join("data", "validation")
 
 # Set year range
 years = range(2013, 2024)
 
 # Set random seed for reproducibility
 np.random.seed(42)
-
-# Define color palatte
-blue1 = "#1E2A5E"
-blue2 = "#83B4FF"
-blue3 = "brown"
-bluecols = [blue1, blue2, blue3]
 
 
 
@@ -102,7 +61,7 @@ bluecols = [blue1, blue2, blue3]
 # IMPORT AND READ DATA
 
 
-############################################################################            
+############################################################################
 # Define function to read list of paths
 def read_files(pathlist):
     
@@ -145,20 +104,21 @@ grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 # Create GRNP geometry
 grnp_geom = grnp.geometry
 
-# Read villages data
+# Read vector data
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
+grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 
-# Simplify villages dataframe into only REDD+ and non-REDD+ groups
-villages = villages[['grnp_4k', 'geometry']].dissolve(by='grnp_4k').reset_index()
+# Create REDD+ and non-REDD+ polygons
+villages = villages[['grnp_4k', 'geometry']]
+villages = villages.dissolve(by='grnp_4k')
+villages = villages.reset_index()
 
-# Create redd+ polygon
-redd_union = gpd.GeoSeries(villages.loc[1].geometry).unary_union
-
-# Create nonredd+ polygon
-nonredd_union = gpd.GeoSeries(villages.loc[0].geometry).unary_union
+# Create REDD+ and non-REDD+ geometries
+redd_geom = villages.loc[1, 'geometry']
+nonredd_geom = villages.loc[0, 'geometry']
 
 
-# %%
+
 ############################################################################
 
 
@@ -233,7 +193,7 @@ valcheck(combdis_arrays[0], "combined disagreement array 2013")
 class_overlaps(combdis_arrays)
 
 
-# %%
+    
 ############################################################################
 
 
@@ -333,95 +293,10 @@ valcheck(strat_arr, "stratification array")
 nogrnp_stratarr = rmv_polyspace(strat_arr, grnp.geometry, transform, nodata_val)
 
 # Write stratified layer to file
-rast_write(nogrnp_stratarr, "stratification_layer_nogrnp.tif", strat_dir, profile)
+rast_write(nogrnp_stratarr, "stratification_layer_nogrnp.tif", out_dir, profile)
 
 
-# %%
-############################################################################
 
-
-# CREATE BUFFER STRATA
-
-
-############################################################################
-# Create a undisturbed forest mask (strata 23)
-forest = (nogrnp_stratarr == 23)
-
-# Define the structure for erosion (1 pixel width)
-buffer_structure = np.ones((3, 3))
-
-# Perform binary erosion to shrink clusters
-buffer = ndimage.binary_erosion(forest, structure = buffer_structure)
-
-# Copy stratified array to store results
-buff_stratarr = np.copy(nogrnp_stratarr)
-
-# Assign buffer forest to straat 23
-buff_stratarr[forest & ~buffer] = 23
-
-# Assign undisturbed forest to strata 24
-buff_stratarr[buffer] = 24
-
-# Write stratified layer to file
-rast_write(buff_stratarr, "stratification_layer_buffered.tif", strat_dir, profile)
-
-
-# %%
-############################################################################
-
-
-# EXPLORE STRATA SIZE
-
-
-############################################################################
-# Extract values and ocunts of each strata
-values, counts = np.unique(buff_stratarr, return_counts = True)
-
-# Drop the value, count pair for nodata val
-values = values[:24]
-counts = counts[:24]
-
-# Define colors for deforested strata bars
-colors = [bluecols[0] if i % 2 else bluecols[1] for i in values[:-2]]  
-
-# Define colors for undisturbed strata bars
-colors.extend(['green', 'green'])
-
-# Initialize figure
-plt.figure(figsize = (10, 6))
-
-# Add bar data
-bars = plt.bar(values, counts, color=colors)
-
-# Add axes labels
-plt.xlabel('Strata', fontsize = 12)
-plt.ylabel('Number of Pixels', fontsize = 12)
-
-# Add gridlines
-plt.grid(True, linestyle = "--", alpha = 0.6)
-
-# Add x axes tickmarks
-plt.gca().set_xticks(values)
-
-# Create manual legend
-legend_elements = [
-    Patch(facecolor = colors[0], edgecolor = colors[0], label = 
-          'Deforestation Disagreement Strata'),
-    Patch(facecolor = colors[1], edgecolor = colors[1], label = 
-          'Deforestation Agreement Strata'),
-    Patch(facecolor = colors[23], edgecolor = colors[23], label = 
-          'Undisturbed Forest Agreement Strata')
-]
-
-# Add legend
-plt.legend(handles = legend_elements, loc = 'upper left', fontsize = 12)
-
-# Adjust layout and display
-plt.tight_layout()
-plt.show()
-
-
-# %%
 ############################################################################
 
 
@@ -430,15 +305,13 @@ plt.show()
 
 ############################################################################
 """
-Because there are many more points in strata 23 and 24, more points will be 
-sampled from these strata (total 780):
-    Strata 1-22: 30 points (660)
-    Strata 23-24: 60 points (120)
+This thesis validation methodology will sample 60 points per 23 strata, 
+creating 1380 total validation points
 """
 
 # Read stratification array to avoid re-running code
-with rasterio.open("data/intermediate/stratification_layer_buffered.tif") as rast:
-    stratarr = rast.read(1)
+with rasterio.open("data/intermediate/stratification_layer_nogrnp.tif") as rast:
+    nogrnp_stratarr = rast.read(1)
 
 # Define function to sample points from array
 def strat_sample(array, sample_size, transform, profile, min_strata = None, 
@@ -508,28 +381,15 @@ def shp_write(gdf, filename, out_dir):
     # Write to file
     gdf.to_file(output_filepath)
 
-# Create sample points with 30 points per strata 1-22
-points_660 = strat_sample(stratarr, 30, transform, profile, max_strata = 22,
+# Create sample points with 60 points per strata
+points_60 = strat_sample(nogrnp_stratarr, 60, transform, profile, 
                          random_state = 33)
 
-# Create sample points with 60 points per strata 23-24
-points_120 = strat_sample(stratarr, 60, transform, profile, min_strata = 23,
-                          random_state = 33)
-
-# Combine points
-points_buff = pd.concat([points_660, points_120], ignore_index = True)
-
-# Copy buffered point dataset
-points_nobuff = points_buff.copy()
-
-# Reclassify strata 24 as strata 23 (merge strata)
-points_nobuff.loc[points_nobuff["strata"] == 24, "strata"] = 23
-
 # Write sample points to file
-shp_write(points_nobuff, "validation_points_780.shp", val_dir)
+shp_write(points_60, "validation_points.shp", val_dir)
 
 
-# %%
+
 ############################################################################
 
 
@@ -590,79 +450,11 @@ tiflist = [gfc_lossyear_path, tmf_defordegra_path, sensitive_early_path]
 # Define names of rasters
 tifnames = ['gfc', 'tmf', 'se']
 
-# Extract raster values (buffered dataset)
-valpoints_buff = extract_val(points_buff, tiflist, tifnames)
+# Extract raster values
+valpoints = extract_val(points_60, tiflist, tifnames)
 
-# Write points to file (buffered dataset)
-write_csv(valpoints_buff, val_dir, "validation_points_780_buffer_nolabel")
-
-# Extract raster values (no buffer dataset)
-valpoints_nobuff = extract_val(points_nobuff, tiflist, tifnames)
-
-# Write points to file (no buffer dataset)
-write_csv(valpoints_nobuff, val_dir, "validation_points_780_nobuffer_nolabel")
-
-
-# %%
-############################################################################
-
-
-# SPLIT STRATIFICATION MAP INTO REDD+ / NONREDD+ AREAS
-
-
-############################################################################
-# Define function to crop to geometry
-def geom_crop(strat_path, geometry, lab):
-    
-    # Read stratification map
-    with rasterio.open(strat_path) as rast:
-        
-        # Mask to geometry
-        out_image, out_transform = mask(rast, [geometry], crop = True)
-        
-        # Extract metadata
-        meta = rast.meta.copy()
-        
-        # Update metadata
-        meta.update({
-            "height": out_image.shape[1],
-            "width": out_image.shape[2],
-            "transform": out_transform
-            })
-        
-        # Define filename
-        filename = f"stratification_layer_{lab}.tif"
-        
-        # Define output path
-        output_path = os.path.join(strat_dir, filename)
-        
-        # Save clipped raster
-        with rasterio.open(output_path, "w", **meta) as dst:
-            dst.write(out_image)
-            
-    return out_image
-
-# Define stratification map path (no buffer)
-strat_nobuff = os.path.join(strat_dir, "stratification_layer_nogrnp.tif")
-
-# Define stratification map path (with buffer)
-strat_buff = os.path.join(strat_dir, "stratification_layer_buffered.tif")
-
-# Clip to redd geometry
-redd_strat = geom_crop(strat_nobuff, redd_union, "redd")
-
-# Clip to nonredd geometry
-nonredd_strat = geom_crop(strat_nobuff, nonredd_union, "nonredd")
-
-# Clip to redd geometry
-redd_strat_buff = geom_crop(strat_buff, redd_union, "redd_buff")
-
-# Clip to nonredd geometry
-nonredd_strat_buff = geom_crop(strat_buff, nonredd_union, "nonredd_buff")
-
-
-
-
+# Write points to file
+write_csv(valpoints, val_dir, "validation_points")
 
 
 
