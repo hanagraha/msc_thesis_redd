@@ -132,7 +132,8 @@ def list_read(pathlist, suffix, filt = False):
         for key in files:
             
             # Subset to only keep years 2013-2023
-            files[key] = files[key][(files[key]['year'] >= 2013) & (files[key]['year'] <= 2023)]
+            files[key] = files[key][(files[key]['year'] >= 2013) & \
+                                    (files[key]['year'] <= 2023)]
             
             # Reset index
             files[key] = files[key].reset_index(drop = True)

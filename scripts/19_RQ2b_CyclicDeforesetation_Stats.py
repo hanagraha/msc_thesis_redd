@@ -63,10 +63,7 @@ bluecols = [blue1, blue2, blue3]
 
 ############################################################################
 # Read validation data (unprocessed)
-# val_data = pd.read_csv("data/validation/validation_points_labelled.csv", 
-#                        delimiter=",", index_col=0)
-
-val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780.csv", 
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780_nobuffer.csv", 
                        delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
@@ -493,15 +490,18 @@ axes[0].set_xticks([i + bar_width / 2 for i in years])
 # Add x labels
 axes[0].set_xticklabels(years, rotation = 0)
 
+# Adjust ticklabel fontsize
+axes[0].tick_params(axis = 'both', which = 'major', labelsize = 14)
+
 # Add gridlines
 axes[0].grid(True, linestyle = "--", alpha = 0.6)
 
 # Add axes labels
-axes[0].set_xlabel("Year")
-axes[0].set_ylabel("Number of Validation Points")
+axes[0].set_xlabel("Year", fontsize = 14)
+axes[0].set_ylabel("Number of Validation Points", fontsize = 14)
 
 # Add legend
-axes[0].legend()
+axes[0].legend(fontsize = 16)
 
 # Plot 2: nonredd+ deforestation
 axes[1].bar(years, nonredd_defor_after[2:13], width = bar_width, label = 
@@ -520,15 +520,18 @@ axes[1].set_xticks([i + bar_width / 2 for i in years])
 # Add x labels
 axes[1].set_xticklabels(years, rotation = 0)
 
+# Adjust ticklabel fontsize
+axes[1].tick_params(axis = 'both', which = 'major', labelsize = 14)
+
 # Add gridlines
 axes[1].grid(True, linestyle = "--", alpha = 0.6)
 
 # Add axes labels
-axes[1].set_xlabel("Year")
-axes[1].set_ylabel("Number of Validation Points")
+axes[1].set_xlabel("Year", fontsize = 14)
+axes[1].set_ylabel("Number of Validation Points", fontsize = 14)
 
 # Add legend
-axes[1].legend()
+axes[1].legend(fontsize = 16)
 
 # Show plot
 plt.tight_layout()
@@ -710,6 +713,32 @@ annual_plt(defor_time_mode, "Most Frequent Time Between Deforestation Events (Ye
 Heat map can use intensity based on confidence and multiple deforestation
 potentially also: area proportion of each class??
 """
+# Define function to create new folders (if necessary)
+def newfolder(folderlist, parfolder):
+    
+    # Iterate over each folder name
+    for folder in folderlist:
+        
+        # Define folder path
+        path = os.path.join(parfolder, folder)
+        
+        # Check if folder does not exist
+        if not os.path.exists(path):
+            
+            # Create folder
+            os.makedirs(path)
+            
+            # Print statement
+            print(f"{path} created")
+          
+        # If folder already exists
+        else:
+            
+            # Print statement
+            print(f"{path} already exists")
+
+# Create new folder to store heat data (if needed)            
+newfolder(['heat'], val_dir)
 
 # Copy val_data
 val_data_heat = val_data.copy()
@@ -718,7 +747,7 @@ val_data_heat = val_data.copy()
 val_data_heat['heat'] = (val_data_heat[["defor1", "defor2", "defor3"]] != 0).sum(axis=1)
 
 # Export to shapefile
-val_data_heat.to_file("data/validation/valdata_heat.shp")
+val_data_heat.to_file("data/validation/heat/valdata_heat.shp")
 
 # Split heat points from redd areas
 heat_redd = val_data_heat[val_data_heat.geometry.within(redd_union)]
@@ -727,10 +756,10 @@ heat_redd = val_data_heat[val_data_heat.geometry.within(redd_union)]
 heat_nonredd = val_data_heat[val_data_heat.geometry.within(nonredd_union)]
 
 # Export to shapefile
-heat_redd.to_file("data/validation/valdata_heat_redd_780.shp")
+heat_redd.to_file("data/validation/heat/valdata_heat_redd.shp")
 
 # Export to shapefile
-heat_nonredd.to_file("data/validation/valdata_heat_nonredd_780.shp")
+heat_nonredd.to_file("data/validation/heat/valdata_heat_nonredd.shp")
 
 
 
