@@ -110,10 +110,10 @@ def csv_read(datapath):
     return data
 
 # Read no buffer validation data
-val_data = csv_read("data/validation/validation_datasets/validation_points_2013_2023_780_nobuffer.csv")
+val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv")
 
 # Read buffered validation data
-val_data_buff = csv_read("data/validation/validation_datasets/validation_points_2013_2023_780_buffer.csv")
+val_data_buff = csv_read("data/validation/validation_datasets_backup/validation_points_2013_2023_780_buffer.csv")
 
 # Define stratification map path
 strat_path = "data/intermediate/stratification_layer_nogrnp.tif"

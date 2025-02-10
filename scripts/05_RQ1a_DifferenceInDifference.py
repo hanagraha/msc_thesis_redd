@@ -127,7 +127,7 @@ redd_area = villages.loc[1].geometry.area / 10000
 nonredd_area = villages.loc[0].geometry.area / 10000
 
 
-
+# %%
 ############################################################################
 
 
@@ -193,7 +193,7 @@ tmf_zonal = singleyear_zonal(tmf_arrlist, years, villages, nodata_val,
                              tmf_profile['transform'])
 
 
-
+# %%
 ############################################################################
 
 
@@ -252,7 +252,7 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -279,7 +279,7 @@ gfc_dd = gfc_zonal['REDD+'] - gfc_cf
 tmf_dd = tmf_zonal['REDD+'] - tmf_cf
 
 
-
+# %%
 ############################################################################
 
 
@@ -324,7 +324,7 @@ plt.tight_layout()  # Adjust layout for better spacing
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -379,7 +379,7 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -440,7 +440,7 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -448,41 +448,39 @@ plt.show()
 
 
 ############################################################################
-# %%
+
 # Initialize figure with subplots
 fig, axes = plt.subplots(1, 2, figsize=(18, 6))
 
 # Plot 1: line of redd/nonredd, gfc/tmf defor
-axes[0].plot(years, gfc_zonal['REDD+'], color=gfc_col, linewidth=2,
+axes[0].plot(years, gfc_zonal['REDD+']*100, color=gfc_col, linewidth=2,
              label='GFC Deforestation in REDD+ Villages')
-axes[0].plot(years, tmf_zonal['REDD+'], color=tmf_col, linewidth=2,
+axes[0].plot(years, tmf_zonal['REDD+']*100, color=tmf_col, linewidth=2,
              label='TMF Deforestation and Degradation in REDD+ Villages')
-axes[0].plot(years, gfc_zonal['Non-REDD+'], color=gfc_col, linewidth=2, 
+axes[0].plot(years, gfc_zonal['Non-REDD+']*100, color=gfc_col, linewidth=2, 
              label='GFC Deforestation in Non-REDD+ Villages', linestyle='--')
-axes[0].plot(years, tmf_zonal['Non-REDD+'], color=tmf_col, linewidth=2,
+axes[0].plot(years, tmf_zonal['Non-REDD+']*100, color=tmf_col, linewidth=2,
              label='TMF Deforestation and Degradation in Non-REDD+ Villages', 
              linestyle='--')
 
 # Add x axis label
-axes[0].set_xlabel('Year', fontsize=12)
+axes[0].set_xlabel('Year', fontsize=17)
 
 # Add y axis label
-axes[0].set_ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area', 
-                   fontsize=12)
+axes[0].set_ylabel('Relative Deforestation Area (%)', fontsize=17)
 
 # Add tickmarks
 axes[0].set_xticks(years)
-axes[0].tick_params(axis='both', labelsize=11)
+axes[0].tick_params(axis='both', labelsize=16)
+
+# Edit ticklabel fontsize
+axes[0].tick_params(axis='both', labelsize = 16)
 
 # Add legend
-axes[0].legend(fontsize=11)
+axes[0].legend(fontsize = 14, loc = 'lower left')
 
 # Add gridlines
 axes[0].grid(linestyle="--", alpha=0.6)
-
-# Add title
-# axes[0].set_title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)', 
-                  # fontsize=12)
 
 # Define bar width
 bar_width = 0.4
@@ -491,36 +489,34 @@ bar_width = 0.4
 x = range(len(years))  # Assuming `x` represents years as indices
 
 # Plot 2: bar of nonredd-redd, gfc/tmf defor
-axes[1].bar(x, gfc_rdif, width=bar_width, label='GFC Deforestation', 
+axes[1].bar(x, gfc_rdif*100, width=bar_width, label='GFC Deforestation', 
             color=redd_col1, align='center')
-axes[1].bar([i + bar_width for i in x], tmf_rdif, width=bar_width, 
+axes[1].bar([i + bar_width for i in x], tmf_rdif*100, width=bar_width, 
             label='TMF Deforestation', color=nonredd_col1, align='center')
 
 # Add x axis label
-axes[1].set_xlabel('Year', fontsize=12)
+axes[1].set_xlabel('Year', fontsize = 17)
 
 # Add y axis label
-axes[1].set_ylabel('Difference b/w Non-REDD+ and REDD+ Deforestation (%)', 
-                   fontsize=12)
-
-# Add title
-# axes[1].set_title('Estimated Deforestation (2013-2023)', fontsize=12)
+axes[1].set_ylabel('Deforestation Area Difference (%)', 
+                   fontsize=17)
 
 # Add x tickmarks
 axes[1].set_xticks([i + bar_width / 2 for i in x])  
 axes[1].set_xticklabels(years)
 
 # Add y tickmarks
-axes[1].yaxis.set_major_locator(MultipleLocator(0.01))
-axes[1].yaxis.set_minor_locator(MultipleLocator(0.005))
+axes[1].yaxis.set_major_locator(MultipleLocator(0.5))
+
+# Edit ticklabel fontsize
+axes[1].tick_params(axis='both', labelsize = 16)
 
 # Add gridlines
-axes[1].grid(axis='y', which='major', linestyle='-')
-axes[1].grid(axis='y', which='minor', linestyle='--')
+axes[1].grid(axis='y', which='major', linestyle='--')
 axes[1].grid(axis='x', linestyle = "--")
 
 # Add legend
-axes[1].legend(fontsize=11)
+axes[1].legend(fontsize=16)
 
 # Show plot
 plt.tight_layout()

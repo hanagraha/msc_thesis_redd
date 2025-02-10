@@ -114,7 +114,7 @@ agree_forclust_arrs, agprofile = read_files(agree_forclust_paths)
 disagree_forclust_arrs, agprofile = read_files(disagree_forclust_paths)
 
 
-
+# %%
 ############################################################################
 
 
@@ -255,7 +255,7 @@ forclust_bxplt([gfc_boxplot_df, tmf_boxplot_df], ["GFC Deforestation",
                                                   "TMF Deforestation"])
 
 
-
+# %%
 ############################################################################
 
 
@@ -320,7 +320,7 @@ agratio_cleaned[agratio_cleaned == 0] = np.nan
 patch_freq = disagree_binned + agree_binned
 
 
-
+# %%
 ############################################################################
 
 
@@ -400,7 +400,7 @@ agratio_plot(agratio_cleaned, years)
 patchfreq_plot(patch_freq)
 
 
-
+# %%
 ############################################################################
 
 
@@ -408,7 +408,6 @@ patchfreq_plot(patch_freq)
 
 
 ############################################################################
-# %%
 # Initialize figure with subplots
 fig, axes = plt.subplots(1, 2, figsize=(18, 6))
     
@@ -419,14 +418,14 @@ for lab in agratio_cleaned.columns:
     axes[0].plot(years, agratio_cleaned[lab], label=f"{lab} Pixels")
 
 # Add x axis label
-axes[0].set_xlabel('Year', fontsize=12)
+axes[0].set_xlabel('Year', fontsize=16)
 
 # Add y axis label
-axes[0].set_ylabel('Proportion of Deforestation Agreement', fontsize=12)
+axes[0].set_ylabel('Proportion of Deforestation Agreement', fontsize=16)
 
 # Add tickmarks
 axes[0].set_xticks(years)
-axes[0].tick_params(axis='both', labelsize=11)
+axes[0].tick_params(axis='both', labelsize=14)
 
 # Add legend
 # axes[0].legend(fontsize=11)
@@ -452,14 +451,14 @@ for lab in patch_freq.columns:
     bottom += patch_freq[lab]
 
 # Add x axis label
-axes[1].set_xlabel('Year', fontsize=12)
+axes[1].set_xlabel('Year', fontsize=16)
 
 # Add y axis label
-axes[1].set_ylabel('Pixel Count', fontsize=12)
+axes[1].set_ylabel('Pixel Count', fontsize=16)
 
 # Add tickmarks
 axes[1].set_xticks(years)
-axes[1].tick_params(axis='both', labelsize=11)
+axes[1].tick_params(axis='both', labelsize=14)
 
 # Add x tickmarks
 # axes[1].set_xticks([i + bar_width / 2 for i in x])  
@@ -478,7 +477,7 @@ axes[1].tick_params(axis='both', labelsize=11)
 axes[1].grid(linestyle="--", alpha=0.6)
 
 # Add legend
-axes[1].legend(fontsize=11)
+axes[1].legend(fontsize=16)
 
 # Show plot
 plt.tight_layout()
@@ -486,7 +485,7 @@ plt.show()
 
 
 
-
+patch_freq.sum()
 
 
 

@@ -61,6 +61,8 @@ grnpcol = "darkgreen"
 reddcol = "#820300"  # Darker Red
 grnpcol = "#4682B4"  # Darker Blue - lighter
 
+
+
 ############################################################################
 
 
@@ -137,7 +139,7 @@ nonredd_geom = [villages.loc[0, 'geometry']]
 grnp_geom = grnp.geometry
 
 
-
+# %%
 ############################################################################
 
 
@@ -194,7 +196,7 @@ gfc_simp_redd, gfc_simp_nonredd, gfc_simp_grnp = regions_clip(gfc_simp_paths)
 tmf_simp_redd, tmf_simp_nonredd, tmf_simp_grnp = regions_clip(tmf_simp_paths)
 
 
-
+# %%
 ############################################################################
 
 
@@ -274,7 +276,7 @@ def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -327,7 +329,7 @@ tripleplot(ov_ag_redd, ov_ag_nonredd, ov_ag_grnp,
            "Overall Agreement (%)", 92, 100)
 
 
-
+# %%
 ############################################################################
 
 
@@ -380,7 +382,7 @@ tripleplot(for_ag_redd, for_ag_nonredd, for_ag_grnp,
            "Undisturbed Agreement (%)", 92, 100)
 
 
-
+# %%
 ############################################################################
 
 
@@ -433,7 +435,7 @@ tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp,
            "Deforestation Agreement (%)", 0, 35)
 
 
-
+# %%
 ############################################################################
 
 
@@ -441,9 +443,8 @@ tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp,
 
 
 ############################################################################
-# %%
 # Initialize figure with subplots
-fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
 
 # Plot 1: overall spatial agreement
 axes[0].plot(years, ov_ag_redd, color=reddcol, linewidth=2,
@@ -454,17 +455,17 @@ axes[0].plot(years, ov_ag_grnp, color=grnpcol, linewidth=2,
              label='GRNP')
 
 # Add x axis label
-axes[0].set_xlabel('Year', fontsize=12)
+axes[0].set_xlabel('Year', fontsize=16)
 
 # Add y axis label
-axes[0].set_ylabel('Overall Agreement (%)', fontsize=12)
+axes[0].set_ylabel('Overall Agreement (%)', fontsize=16)
 
 # Add tickmarks
 axes[0].set_xticks(years)
-axes[0].tick_params(axis='both', labelsize=11)
+axes[0].tick_params(axis='both', labelsize=14)
 
 # Add legend
-axes[0].legend(fontsize=11)
+axes[0].legend(fontsize=16, loc = 'lower right')
 
 # Add gridlines
 axes[0].grid(linestyle="--", alpha=0.6)
@@ -480,19 +481,19 @@ axes[1].plot(years, defor_ag_grnp, label = "GRNP", color = grnpcol)
 
 # Add tickmarks
 axes[1].set_xticks(years)
-axes[1].tick_params(axis='both', labelsize=11)
+axes[1].tick_params(axis='both', labelsize=14)
 
 # Add x axis label
-axes[1].set_xlabel('Year', fontsize=12)
+axes[1].set_xlabel('Year', fontsize=16)
 
 # Add y axis label
-axes[1].set_ylabel('Deforestation Agreement (%)', fontsize=12)
+axes[1].set_ylabel('Deforestation Agreement (%)', fontsize=16)
 
 # Add gridlines
 axes[1].grid(True, linestyle = "--")
 
 # Add legend
-axes[1].legend(fontsize=11)
+# axes[1].legend(fontsize=16)
 
 # Adjust yaxis limits
 axes[1].set_ylim(0, 35)

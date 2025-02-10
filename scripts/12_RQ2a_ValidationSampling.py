@@ -698,5 +698,3 @@ nonredd_prob = incl_prob(nonredd_strat, points_nonredd)
 
 
 
-
-

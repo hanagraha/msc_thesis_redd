@@ -96,7 +96,7 @@ planet = [os.path.join(planet_folder, file) for file in os.listdir(planet_folder
           if file.endswith('.tif')]
     
 # Read validation points
-valpoints = gpd.read_file("data/validation/validation_points.shp")
+valpoints = gpd.read_file("data/validation/validation_datasets/validation_points_780.shp")
 
 # Define default image path (show it is in wdir)
 def_img = "/assets/def_ts_small.png"
@@ -618,7 +618,7 @@ app.layout = html.Div([
     html.Div([
 
         # Input box label
-        html.Label("Enter Validation Point ID (0-1379): ", style={
+        html.Label("Enter Validation Point ID (0-779): ", style={
             "font-size": "18px", "font-family": "Arial"}),
 
         # Input box
@@ -626,7 +626,7 @@ app.layout = html.Div([
             id="input-id",
             type="number",
             min=0,
-            max=1379,
+            max=779,
             step=1,
             value=None,
             placeholder="Enter ID...",

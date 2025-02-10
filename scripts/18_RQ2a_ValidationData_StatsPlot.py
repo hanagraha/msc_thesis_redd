@@ -193,7 +193,7 @@ protc_cmpaths_buff = folder_files("val_protc_buff", "confmatrix.csv")
 protc_cm_buff = list_read(protc_cmpaths_buff, "_confmatrix.csv", cmfilt = True)
 
 
-# %%
+#%%
 ############################################################################
 
 
@@ -235,12 +235,12 @@ def matrix_plt(matrices, names, fmt):
                     xticklabels=years, yticklabels=years, vmax = 6)
         
         # Add title
-        axes[i].set_title(f'{names[i]} Confusion Matrix', fontsize = 16)
-        axes[i].set_xlabel(f'{names[i]} Predicted Labels', fontsize = 14)
-        axes[i].set_ylabel('Validation Labels', fontsize = 14)
+        # axes[i].set_title(f'{names[i]} Confusion Matrix', fontsize = 16)
+        axes[i].set_xlabel('Validation Labels', fontsize = 16)
+        axes[i].set_ylabel(f'{names[i]} Predicted Labels', fontsize = 16)
     
         # Adjust tick labels font size
-        axes[i].tick_params(axis='both', labelsize=12)
+        axes[i].tick_params(axis='both', labelsize=14)
     
     # Adjust layout
     plt.tight_layout()

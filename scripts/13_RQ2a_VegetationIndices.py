@@ -82,7 +82,7 @@ l8_jan = [os.path.join(l8_jan_folder, file) for file in os.listdir(l8_jan_folder
 l8_jan.insert(0, l8[0])
     
 # Read validation points
-valpoints = gpd.read_file("data/validation/validation_points.shp")
+valpoints = gpd.read_file("data/validation/validation_datasets/validation_points_780.shp")
 
 
 

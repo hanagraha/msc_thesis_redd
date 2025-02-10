@@ -129,11 +129,14 @@ def annual_plt(strat_data, y_label):
     plt.figure(figsize=(10, 6))
 
     # Plot line data
-    plt.plot(years, strat_data, linestyle='-', color='#1E2A5E')
+    plt.plot(years, strat_data, linestyle='-', color='#1E2A5E', linewidth = 2)
 
     # Add axes labels
-    plt.xlabel('Year', fontsize=12)
-    plt.ylabel(y_label, fontsize=12)
+    plt.xlabel('Year', fontsize=14)
+    plt.ylabel(y_label, fontsize=14)
+    
+    # Change ticklabel fontsize
+    plt.tick_params(axis='both', labelsize = 14)
 
     # Add x ticks for every strata
     plt.gca().set_xticks(years)
@@ -199,6 +202,9 @@ def double_bar(bardata1, label1, bardata2, label2, linedata, label3):
     # Add x tickmarks
     ax.set_xticks([i + bar_width / 2 for i in years])
     
+    # Adjust tickmark label fontsize
+    ax.tick_params(axis = 'both', labelsize = 14)
+    
     # Add x labels
     ax.set_xticklabels(years, rotation = 0)
     
@@ -206,11 +212,11 @@ def double_bar(bardata1, label1, bardata2, label2, linedata, label3):
     ax.grid(True, linestyle = "--", alpha = 0.6)
     
     # Add axes labels
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Number of Validation Points")
+    ax.set_xlabel("Year", fontsize = 16)
+    ax.set_ylabel("Number of Validation Points", fontsize = 16)
     
     # Add legend
-    ax.legend()
+    ax.legend(fontsize = 14)
     
     # Show plot
     plt.tight_layout()
@@ -448,10 +454,10 @@ redd_defor_after, redd_defor_first, redd_defor_props = calc_props(redd_defor_val
 # Calculate deforestation proportions for nonredd areas
 nonredd_defor_after, nonredd_defor_first, nonredd_defor_props = calc_props(nonredd_defor_vals)
 
-# Plot total additional defor and regrowth (all)
-double_bar(defor_after[2:13], "Recurrent Deforestation", regr_vals[1:12],
-           "Forest Regrowth (All Deforestation Events)", defor_first[2:13],
-           "Total Deforestation (First Detection)")
+# # Plot total additional defor and regrowth (all)
+# double_bar(defor_after[2:13], "Recurrent Deforestation", regr_vals[1:12],
+#            "Forest Regrowth (All Deforestation Events)", defor_first[2:13],
+#            "Total Deforestation (First Detection)")
 
 # Plot total additional defor and regrowth (first)
 double_bar(defor_after[2:13], "Recurrent Deforestation", regr_first[1:12], 
@@ -695,10 +701,10 @@ for year in years:
     defor_time_mode.append(mode)
     
 # Plot average regrowth time per year
-annual_plt(defor_time_avg, "Average Time Between Deforestation Events (Years)")
+annual_plt(defor_time_avg, "Avg. Years Between Deforestation Events")
 
 # Plot mode regrowth time per year
-annual_plt(defor_time_mode, "Most Frequent Time Between Deforestation Events (Years)")
+annual_plt(defor_time_mode, "Most Freq. Years Between Deforestation Events")
 
 
 # %%
