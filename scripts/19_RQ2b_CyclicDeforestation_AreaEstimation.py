@@ -20,6 +20,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import statistics
 import rasterio
+from rasterstats import zonal_stats
+from rasterio.features import geometry_mask
+from rasterio.mask import mask
 
 
 
@@ -53,6 +56,11 @@ blue1 = "#1E2A5E"
 blue2 = "#83B4FF"
 blue3 = "brown"
 bluecols = [blue1, blue2, blue3]
+gfc_col = "#820300"  # Darker Red
+tmf_col = "#4682B4"  # Darker Blue - lighter
+
+# Define pixel area
+pixel_area = 0.09
 
 
 
@@ -154,7 +162,7 @@ def csv_read(datapath):
     return data
 
 # Read validation data
-valdata = csv_read("data/validation/validation_datasets/validation_points_2013_2023_780_nobuffer.csv")
+valdata = csv_read("data/validation/validation_datasets/validation_points_780.csv")
 
 # Read protocol c statistics (no buffer)
 protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
@@ -186,6 +194,15 @@ points_redd = valdata[valdata.geometry.within(redd_union)]
 
 # Filter points within non-REDD+ multipolygon
 points_nonredd = valdata[valdata.geometry.within(nonredd_union)]
+
+# Define multiyear gfc lossyear path
+gfc_path = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+
+# Define multiyear tmf defordegra path
+tmf_path = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
+
+# Define multiyear se path
+se_path = "data/intermediate/gfc_tmf_sensitive_early.tif"
 
 
 # %%
@@ -375,7 +392,7 @@ protc_eea = calc_eea(protc_stats)
 ############################################################################
 
 
-# PLOT REDD DEFORESTATION
+# PLOT REDD DEFORESTATION (HA)
 
 
 ############################################################################
@@ -431,22 +448,23 @@ axes[0].errorbar(
     fmt="-o",
     capsize = 5,
     color = bluecols[0],
-    label = "REDD+ Deforestation"
+    label = "REDD+ Deforestation (First)",
+    linewidth = 2
 )
 
 # Add all deforestation data
 axes[0].plot(years, all_defor_redd, linestyle='--', color = bluecols[2], 
-         label='All Deforestation in REDD+')
+         label='REDD+ Deforestation (All)', linewidth = 2)
 
 # Add x-axis tick marks
 axes[0].set_xticks(years)
 
 # Adjust fontsize of tick labels
-axes[0].tick_params(axis='both', which='major', labelsize=14)
+axes[0].tick_params(axis='both', which='major', labelsize=16)
 
 # Add axes labels
 axes[0].set_xlabel("Year", fontsize=14)
-axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=14)
+axes[0].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=16)
 
 # Add a title and legend
 axes[0].legend(fontsize=16, loc = "upper right")
@@ -484,12 +502,165 @@ axes[1].errorbar(
     fmt="-o",
     capsize = 5,
     color = bluecols[0],
-    label = "Non-REDD+ Deforestation"
+    label = "Non-REDD+ Deforestation (First)",
+    linewidth = 2
 )
 
 # Add all deforestation data
 axes[1].plot(years, all_defor_nonredd, linestyle='--', color = bluecols[2], 
-         label='All Deforestation in Non-REDD+')
+         label='Non-REDD+ Deforestation (All)', linewidth = 2)
+
+# Add x-axis tick marks
+axes[1].set_xticks(years)
+
+# Adjust font size of tick labels
+axes[1].tick_params(axis='both', which='major', labelsize=16)
+
+# Add axes labels
+axes[1].set_xlabel("Year", fontsize=16)
+# axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=14)
+
+# Remove y axis
+axes[1].tick_params(axis='y', which='both', left=False, labelleft=False)
+
+# Add a title and legend
+axes[1].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[1].grid(linestyle="--", alpha=0.6)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
+############################################################################
+
+
+# PLOT REDD DEFORESTATION (%)
+
+
+############################################################################
+# Define proportional error estimations (stehman)
+redd_eea_prop = protc_eea["protc_gfc_redd"]['eea'] / redd_ha
+redd_ci50_prop = protc_eea["protc_gfc_redd"]['ci50'] / redd_ha
+redd_ci95_prop = protc_eea["protc_gfc_redd"]['ci95'] / redd_ha
+nonredd_eea_prop = protc_eea["protc_gfc_nonredd"]['eea'] / nonredd_ha
+nonredd_ci95_prop = protc_eea["protc_gfc_nonredd"]['ci95'] / nonredd_ha
+nonredd_ci50_prop = protc_eea["protc_gfc_nonredd"]['ci50'] / nonredd_ha
+
+# Define proportional error estimates (all defor)
+all_defor_redd_prop = all_defor_redd / redd_ha
+all_defor_nonredd_prop = all_defor_nonredd / nonredd_ha
+
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize = (18,6))
+
+# Calculate the common y-axis limits
+min_y = min((redd_eea_prop - redd_ci50_prop).min(), 
+            (nonredd_eea_prop - nonredd_ci50_prop).min())
+max_y = max((redd_eea_prop + redd_ci50_prop).max(), 
+            (nonredd_eea_prop + nonredd_ci50_prop).max())
+
+# Add padding for better visualization
+padding = 0.05 * (max_y - min_y)
+min_y -= padding
+max_y += padding
+
+# Set y-axis limits for both axes
+axes[0].set_ylim(min_y, max_y)
+axes[1].set_ylim(min_y, max_y)
+
+# PLOT 1: REDD DEFOR AREA
+
+# Create 95% ci rectangle
+axes[0].fill_between(
+    years, 
+    redd_eea_prop[0] - redd_ci95_prop[0],
+    redd_eea_prop[0] + redd_ci95_prop[0],
+    color = bluecols[1],
+    alpha = 0.2,
+    label = "95% confidence interval"
+    )
+
+# Create 50% ci rectangle
+axes[0].fill_between(
+    years, 
+    redd_eea_prop[0] - redd_ci50_prop[0],
+    redd_eea_prop[0] + redd_ci50_prop[0],
+    color = bluecols[1],
+    alpha = 0.3,
+    label = "50% confidence interval"
+    )
+
+# Plot redd defor
+axes[0].errorbar(
+    years,
+    redd_eea_prop,
+    yerr = redd_ci50_prop,
+    fmt="-o",
+    capsize = 5,
+    color = bluecols[0],
+    label = "REDD+ Deforestation (First)"
+)
+
+# Add all deforestation data
+axes[0].plot(years, all_defor_redd_prop, linestyle='--', color = bluecols[2], 
+         label='REDD+ Deforestation (All)')
+
+# Add x-axis tick marks
+axes[0].set_xticks(years)
+
+# Adjust fontsize of tick labels
+axes[0].tick_params(axis='both', which='major', labelsize=14)
+
+# Add axes labels
+axes[0].set_xlabel("Year", fontsize=14)
+axes[0].set_ylabel("Error-Adjusted Deforestation Area (%)", fontsize=16)
+
+# Add a title and legend
+axes[0].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# PLOT 2: NONREDD DEFOR AREA
+
+# Create 95% ci rectangle
+axes[1].fill_between(
+    years, 
+    nonredd_eea_prop[0] - nonredd_ci95_prop[0],
+    nonredd_eea_prop[0] + nonredd_ci95_prop[0],
+    color = bluecols[1],
+    alpha = 0.2,
+    label = "95% confidence interval"
+    )
+
+# Create 50% ci rectangle
+axes[1].fill_between(
+    years, 
+    nonredd_eea_prop[0] - nonredd_ci50_prop[0],
+    nonredd_eea_prop[0] + nonredd_ci50_prop[0],
+    color = bluecols[1],
+    alpha = 0.3,
+    label = "50% confidence interval"
+    )
+
+# Plot nonredd defor
+axes[1].errorbar(
+    years,
+    nonredd_eea_prop,
+    yerr = nonredd_ci50_prop,
+    fmt="-o",
+    capsize = 5,
+    color = bluecols[0],
+    label = "Non-REDD+ Deforestation (First)"
+)
+
+# Add all deforestation data
+axes[1].plot(years, all_defor_nonredd_prop, linestyle='--', color = bluecols[2], 
+         label='Non-REDD+ Deforestation (All)')
 
 # Add x-axis tick marks
 axes[1].set_xticks(years)
@@ -514,6 +685,301 @@ axes[1].grid(linestyle="--", alpha=0.6)
 plt.tight_layout()
 plt.show()
 
+
+# %%
+############################################################################
+
+
+# PLOT VALIDATION AND PREDICTED DEFORESTATION
+
+
+############################################################################
+# Define function to extract multiyear statistics
+def multiyear_atts(rastpath, yearrange):
+    
+    # Read array
+    with rasterio.open(rastpath) as rast:
+        
+        # Mask to redd geometry
+        redd_image, redd_transform = mask(rast, [redd_union], crop = True)
+        
+        # Mask to nonredd geometry
+        nonredd_image, nonredd_transform = mask(rast, [nonredd_union], crop = True)
+    
+    # Extract unique values and pixel counts (redd)
+    redd_values, redd_counts = np.unique(redd_image, return_counts=True)
+    
+    # Extract unique values and pixel counts (nonredd)
+    nonredd_values, nonredd_counts = np.unique(nonredd_image, return_counts=True)
+    
+    # Create dataframe with unique values and pixel counts
+    attributes = pd.DataFrame({"Year": redd_values, 
+                               "REDD+": redd_counts / redd_pix,
+                               "Non-REDD+": nonredd_counts / nonredd_pix})
+    
+    # Filter only for attributes within yearrange
+    filt_atts = attributes[(attributes['Year'] >= min(yearrange)) & \
+                           (attributes['Year'] <= max(yearrange))]
+    
+    return filt_atts
+
+# Extract annual deforestation data from gfc
+gfc_zonal = multiyear_atts(gfc_path, years)
+
+# Extract annual deforestation data from tmf
+tmf_zonal = multiyear_atts(tmf_path, years)
+
+# Extract annual deforestation data from se
+se_zonal = multiyear_atts(se_path, years)
+
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize = (18,6))
+
+min_y = 0
+max_y = 0.12
+
+# Set y-axis limits for both axes
+axes[0].set_ylim(min_y, max_y)
+axes[1].set_ylim(min_y, max_y)
+
+# PLOT 1: REDD DEFOR AREA
+
+# Plot redd defor
+axes[0].errorbar(
+    years,
+    redd_eea_prop,
+    yerr = redd_ci50_prop,
+    fmt="-o",
+    capsize = 5,
+    color = bluecols[2],
+    label = "Error-Adjusted REDD+ Deforestation (First)"
+)
+
+# Add all deforestation data
+# axes[0].plot(years, all_defor_redd_prop, linestyle='--', color = bluecols[2], 
+#          label='REDD+ Deforestation (All)')
+
+# Add gfc deforestation data
+axes[0].plot(years, gfc_zonal['REDD+'], linestyle='-', color = bluecols[0], 
+         label='GFC REDD+ Deforestation')
+
+# Add tmf deforestation data
+axes[0].plot(years, tmf_zonal['REDD+'], linestyle='-', color = bluecols[1], 
+         label='TMF REDD+ Deforestation')
+
+# Add se deforestation data
+axes[0].plot(years, se_zonal['REDD+'], linestyle='-', color = bluecols[2], 
+         label='SE REDD+ Deforestation')
+
+# Add x-axis tick marks
+axes[0].set_xticks(years)
+
+# Adjust fontsize of tick labels
+axes[0].tick_params(axis='both', which='major', labelsize=14)
+
+# Add axes labels
+axes[0].set_xlabel("Year", fontsize=14)
+axes[0].set_ylabel("Error-Adjusted Deforestation Area (%)", fontsize=16)
+
+# Add a title and legend
+axes[0].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# PLOT 2: NONREDD DEFOR AREA
+
+# Plot nonredd defor
+axes[1].errorbar(
+    years,
+    nonredd_eea_prop,
+    yerr = nonredd_ci50_prop,
+    fmt="-o",
+    capsize = 5,
+    color = bluecols[2],
+    label = "Error-Adjusted Non-REDD+ Deforestation (First)"
+)
+
+# Add all deforestation data
+# axes[1].plot(years, all_defor_nonredd_prop, linestyle='--', color = bluecols[2], 
+#          label='Non-REDD+ Deforestation (All)')
+
+# Add gfc deforestation data
+axes[1].plot(years, gfc_zonal['Non-REDD+'], linestyle='-', color = bluecols[0], 
+         label='GFC Non-REDD+ Deforestation')
+
+# Add tmf deforestation data
+axes[1].plot(years, tmf_zonal['Non-REDD+'], linestyle='-', color = bluecols[1], 
+         label='TMF Non-REDD+ Deforestation')
+
+# Add se deforestation data
+axes[1].plot(years, se_zonal['Non-REDD+'], linestyle='-', color = bluecols[2], 
+         label='SE Non-REDD+ Deforestation')
+
+# Add x-axis tick marks
+axes[1].set_xticks(years)
+
+# Adjust font size of tick labels
+axes[1].tick_params(axis='both', which='major', labelsize=14)
+
+# Add axes labels
+axes[1].set_xlabel("Year", fontsize=14)
+# axes[1].set_ylabel("Error-Adjusted Deforestation Area (ha)", fontsize=14)
+
+# Remove y axis
+axes[1].tick_params(axis='y', which='both', left=False, labelleft=False)
+
+# Add a title and legend
+axes[1].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[1].grid(linestyle="--", alpha=0.6)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
+############################################################################
+
+
+# PLOT MULTIPLE VALIDATION AND PREDICTED DEFORESTATION
+
+
+############################################################################
+# Initialize figure with subplots
+fig, axes = plt.subplots(1, 2, figsize = (18,6))
+
+min_y = 0
+max_y = 0.12
+
+# Set y-axis limits for both axes
+axes[0].set_ylim(min_y, max_y)
+axes[1].set_ylim(min_y, max_y)
+
+# PLOT 1: REDD DEFOR AREA
+
+# Add all deforestation data
+axes[0].plot(years, all_defor_redd_prop, linestyle='--', color = bluecols[2], 
+         label='Error-Adjusted REDD+ Deforestation (All)', linewidth = 2)
+
+# Add gfc deforestation data
+axes[0].plot(years, gfc_zonal['REDD+'], linestyle='-', color = bluecols[0], 
+         label='GFC REDD+ Deforestation', linewidth = 2)
+
+# Add tmf deforestation data
+axes[0].plot(years, tmf_zonal['REDD+'], linestyle='-', color = bluecols[1], 
+         label='TMF REDD+ Deforestation', linewidth = 2)
+
+# Add x-axis tick marks
+axes[0].set_xticks(years)
+
+# Adjust fontsize of tick labels
+axes[0].tick_params(axis='both', which='major', labelsize=16)
+
+# Add axes labels
+axes[0].set_xlabel("Year", fontsize=16)
+axes[0].set_ylabel("Proportional Deforestation Area (%)", fontsize=16)
+
+# Add a title and legend
+axes[0].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[0].grid(linestyle="--", alpha=0.6)
+
+# PLOT 2: NONREDD DEFOR AREA
+
+# Add all deforestation data
+axes[1].plot(years, all_defor_nonredd_prop, linestyle='--', color = bluecols[2], 
+         label='Error-Adjusted Non-REDD+ Deforestation (All)', linewidth = 2)
+
+# Add gfc deforestation data
+axes[1].plot(years, gfc_zonal['Non-REDD+'], linestyle='-', color = bluecols[0], 
+         label='GFC Non-REDD+ Deforestation', linewidth = 2)
+
+# Add tmf deforestation data
+axes[1].plot(years, tmf_zonal['Non-REDD+'], linestyle='-', color = bluecols[1], 
+         label='TMF Non-REDD+ Deforestation', linewidth = 2)
+
+# Add x-axis tick marks
+axes[1].set_xticks(years)
+
+# Adjust font size of tick labels
+axes[1].tick_params(axis='both', which='major', labelsize=16)
+
+# Add axes labels
+axes[1].set_xlabel("Year", fontsize=16)
+
+# Remove y axis
+axes[1].tick_params(axis='y', which='both', left=False, labelleft=False)
+
+# Add a title and legend
+axes[1].legend(fontsize=16, loc = "upper right")
+
+# Add gridlines
+axes[1].grid(linestyle="--", alpha=0.6)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+# %%
+############################################################################
+
+
+# PLOT MULTIPLE VALIDATION AND PREDICTED DEFORESTATION
+
+
+############################################################################
+# Initialize figure
+plt.figure(figsize=(10, 6))
+
+# Plot the pixel values for REDD+ villages
+plt.plot(years, gfc_zonal['REDD+']*100, color=bluecols[0], linewidth = 2,
+         label='GFC Deforestation in REDD+ Villages')
+
+# Plot the pixel values for REDD+ villages
+plt.plot(years, tmf_zonal['REDD+']*100, color=bluecols[1], linewidth = 2,
+         label='TMF Deforestation and Degradation in REDD+ Villages')
+
+# Plot the multiple deforestation REDD+
+plt.plot(years, all_defor_redd_prop*100, linewidth = 2, color = bluecols[2], 
+         label='Error-Adjusted REDD+ Deforestation')
+
+# Plot the pixel values for non-REDD+ villages
+plt.plot(years, gfc_zonal['Non-REDD+']*100, color=bluecols[0], linewidth = 2, 
+         label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
+
+# Plot the pixel values for non-REDD+ villages
+plt.plot(years, tmf_zonal['Non-REDD+']*100, color=bluecols[1], linewidth = 2,
+         label='TMF Deforestation and Degradation in Non-REDD+ Villages',
+         linestyle = '--')
+
+# Plot the multiple deforestation non-REDD+
+plt.plot(years, all_defor_nonredd_prop*100, linestyle='--', color = bluecols[2], 
+         label='Error-Adjusted Non-REDD+ Deforestation', linewidth = 2)
+
+# Add labels and title
+plt.xlabel('Year', fontsize = 14)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 14)
+
+# Add x tickmarks
+plt.xticks(years, fontsize = 14)
+
+# Edit y tickmark fontsize
+plt.yticks(fontsize = 14)
+
+# Add legend
+plt.legend(fontsize=13)
+
+# Add gridlines
+plt.grid(linestyle = "--", alpha = 0.6)
+
+# Show plot
+plt.tight_layout()
+plt.show()
 
 
 # %%

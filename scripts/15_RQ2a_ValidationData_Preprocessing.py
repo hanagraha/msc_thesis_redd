@@ -542,28 +542,28 @@ write_dic(protc_nonredd, "protc", "nonredd")
 write_list(prota_data_buff, datanames, "prota", "buff")
 
 # Write protb data to folder (buffered)
-write_list(protb_data, datanames, "protb", "buff")
+write_list(protb_data_buff, datanames, "protb", "buff")
 
 # Write protc data to folder (buffered)
-write_list(protc_data, datanames, "protc", "buff")
+write_list(protc_data_buff, datanames, "protc", "buff")
 
 # write redd prota data (buffered)
-write_dic(prota_redd, "prota", "redd", "buff")
+write_dic(prota_redd_buff, "prota", "redd", "buff")
 
 # write nonredd prota data (buffered)
-write_dic(prota_nonredd, "prota", "nonredd", "buff")
+write_dic(prota_nonredd_buff, "prota", "nonredd", "buff")
 
 # write redd protb data (buffered)
-write_dic(protb_redd, "protb", "redd", "buff")
+write_dic(protb_redd_buff, "protb", "redd", "buff")
 
 # write nonredd protb data (buffered)
-write_dic(protb_nonredd, "protb", "nonredd", "buff")
+write_dic(protb_nonredd_buff, "protb", "nonredd", "buff")
 
 # write redd protc data (buffered)
-write_dic(protc_redd, "protc", "redd", "buff")
+write_dic(protc_redd_buff, "protc", "redd", "buff")
 
 # write nonredd protc data (buffered)
-write_dic(protc_nonredd, "protc", "nonredd", "buff")
+write_dic(protc_nonredd_buff, "protc", "nonredd", "buff")
 
 
 
