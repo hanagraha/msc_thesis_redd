@@ -66,6 +66,9 @@ s2_jan_folder = os.path.join("data", "cc_composites", "S2_Jan")
 # Define planet data folder
 planet_folder = os.path.join("data", "cc_composites", "Planet_Feb")
 
+# Define output directory (validation data)
+val_dir = os.path.join("data", "validation", "validation_datasets")
+
 
 
 ############################################################################
@@ -751,13 +754,13 @@ def indice_plotting(point_id, indice):
     # If NDVI is selected
     if indice == 'ndvi':
         indice_row = pnt_ndvi.iloc[point_id]
-        labs = pnt_ndvi.columns.tolist()[2:]
+        labs = pnt_ndvi.columns.tolist()[-12:]
         ylab = "NDVI"
         
     # If NDMI is selected
     elif indice == 'ndmi':
         indice_row = pnt_ndmi.iloc[point_id]
-        labs = pnt_ndmi.columns.tolist()[2:]
+        labs = pnt_ndmi.columns.tolist()[-12:]
         ylab = "NDMI"
     
     # Extract ndvi values for selected point
@@ -859,4 +862,79 @@ def ts_plotting(point_id, plot_type):
 if __name__ == '__main__':
     app.run_server(debug=True)
 
+
+# %%
+############################################################################
+
+
+# SELECTING POINTS FOR INTER-RATER RELIABILITY
+
+
+############################################################################ 
+# Define function to create sub-sample
+def subsamp(data, samp_size):
     
+    # Create empty dataframe
+    samples = pd.DataFrame()  
+    
+    # Iterate over each strata
+    for strata in range(1, 24):
+        
+        # Extract data in strata
+        strat_points = data[data['strata'] == strata]
+        
+        # Select a random sample of rows
+        strat_sample = strat_points.sample(n=samp_size, random_state=42)
+        
+        # Append to new dataframe
+        samples = pd.concat([samples, strat_sample])
+    
+    return samples.sort_index()
+
+# Define function to save gdf as csv
+def write_csv(gdf, out_dir, outfilename):
+    
+    # Convert csv geometry to WKT
+    gdf['geometry'] = gpd.GeoSeries.from_wkt(gdf['geometry'])
+    
+    # Convert dataframe to geodataframe
+    gdf = gpd.GeoDataFrame(gdf, geometry = 'geometry', crs="EPSG:32629")
+    
+    # Define output path
+    outfilepath = os.path.join(out_dir, f"{outfilename}.csv")
+
+    # Save the GeoDataFrame as a CSV file
+    gdf.to_csv(outfilepath, index=True)
+    
+    # Print statement
+    print(f"File saved to {outfilepath}")
+ 
+# Create subsample for inter-rater reliability
+irr_samp = subsamp(valpoints, 5)
+
+# Save subsample to drive
+write_csv(irr_samp, val_dir, "validation_points_115_subsample_nolabel")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

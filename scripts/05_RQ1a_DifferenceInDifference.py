@@ -214,35 +214,35 @@ tmf_col = "#4682B4"  # Darker Blue - lighter
 plt.figure(figsize=(10, 6))
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_zonal['REDD+'], color=gfc_col, linewidth = 2,
+plt.plot(years, gfc_zonal['REDD+']*100, color=gfc_col, linewidth = 2,
          label='GFC Deforestation in REDD+ Villages')
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, tmf_zonal['REDD+'], color=tmf_col, linewidth = 2,
+plt.plot(years, tmf_zonal['REDD+']*100, color=tmf_col, linewidth = 2,
          label='TMF Deforestation and Degradation in REDD+ Villages')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, gfc_zonal['Non-REDD+'], color=gfc_col, linewidth = 2, 
+plt.plot(years, gfc_zonal['Non-REDD+']*100, color=gfc_col, linewidth = 2, 
          label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_zonal['Non-REDD+'], color=tmf_col, linewidth = 2,
+plt.plot(years, tmf_zonal['Non-REDD+']*100, color=tmf_col, linewidth = 2,
          label='TMF Deforestation and Degradation in Non-REDD+ Villages',
          linestyle = '--')
 
 # Add labels and title
-plt.xlabel('Year', fontsize = 12)
-plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area', fontsize = 12)
+plt.xlabel('Year', fontsize = 14)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 14)
 # plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
 
 # Add x tickmarks
-plt.xticks(years, fontsize = 11)
+plt.xticks(years, fontsize = 14)
 
 # Edit y tickmark fontsize
-plt.yticks(fontsize = 11)
+plt.yticks(fontsize = 14)
 
 # Add legend
-plt.legend(fontsize = 11)
+plt.legend(fontsize = 14, loc="lower left")
 
 # Add gridlines
 plt.grid(linestyle = "--", alpha = 0.6)

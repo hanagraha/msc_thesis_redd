@@ -18,6 +18,7 @@ import rasterio
 import geopandas as gpd
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import matthews_corrcoef
 from scipy.stats import chi2_contingency
@@ -501,6 +502,54 @@ axes[1].set_ylim(0, 35)
 # Show plot
 plt.tight_layout()
 plt.show()
+
+
+# %%
+############################################################################
+
+
+# CALCULATE POTENTIAL DEFORESTATION RANGES
+
+
+############################################################################
+# Define function to calculate potential deforestation range
+def defor_range(spatagree_arrs):
+    
+    # Create empty list to hold statistics
+    min_defors = []
+    max_defors = []
+    ranges = []
+    
+    # Iterate over each array
+    for arr in spatagree_arrs:
+        
+        # Calculate min potential defor (defor agree)
+        min_defor = np.sum(arr == 8)
+        
+        # Calculate max potential defor (all defor)
+        max_defor = (np.sum(arr == 6)) + (np.sum(arr == 7))
+        
+        # Add min and max defor to lists
+        min_defors.append(min_defor)
+        max_defors.append(max_defor)
+        ranges.append(max_defor - min_defor)
+        
+    # Combine lists into dataframe
+    defor_range = pd.DataFrame({"Min": min_defors,
+                                "Max": max_defors,
+                                "Range": ranges})
+        
+    return defor_range
+    
+# Calculate potential deforestation range
+potdefor = defor_range(spatagree_arrs)
+
+# Calculate sum potential deforestation
+print(f"Potential Minimum Deforestation: {potdefor['Min'].sum()} ha")
+print(f"Potential Maximum Deforestation: {potdefor['Max'].sum()} ha")
+print(f"Potential Variation in Deforestation: {potdefor['Range'].sum()} ha")
+
+
 
 
 # %%

@@ -18,6 +18,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import cohen_kappa_score
 
 
 
@@ -96,10 +97,10 @@ bluecols = [blue1, blue2, blue3]
 
 ############################################################################
 # Define function to read csv validation data
-def csv_read(datapath):
+def csv_read(datapath, delimiter):
     
     # Read validation data
-    data = pd.read_csv(datapath, delimiter = ",", index_col = 0)
+    data = pd.read_csv(datapath, delimiter = delimiter, index_col = 0)
     
     # Convert csv geometry to WKT
     data['geometry'] = gpd.GeoSeries.from_wkt(data['geometry'])
@@ -110,10 +111,13 @@ def csv_read(datapath):
     return data
 
 # Read no buffer validation data
-val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv")
+val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv", ",")
 
 # Read buffered validation data
-val_data_buff = csv_read("data/validation/validation_datasets_backup/validation_points_2013_2023_780_buffer.csv")
+val_data_buff = csv_read("data/validation/validation_datasets_backup/validation_points_2013_2023_780_buffer.csv", ",")
+
+# Read validation data subset
+val_data_irr = csv_read("data/validation/validation_datasets/validation_points_115_subsample.csv", ";")
 
 # Define stratification map path
 strat_path = "data/intermediate/stratification_layer_nogrnp.tif"
@@ -135,7 +139,7 @@ nonredd_union = gpd.GeoSeries(villages.loc[0].geometry).unary_union
 ############################################################################
 
 
-# MAP: RATIO OF REDD+, NON-REDD+
+# PLOT: RATIO OF REDD+, NON-REDD+
 
 
 ############################################################################
@@ -192,6 +196,42 @@ plt.legend(fontsize = 12)
 # Display the plot
 plt.tight_layout()
 plt.show()
+
+
+# %%
+############################################################################
+
+
+# INTER-RATER RELIABILITY
+
+
+############################################################################
+# Define function to calculate cohen's kappa 
+def defor_irr(data1, data2, defor):
+    
+    # Extract deforestation events
+    orig = data1[defor]
+    new = data2[defor]
+    
+    # Calculate cohen's kappa
+    kappa = cohen_kappa_score(orig, new)
+    
+    # Print statement
+    print(f"Kappa Score for {defor}: {kappa}")
+    
+    return kappa
+
+# Subset the original validation dataset
+val_data_sub = val_data.loc[val_data_irr.index]
+
+# Calculate cohen's kappa for defor1
+kappa_defor1 = defor_irr(val_data_sub, val_data_irr, "defor1")
+
+# Calculate cohen's kappa for defor2
+kappa_defor2 = defor_irr(val_data_sub, val_data_irr, "defor2")
+
+# Calculate cohen's kappa for defor3
+kappa_defor3 = defor_irr(val_data_sub, val_data_irr, "defor3")
 
 
 # %%
