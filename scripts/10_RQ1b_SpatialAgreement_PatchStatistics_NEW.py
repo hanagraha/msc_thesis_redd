@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov  8 13:42:18 2024
+Created on Wed Mar  5 15:10:35 2025
 
 @author: hanna
 """
@@ -19,7 +19,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.ticker import MultipleLocator
 
 
 
@@ -100,20 +99,12 @@ gfc_forclust_paths = [f"data/intermediate/gfc_forclust_{year}.tif" for
 tmf_forclust_paths = [f"data/intermediate/tmf_forclust_{year}.tif" for 
                       year in years]
 
-# Define file paths for clustered agreement rasters
-agree_forclust_paths = [f"data/intermediate/agree_forclust_{year}.tif" for 
-                        year in years]
-
-# Define file paths for clustered disagreement rasters
-disagree_forclust_paths = [f"data/intermediate/disagree_forclust_{year}.tif" 
-                            for year in years]
-
 # Define file paths for ratio rasters
-ratio_forclust_paths = [f"data/intermediate/disag_ratio_{year}.tif" for year 
+agratio_forclust_paths = [f"data/intermediate/disag_ratio_{year}.tif" for year 
                         in years]
 
 # Define file paths for size rasters
-size_forclust_paths = [f"data/intermediate/disag_size_{year}.tif" for year 
+agsize_forclust_paths = [f"data/intermediate/disag_size_{year}.tif" for year 
                        in years]
 
 # Read gfc rasters 
@@ -123,163 +114,10 @@ gfc_forclust_arrs, profile = read_files(gfc_forclust_paths)
 tmf_forclust_arrs, profile = read_files(tmf_forclust_paths)
 
 # Read ratio rasters
-ratio_forclust_arrs, ratprofile = read_files(ratio_forclust_paths)
+agratio_forclust_arrs, ratprofile = read_files(agratio_forclust_paths)
 
 # Read size rasters
-size_forclust_arrs, ratprofile = read_files(size_forclust_paths)
-
-# Read agreement rasters
-agree_forclust_arrs, agprofile = read_files(agree_forclust_paths)
-
-# Read disagreement rasters
-disagree_forclust_arrs, agprofile = read_files(disagree_forclust_paths)
-
-
-# %%
-############################################################################
-
-
-# CALCULATE PATCH SIZE FREQUENCY BY PIXEL COUNT
-
-
-############################################################################
-# Define function to create attribute tables
-def att_table(arr_list, expected_classes = None, nodata = None):
-    
-    # Create empty list to hold dataframes
-    att_tables = []
-    
-    # Iterate over each array
-    for arr in arr_list:
-        
-        if nodata is not None:
-            unique_values, pixel_counts = np.unique(arr[arr != nodata], 
-                                                    return_counts=True)
-        else:
-            unique_values, pixel_counts = np.unique(arr, return_counts=True)
-        
-        # Create a DataFrame with unique values and pixel counts
-        attributes = pd.DataFrame({"Class": unique_values, 
-                                    "Frequency": pixel_counts})
-        
-        # If expected_classes is provided, run the following:
-        if expected_classes is not None:
-            
-            # Reindex DataFrame to include all expected_classes
-            attributes = attributes.set_index("Class").reindex(expected_classes, 
-                                                                fill_value=0)
-            
-            # Reset index to have Class as a column again
-            attributes.reset_index(inplace=True)
-            
-        # Switch rows and columns of dataframe
-        attributes = attributes.transpose()
-        
-        # Add attributes to list
-        att_tables.append(attributes)
-    
-    return att_tables
-
-# Define function to restructure attribute tables for boxplots
-def boxplot_dat(df_list, yearrange):
-    
-    # Create empty list to hold data
-    boxplot_data = []
-
-    # Iterate over each DataFrame (yearly data)
-    for df, year in zip(df_list, years):
-        
-        # Extract class and frequency
-        classes = df.iloc[0].values
-        frequencies = df.iloc[1].values  
-        
-        # Create a list of patch sizes based on their frequency
-        for class_size, freq in zip(classes, frequencies):
-            
-            # Append each class size 'freq' times to the boxplot_data
-            boxplot_data.extend([(class_size, year)] * freq)  
-
-    # Convert to list to dataframe
-    boxplot_df = pd.DataFrame(boxplot_data, columns=['Patch Size', 'Year'])
-    
-    return boxplot_df
-
-# Define function to plot data in boxplot
-def forclust_bxplt(boxplot_dflist, titles):
-    
-    # Initialize a new DataFrame to hold all data
-    combined_df = pd.DataFrame()
-
-    # Iterate over each dataframe
-    for df, title in zip(boxplot_dflist, titles):
-        
-        # Add dataset column
-        df['Dataset'] = title
-        
-        # Combine with overall dataframe
-        combined_df = pd.concat([combined_df, df], ignore_index=True)
-
-    # Initialize figure
-    plt.figure(figsize=(10, 6))
-
-    # Plot boxplot data
-    sns.boxplot(x='Year', y='Patch Size', hue='Dataset', data=combined_df, 
-                width = 0.7)
-
-    # Edit y tickmarks
-    plt.yticks(range(0, 801, 100), fontsize = 14)
-    
-    # Add y major gridlines
-    plt.grid(axis='y', which='major', color='gray', linestyle='--', 
-              linewidth=0.5)
-    
-    # Set locations for minor gridlines
-    plt.gca().yaxis.set_minor_locator(MultipleLocator(50))
-    
-    # Add y minor gridlines
-    plt.grid(axis='y', which='minor', color='lightgray', linestyle=':', 
-              linewidth=0.5)
-
-    # Add title
-    # plt.title('Distribution of Deforestation Patch Sizes by Year')
-
-    # Add axes labels
-    plt.xlabel('Year', fontsize = 14)
-    plt.ylabel('Deforestation Patch Sizes (# Pixels)', fontsize = 14)
-
-    # Rotate x tickmarks for readability
-    plt.xticks
-
-    # Show plot
-    plt.show()
-
-# Create attribute table for gfc clustered forest
-gfc_forclust_atts = att_table(gfc_forclust_arrs, nodata = nodata_val)
-
-# Create attribute table for tmf clustered forest
-tmf_forclust_atts = att_table(tmf_forclust_arrs, nodata = nodata_val)
-
-# Create attribute table for ratio clustered forest
-ratio_forclust_atts = att_table(ratio_forclust_arrs, nodata = nodata_val)
-
-# Create attribute table for size clustered forest
-size_forclust_atts = att_table(size_forclust_arrs, nodata = nodata_val)
-
-# Create attribute table for agreement clusters
-agree_forclust_atts = att_table(agree_forclust_arrs, nodata = nodata_val)
-
-# Create attribute table for disagreement clusters
-disagree_forclust_atts = att_table(disagree_forclust_arrs, nodata = nodata_val)
-
-# Create boxplot data for gfc clustered forest
-gfc_boxplot_df = boxplot_dat(gfc_forclust_atts, years)
-
-# Create boxplot data for tmf clustered forest
-tmf_boxplot_df = boxplot_dat(tmf_forclust_atts, years)
-
-# Create boxplot with gfc and tmf data
-forclust_bxplt([gfc_boxplot_df, tmf_boxplot_df], ["GFC Deforestation", 
-                                                  "TMF Deforestation"])
+agsize_forclust_arrs, sizeprofile = read_files(agsize_forclust_paths)
 
 
 # %%
@@ -376,11 +214,8 @@ gfc_patch_atts = patch_att(gfc_forclust_arrs)
 # Create tmf patch attribute table
 tmf_patch_atts = patch_att(tmf_forclust_arrs)
 
-# Create ratio attribute table
-ratio_patch_atts = patch_att(ratio_forclust_arrs)
-
-# Create size attribute table
-size_patch_atts = patch_att(size_forclust_arrs)
+# Create spatial agreement size attribute table
+agsize_patch_atts = patch_att(agsize_forclust_arrs)
 
 # Convert gfc attribute table to boxplot data
 gfc_boxdata = patch_boxdata(gfc_patch_atts, "GFC Deforestation")
@@ -389,7 +224,7 @@ gfc_boxdata = patch_boxdata(gfc_patch_atts, "GFC Deforestation")
 tmf_boxdata = patch_boxdata(tmf_patch_atts, "TMF Deforestation")
 
 # Convert size attribute table to boxplot data
-size_boxdata = patch_boxdata(size_patch_atts, "Potential Deforestation") 
+agsize_boxdata = patch_boxdata(agsize_patch_atts, "Potential Deforestation") 
 
 # Combine gfc and tmf boxplot data
 gfctmf_boxdata = pd.concat([gfc_boxdata, tmf_boxdata], ignore_index=True)
@@ -527,6 +362,87 @@ plt.show()
 ############################################################################
 
 
+# COMBINE AGREEMENT RATIO AND CLUSTER SIZE
+
+
+############################################################################
+# Flatten agreement ratio rasters
+agratio_forclust_flat = [arr.flatten() for arr in agratio_forclust_arrs]
+
+# Flatten size rasters
+agsize_forclust_flat = [arr.flatten() for arr in agsize_forclust_arrs]
+
+# Remove nodata values
+datamasks = [(arr != 255) for arr in agratio_forclust_flat]
+
+# Create empty dictionary to hold data
+ratsize = {}
+
+# Iterate over each array and mask
+for ratio, size, mask, year in zip(agratio_forclust_flat, agsize_forclust_flat, 
+                                   datamasks, years):
+    
+    # Create dataframe
+    df = pd.DataFrame({
+        "Agreement Ratio": ratio[mask],
+        "Patch Size": size[mask]
+        })
+    
+    # Add dataframe to dictionary
+    ratsize[year] = df
+
+# Extract list of patch sizes
+allsizes = [np.unique(size) for size in agsize_forclust_arrs]
+
+# Test with 2013
+size2013 = allsizes[0]
+arr2013 = agratio_forclust_arrs[0]
+
+# Iterate over each patch size
+for size in size2013:
+    
+    # Extract pixels in size arary
+    arr = arr2013[size]
+
+
+# %%
+############################################################################
+
+
+# PLOT RATIO AND SIZE SCATTERPLOT
+
+
+############################################################################
+# Initialize figure
+plt.figure(figsize = (10, 6))
+
+# Add scatterplot data
+sns.scatterplot(data = ratsize[2023], x='Patch Size', y='Agreement Ratio')
+
+# Add axes labels
+plt.xlabel("Deforestation Patch Size", fontsize = 16)
+plt.ylabel("Deforestation Agreement Ratio", fontsize = 16)
+
+# Adjust font size of tick labels
+# plt.tick_params(axis='both', which='major', labelsize = 14)
+
+# Add gridlines
+plt.grid(linestyle = "--", alpha = 0.6)
+
+# Add legend
+plt.legend(fontsize = 16)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+
+
+
+
+# %%
+############################################################################
+
+
 # BIN AGREEMENT AND DISAGREEMENT CLUSTER SIZES
 
 
@@ -638,8 +554,10 @@ def patchfreq_plot(df):
     
     # Iterate over each column (series) to create stacked bars
     for lab in df.columns:
+        
         # Plot each series as a bar with the bottom set to the current cumulative total
         plt.bar(years, df[lab], bottom=bottom, label=f"{lab} Pixels")
+        
         # Update the bottom for the next series to stack on top
         bottom += df[lab]
     
@@ -695,9 +613,6 @@ axes[0].set_ylabel('Proportion of Deforestation Agreement', fontsize=16)
 axes[0].set_xticks(years)
 axes[0].tick_params(axis='both', labelsize=14)
 
-# Add legend
-# axes[0].legend(fontsize=11)
-
 # Add gridlines
 axes[0].grid(linestyle="--", alpha=0.6)
 
@@ -711,7 +626,6 @@ bar_width = 0.7
 for lab in patch_freq.columns:
     
     # Plot each series as a bar with the bottom set to the current cumulative total
-    
     axes[1].bar(years, patch_freq[lab], width=bar_width, bottom=bottom, 
                 label=f"{lab} Pixels")
     
@@ -727,19 +641,6 @@ axes[1].set_ylabel('Pixel Count', fontsize=16)
 # Add tickmarks
 axes[1].set_xticks(years)
 axes[1].tick_params(axis='both', labelsize=14)
-
-# Add x tickmarks
-# axes[1].set_xticks([i + bar_width / 2 for i in x])  
-# axes[1].set_xticklabels(years)
-
-# Add y tickmarks
-# axes[1].yaxis.set_major_locator(MultipleLocator(0.01))
-# axes[1].yaxis.set_minor_locator(MultipleLocator(0.005))
-
-# # Add gridlines
-# axes[1].grid(axis='y', which='major', linestyle='-')
-# axes[1].grid(axis='y', which='minor', linestyle='--')
-# axes[1].grid(axis='x', linestyle = "--")
 
 # Add gridlines
 axes[1].grid(linestyle="--", alpha=0.6)

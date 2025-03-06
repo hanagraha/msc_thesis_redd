@@ -63,7 +63,7 @@ bluecols = [blue1, blue2, blue3]
 
 ############################################################################
 # Read validation data (unprocessed)
-val_data = pd.read_csv("data/validation/validation_datasets/validation_points_2013_2023_780_nobuffer.csv", 
+val_data = pd.read_csv("data/validation/validation_datasets/validation_points_780.csv", 
                        delimiter=",", index_col=0)
 
 # Convert csv geometry to WKT
@@ -412,6 +412,12 @@ def calc_defor(datapoints):
 
 # Calculate deforestation for whole aoi
 defor_vals, total_defor = calc_defor(val_data)
+
+# Calculate total deforestation for whole aoi
+defor_tot = defor_vals[1:].sum()
+
+# Calculate recurrent deforestation ratio
+recur_ratio = (defor_tot['Deforestation 2'] + defor_tot['Deforestation 3']) / (defor_tot.sum())
 
 # Calculate deforestation for redd areas
 redd_defor_vals, redd_total_defor = calc_defor(points_redd)

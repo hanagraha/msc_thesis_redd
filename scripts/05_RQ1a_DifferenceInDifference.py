@@ -50,6 +50,12 @@ years = list(range(2013, 2024))
 # Define pixel area
 pixel_area = 0.09
 
+# Define Color Palatte (3 colors)
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
+
 
 
 ############################################################################
@@ -214,25 +220,34 @@ tmf_col = "#4682B4"  # Darker Blue - lighter
 plt.figure(figsize=(10, 6))
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_zonal['REDD+']*100, color=gfc_col, linewidth = 2,
+# plt.plot(years, gfc_zonal['REDD+']*100, color=gfc_col, linewidth = 2,
+#          label='GFC Deforestation in REDD+ Villages')
+plt.plot(years, gfc_zonal['REDD+']*100, color=bluecols[0], linewidth = 2,
          label='GFC Deforestation in REDD+ Villages')
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, tmf_zonal['REDD+']*100, color=tmf_col, linewidth = 2,
+# plt.plot(years, tmf_zonal['REDD+']*100, color=tmf_col, linewidth = 2,
+#          label='TMF Deforestation and Degradation in REDD+ Villages')
+plt.plot(years, tmf_zonal['REDD+']*100, color=bluecols[1], linewidth = 2,
          label='TMF Deforestation and Degradation in REDD+ Villages')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, gfc_zonal['Non-REDD+']*100, color=gfc_col, linewidth = 2, 
+# plt.plot(years, gfc_zonal['Non-REDD+']*100, color=gfc_col, linewidth = 2, 
+#          label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
+plt.plot(years, gfc_zonal['Non-REDD+']*100, color=bluecols[0], linewidth = 2, 
          label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_zonal['Non-REDD+']*100, color=tmf_col, linewidth = 2,
+# plt.plot(years, tmf_zonal['Non-REDD+']*100, color=tmf_col, linewidth = 2,
+#          label='TMF Deforestation and Degradation in Non-REDD+ Villages',
+#          linestyle = '--')
+plt.plot(years, tmf_zonal['Non-REDD+']*100, color=bluecols[1], linewidth = 2,
          label='TMF Deforestation and Degradation in Non-REDD+ Villages',
          linestyle = '--')
 
 # Add labels and title
-plt.xlabel('Year', fontsize = 14)
-plt.ylabel('Proportional Deforestation Area (%)', fontsize = 14)
+plt.xlabel('Year', fontsize = 16)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 16)
 # plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
 
 # Add x tickmarks

@@ -436,6 +436,37 @@ tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp,
            "Deforestation Agreement (%)", 0, 35)
 
 
+# Initialize figure
+plt.figure(figsize = (10, 6))
+
+# Plot redd+ data
+plt.plot(years, defor_ag_redd, label = "REDD+", color = reddcol, linewidth = 2)
+
+# Plot nonredd data
+plt.plot(years, defor_ag_nonredd, label = "Non-REDD+", color = nonreddcol, linewidth = 2)
+
+# Add axes labels
+plt.xlabel("Year", fontsize = 16)
+plt.ylabel("Deforestation Agreement (%)", fontsize = 16)
+
+# Add gridlines
+plt.grid(True, linestyle = "--")
+
+# Add legend
+plt.legend(loc='best', fontsize = 14)
+
+# Add x tickmarks
+plt.xticks(years, fontsize = 14)
+plt.yticks(fontsize = 14)
+
+# Adjust yaxis limits
+plt.ylim(10, 35)
+
+# Show the plot
+plt.tight_layout()
+plt.show()
+
+
 # %%
 ############################################################################
 
