@@ -51,7 +51,7 @@ years = range(2013, 2024)
 blue1 = "#1E2A5E"
 blue2 = "#83B4FF"
 blue3 = "brown"
-bluecols = [blue1, blue2]
+bluecols = [blue1, blue2, blue3]
 
 # Define dataset labels
 yearlabs = [0] + list(years) + ['sum']
@@ -156,6 +156,18 @@ protb_stats = list_read(protb_statpaths, "_stehmanstats.csv", filt = True)
 protc_statpaths = folder_files("val_protc", "stehmanstats.csv")
 protc_stats = list_read(protc_statpaths, "_stehmanstats.csv", filt = True)
 
+# Read protocol a data (buffered)
+prota_filepaths_buff = folder_files("val_prota_buff", "stehmanstats.csv")
+prota_files_buff = list_read(prota_filepaths_buff, "_stehmanstats.csv")
+
+# Read protocol b statistics (buffered)
+protb_statpaths_buff = folder_files("val_protb_buff", "stehmanstats.csv")
+protb_stats_buff = list_read(protb_statpaths_buff, "_stehmanstats.csv", filt = True)
+
+# Read protocol c statistics (buffered)
+protc_statpaths_buff = folder_files("val_protc_buff", "stehmanstats.csv")
+protc_stats_buff = list_read(protc_statpaths_buff, "_stehmanstats.csv", filt = True)
+
 # Read protocol a confusion matrices
 prota_cmpaths = folder_files("val_prota", "confmatrix.csv")
 prota_cm = list_read(prota_cmpaths, "_confmatrix.csv")
@@ -167,6 +179,18 @@ protb_cm = list_read(protb_cmpaths, "_confmatrix.csv", cmfilt = True)
 # Read protocol c confusion matrices
 protc_cmpaths = folder_files("val_protc", "confmatrix.csv")
 protc_cm = list_read(protc_cmpaths, "_confmatrix.csv", cmfilt = True)
+
+# Read protocol a confusion matrices (buffered)
+prota_cmpaths_buff = folder_files("val_prota_buff", "confmatrix.csv")
+prota_cm_buff = list_read(prota_cmpaths_buff, "_confmatrix.csv")
+
+# Read protocol b confusion matrices (buffered)
+protb_cmpaths_buff = folder_files("val_protb_buff", "confmatrix.csv")
+protb_cm_buff = list_read(protb_cmpaths_buff, "_confmatrix.csv", cmfilt = True)
+
+# Read protocol c confusion matrices (buffered)
+protc_cmpaths_buff = folder_files("val_protc_buff", "confmatrix.csv")
+protc_cm_buff = list_read(protc_cmpaths_buff, "_confmatrix.csv", cmfilt = True)
 
 
 # %%
@@ -201,7 +225,7 @@ def steh_cm(stehman_cm, deci):
 def matrix_plt(matrices, names, fmt):
     
     # Initiate figure and subplots
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     
     # Iterate over each confusion matrix
     for i in range(0, len(matrices)):
@@ -438,11 +462,26 @@ protb_gfc_cm = steh_cm(protb_cm["protb_gfc"], 2)
 # Create protocol b tmf cm
 protb_tmf_cm = steh_cm(protb_cm["protb_tmf"], 2)
 
+# Create protocol b se cm
+protb_se_cm = steh_cm(protb_cm["protb_se"], 2)
+
 # Define dataset names
-datanames = ["GFC", "TMF"]
+datanames = ["GFC", "TMF", "Sensitive Early"]
 
 # Plot confusion matrices (protocol b)
-matrix_plt([protb_gfc_cm, protb_tmf_cm], datanames, '.2f')
+matrix_plt([protb_gfc_cm, protb_tmf_cm, protb_se_cm], datanames, '.2f')
+
+# Create protocol b gfc cm (buffered)
+protb_gfc_cm_buff = steh_cm(protb_cm_buff["protb_gfc"], 2)
+
+# Create protocol b tmf cm (buffered)
+protb_tmf_cm_buff = steh_cm(protb_cm_buff["protb_tmf"], 2)
+
+# Create protocol b se cm (buffered)
+protb_se_cm_buff = steh_cm(protb_cm["protb_se"], 2)
+
+# Plot confusion matrices (protocol b buff)
+matrix_plt([protb_gfc_cm_buff, protb_tmf_cm_buff, protb_se_cm_buff], datanames, '.2f')
 
 # Create protocol c gfc cm
 protc_gfc_cm = steh_cm(protc_cm["protc_gfc"], 2)
@@ -450,28 +489,47 @@ protc_gfc_cm = steh_cm(protc_cm["protc_gfc"], 2)
 # Create protocol c tmf cm
 protc_tmf_cm = steh_cm(protc_cm["protc_tmf"], 2)
 
+# Create protocol c se cm
+protc_se_cm = steh_cm(protc_cm["protc_se"], 2)
+
 # Plot confusion matrices (protocol c)
-matrix_plt([protc_gfc_cm, protc_tmf_cm], datanames, '.2f')
+matrix_plt([protc_gfc_cm, protc_tmf_cm, protc_se_cm], datanames, '.2f')
+
+# Create protocol c gfc cm (buffered)
+protc_gfc_cm_buff = steh_cm(protc_cm_buff["protc_gfc"], 2)
+
+# Create protocol c tmf cm (buffered)
+protc_tmf_cm_buff = steh_cm(protc_cm_buff["protc_tmf"], 2)
+
+# Create protocol c se cm (buffered)
+protc_se_cm_buff = steh_cm(protc_cm_buff["protc_se"], 2)
+
+# Plot confusion matrices (protocol c buff)
+matrix_plt([protc_gfc_cm_buff, protc_tmf_cm_buff, protc_se_cm_buff], datanames, '.2f')
 
 
 # %%
 ############################################################################
 
 
-# PROTOCOL B: PLOT STEHMAN STATISTICS
+# PROTOCOL B: PLOT STEHMAN STATISTICS (NO BUFFER)
 
 
 ############################################################################   
 # Define datanames
+# datanames = ["GFC", "TMF", "Sensitive Early"]
 datanames = ["GFC", "TMF"]
+
 
 # Plot gfc, tmf, and se accuracies
 steh_dual_lineplt([protb_stats["protb_gfc"], 
-                   protb_stats["protb_tmf"]], datanames)
+                   protb_stats["protb_tmf"], 
+                   protb_stats["protb_se"]], datanames)
 
 # Plot gfc, tmf, and se errors
 errors_lineplt([comom_err(protb_stats["protb_gfc"]),
-                comom_err(protb_stats["protb_tmf"])], datanames)
+                comom_err(protb_stats["protb_tmf"]),
+                comom_err(protb_stats["protb_se"])], datanames)
 
 # Define dataset names
 datanames = ["GFC REDD+", "GFC Non-REDD+"]
@@ -495,6 +553,72 @@ steh_dual_lineplt([protb_stats["protb_tmf_redd"],
 errors_lineplt([comom_err(protb_stats["protb_tmf_redd"]),
                 comom_err(protb_stats["protb_tmf_nonredd"])], datanames)
 
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats["protb_se_redd"],
+                   protb_stats["protb_se_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats["protb_se_redd"]),
+                comom_err(protb_stats["protb_se_nonredd"])], datanames)
+
+
+# %%
+############################################################################
+
+
+# PROTOCOL B: PLOT STEHMAN STATISTICS (WITH BUFFER)
+
+
+############################################################################
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
+
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protb_stats_buff["protb_gfc"], 
+                   protb_stats_buff["protb_tmf"], 
+                   protb_stats_buff["protb_se"]], datanames)
+
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protb_stats_buff["protb_gfc"]),
+                comom_err(protb_stats_buff["protb_tmf"]),
+                comom_err(protb_stats_buff["protb_se"])], datanames)
+
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_gfc_redd"],
+                   protb_stats_buff["protb_gfc_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_gfc_redd"]),
+                comom_err(protb_stats_buff["protb_gfc_nonredd"])], datanames)
+
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_tmf_redd"],
+                   protb_stats_buff["protb_tmf_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_tmf_redd"]),
+                comom_err(protb_stats_buff["protb_tmf_nonredd"])], datanames)
+
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protb_stats_buff["protb_se_redd"],
+                   protb_stats_buff["protb_se_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protb_stats_buff["protb_se_redd"]),
+                comom_err(protb_stats_buff["protb_se_nonredd"])], datanames)
+
 
 # %%
 ############################################################################
@@ -505,15 +629,17 @@ errors_lineplt([comom_err(protb_stats["protb_tmf_redd"]),
 
 ############################################################################
 # Define datanames
-datanames = ["GFC", "TMF"]
+datanames = ["GFC", "TMF", "Sensitive Early"]
 
 # Plot gfc, tmf, and se accuracies
 steh_dual_lineplt([protc_stats["protc_gfc"], 
-                   protc_stats["protc_tmf"]], datanames)
+                   protc_stats["protc_tmf"], 
+                   protc_stats["protc_se"]], datanames)
 
 # Plot gfc, tmf, and se errors
 errors_lineplt([comom_err(protc_stats["protc_gfc"]),
-                comom_err(protc_stats["protc_tmf"])], datanames)
+                comom_err(protc_stats["protc_tmf"]),
+                comom_err(protc_stats["protc_se"])], datanames)
 
 # Define dataset names
 datanames = ["GFC REDD+", "GFC Non-REDD+"]
@@ -537,62 +663,71 @@ steh_dual_lineplt([protc_stats["protc_tmf_redd"],
 errors_lineplt([comom_err(protc_stats["protc_tmf_redd"]),
                 comom_err(protc_stats["protc_tmf_nonredd"])], datanames)
 
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
+
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats["protc_se_redd"],
+                   protc_stats["protc_se_nonredd"]], datanames)
+
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats["protc_se_redd"]),
+                comom_err(protc_stats["protc_se_nonredd"])], datanames)
 
 
 # %%
 ############################################################################
 
 
-# CALCULATE F1 STATISTIC
+# PROTOCOL C: PLOT STEHMAN STATISTICS (WITH BUFFER)
 
 
 ############################################################################
-from sklearn.metrics import f1_score
-import geopandas as gpd
+# Define datanames
+datanames = ["GFC", "TMF", "Sensitive Early"]
 
-def csv_read(datapath, delimiter):
-    
-    # Read validation data
-    data = pd.read_csv(datapath, delimiter = delimiter, index_col = 0)
-    
-    # Convert csv geometry to WKT
-    data['geometry'] = gpd.GeoSeries.from_wkt(data['geometry'])
-    
-    # Convert dataframe to geodataframe
-    data = gpd.GeoDataFrame(data, geometry = 'geometry', crs="EPSG:32629")
-    
-    return data
+# Plot gfc, tmf, and se accuracies
+steh_dual_lineplt([protc_stats_buff["protc_gfc"], 
+                   protc_stats_buff["protc_tmf"], 
+                   protc_stats_buff["protc_se"]], datanames)
 
-# Read no buffer validation data
-val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv", ",")
+# Plot gfc, tmf, and se errors
+errors_lineplt([comom_err(protc_stats_buff["protc_gfc"]),
+                comom_err(protc_stats_buff["protc_tmf"]),
+                comom_err(protc_stats_buff["protc_se"])], datanames)
 
+# Define dataset names
+datanames = ["GFC REDD+", "GFC Non-REDD+"]
 
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats_buff["protc_gfc_redd"],
+                   protc_stats_buff["protc_gfc_nonredd"]], datanames)
 
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats_buff["protc_gfc_redd"]),
+                comom_err(protc_stats_buff["protc_gfc_nonredd"])], datanames)
 
+# Define dataset names
+datanames = ["TMF REDD+", "TMF Non-REDD+"]
 
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats_buff["protc_tmf_redd"],
+                   protc_stats_buff["protc_tmf_nonredd"]], datanames)
 
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats_buff["protc_tmf_redd"]),
+                comom_err(protc_stats_buff["protc_tmf_nonredd"])], datanames)
 
+# Define dataset names
+datanames = ["SE REDD+", "SE Non-REDD+"]
 
+# Plot redd+ and non-redd+ accuracies
+steh_dual_lineplt([protc_stats_buff["protc_se_redd"],
+                   protc_stats_buff["protc_se_nonredd"]], datanames)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Plot redd+ and nonredd+ errors
+errors_lineplt([comom_err(protc_stats_buff["protc_se_redd"]),
+                comom_err(protc_stats_buff["protc_se_nonredd"])], datanames)
 
 
 
