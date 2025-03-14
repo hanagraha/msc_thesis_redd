@@ -564,17 +564,26 @@ def csv_read(datapath, delimiter):
     return data
 
 # Read no buffer validation data
-val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv", ",")
+gfc_protb = csv_read("data/validation/val_protb/protb_gfc.csv", ",")
 
+tmf_protb = csv_read("data/validation/val_protb/protb_tmf.csv", ",")
 
+gfc_protc = csv_read("data/validation/val_protc/protc_gfc.csv", ",")
 
+tmf_protc = csv_read("data/validation/val_protc/protc_tmf.csv", ",")
 
+# Calculate f1 score
+gfc_protb_f1 = f1_score(gfc_protb['prot_b'], gfc_protb['gfc'], 
+                        average = 'weighted')
 
+tmf_protb_f1 = f1_score(tmf_protb['prot_b'], tmf_protb['tmf'], 
+                        average = 'weighted')
 
+gfc_protc_f1 = f1_score(gfc_protc['prot_c'], gfc_protc['gfc'], 
+                        average = 'weighted')
 
-
-
-
+tmf_protc_f1 = f1_score(tmf_protc['prot_c'], tmf_protc['tmf'], 
+                        average = 'weighted')
 
 
 

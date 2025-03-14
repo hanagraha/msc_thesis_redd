@@ -100,7 +100,7 @@ villages = villages.dissolve(by='grnp_4k')
 villages = villages.reset_index()
 
 
-
+# %%
 ############################################################################
 
 
@@ -170,7 +170,7 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -241,7 +241,7 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
@@ -291,7 +291,7 @@ for year, raster_path in zip(range(2013, 2024), tmf_degrayear_paths):
     
 print("Extracted tmf degradation in AOI")
 
-
+# %%
 ### PLOT RESULTS
 # Assuming gfc_loss_aoi, tmf_defor_aoi, and tmf_degra_aoi have columns for each year
 years = list(range(2013, 2024))
@@ -301,8 +301,14 @@ gfc_loss_pixels = [gfc_loss_aoi[str(year)].values[0] for year in years]
 tmf_defor_pixels = [tmf_defor_aoi[str(year)].values[0] for year in years]
 tmf_degra_pixels = [tmf_degra_aoi[str(year)].values[0] for year in years]
 
+# Extracting deforestation ha per year
+gfc_loss_ha = [x * 0.09 for x in gfc_loss_pixels]
+tmf_defor_ha = [x * 0.09 for x in tmf_defor_pixels]
+tmf_degra_ha = [x * 0.09 for x in tmf_degra_pixels]
+
 # Combine tmf_defor and tmf_degra for the line plot
 tmf_combined_pixels = [defor + degra for defor, degra in zip(tmf_defor_pixels, tmf_degra_pixels)]
+tmf_combined_ha = [defor + degra for defor, degra in zip(tmf_defor_ha, tmf_degra_ha)]
 
 # Set bar width
 bar_width = 0.4
@@ -337,19 +343,73 @@ ax.plot(index + bar_width/2, tmf_combined_pixels, color=tmf_col3,
         label='TMF Combined (line)')
 
 # Customize the plot
-ax.set_xlabel('Year')
-ax.set_ylabel('Number of Pixels')
-ax.set_title('GFC Tree Cover Loss vs TMF Deforestation + Degradation in the Gola REDD+ AOI')
-ax.set_xticks(index)
-ax.set_xticklabels(years)
+ax.set_xlabel('Year', fontsize = 16)
+ax.set_ylabel('Number of Pixels', fontsize = 16)
+ax.set_xticks(index, fontsize = 16)
+ax.set_xticklabels(years, fontsize = 16)
 ax.legend()
 
 # Display the plot
 plt.tight_layout()
 plt.show()
 
+# %%
 
+# Define Color Palatte (3 colors)
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
 
+# Color blind palette
+orange = "#ff800e"
+pink = '#cc79a7'
+blue = '#0072b2'
+yellow = '#f0e442'
+green = '#009e73'
+green2 = '#008060'
+lightblue = '#5f9ed1'
+brown = '#48202a'
+beige = '#ddcc77'
+
+# Create the plot
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Plot GFC Loss AOI bars
+ax.bar(index - bar_width/2, gfc_loss_ha, bar_width, color = beige,
+       label = 'GFC Tree Cover Loss')
+
+# Plot TMF Deforestation and Degradation stacked bars
+ax.bar(index + bar_width/2, tmf_defor_ha, bar_width, color = bluecols[0],
+       label = 'TMF Deforestation')
+
+ax.bar(index + bar_width/2, tmf_degra_ha, bar_width, color = bluecols[1],
+       label = 'TMF Degradation', bottom = tmf_defor_ha)
+
+# Add lines through the top of GFC Loss AOI bars
+ax.plot(index - bar_width/2, gfc_loss_ha, color = brown, 
+        label = 'GFC Tree Cover Loss (line)')
+
+# Add lines through the top of TMF Combined bars
+ax.plot(index + bar_width/2, tmf_combined_ha, color = brown, linestyle = '--',
+        label = 'TMF Combined (line)')
+
+# Customize the plot
+ax.set_xlabel('Year', fontsize=16)
+ax.set_ylabel('Deforestation Area (ha)', fontsize=16)
+ax.set_xticks(index)
+ax.set_xticklabels(years, fontsize=16)
+ax.tick_params(axis='y', labelsize=16)  
+ax.legend(fontsize=16)
+
+# Add gridlines
+ax.grid(True, linestyle = '--', alpha = 0.6)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+
+# %%
 ############################################################################
 
 

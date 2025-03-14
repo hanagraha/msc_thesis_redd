@@ -112,7 +112,7 @@ aoi = gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True)).dissolve(
 aoi_geom = aoi.geometry
 
 
-
+# %%
 ############################################################################
 
 

@@ -62,6 +62,12 @@ grnpcol = "darkgreen"
 reddcol = "#820300"  # Darker Red
 grnpcol = "#4682B4"  # Darker Blue - lighter
 
+# Define Color Palatte (3 colors)
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
+
 
 
 ############################################################################
@@ -435,22 +441,24 @@ tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp,
            "Spatial Agreement Relative to Deforestation Area", 
            "Deforestation Agreement (%)", 0, 35)
 
-
+# %%
 # Initialize figure
 plt.figure(figsize = (10, 6))
 
 # Plot redd+ data
-plt.plot(years, defor_ag_redd, label = "REDD+", color = reddcol, linewidth = 2)
+plt.plot(years, defor_ag_redd, label = "REDD+", color = reddcol, 
+         linewidth = 2)
 
 # Plot nonredd data
-plt.plot(years, defor_ag_nonredd, label = "Non-REDD+", color = nonreddcol, linewidth = 2)
+plt.plot(years, defor_ag_nonredd, label = "Non-REDD+", color = reddcol, 
+         linewidth = 2, linestyle = "--")
 
 # Add axes labels
 plt.xlabel("Year", fontsize = 16)
 plt.ylabel("Deforestation Agreement (%)", fontsize = 16)
 
 # Add gridlines
-plt.grid(True, linestyle = "--")
+plt.grid(True, linestyle = "--", alpha = 0.6)
 
 # Add legend
 plt.legend(loc='best', fontsize = 14)
