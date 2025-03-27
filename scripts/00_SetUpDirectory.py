@@ -3,6 +3,10 @@
 Created on Thu Oct  3 10:24:08 2024
 
 @author: hanna
+
+This file creates subfolders to store and organize data. 
+
+Expected runtime: <1min
 """
 
 ############################################################################
@@ -34,7 +38,7 @@ os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
 print("New Working Directory:", os.getcwd())
 
 
-
+# %%
 ############################################################################
 
 
@@ -47,7 +51,8 @@ main_dir = os.path.join(os.getcwd(), 'data')
 
 # List of subfolders that should exist
 required_folders = ['hansen_raw', 'hansen_preprocessed', 'jrc_raw', 
-                    'jrc_preprocessed', 'intermediate', 'plots', 'test']
+                    'jrc_preprocessed', 'intermediate', 'plots', 'test', 
+                    'cc_composites', 'validation', 'planet_raw']
 
 # Loop through the list and check if each folder exists
 for folder in required_folders:

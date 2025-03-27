@@ -3,16 +3,14 @@
 Created on Mon Nov  4 13:02:49 2024
 
 @author: hanna
+
+This file plots GFC and TMF data to compare deforestation and degradation 
+over 2013-2023. Deforestation rates are calculated for the AOI, GRNP, REDD+, 
+and non-REDD+ village areas. 
+
+Expected runtime <1min
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep 23 17:56:10 2024
-
-@author: hanna
-
-Expected execution time: <1min
-"""
 
 ############################################################################
 
@@ -29,7 +27,6 @@ import os
 import numpy as np
 from rasterstats import zonal_stats
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
 
 
 
@@ -57,6 +54,16 @@ years = list(range(2013, 2024))
 
 # Define pixel area
 pixel_area = 0.09
+
+# Color Palatte (3 colors)
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+bluecols = [blue1, blue2, blue3]
+
+# Color palatte (GFC and TMF)
+gfc_col = "#820300"  # Darker Red
+tmf_col = "#4682B4"  # Darker Blue - lighter
 
 
 
@@ -134,8 +141,14 @@ redd_area = villages.loc[1].geometry.area / 10000
 # Extract non-redd+ polygon area (ha)
 nonredd_area = villages.loc[0].geometry.area / 10000
 
+# Extract grnp area
+grnp_area = grnp.dissolve().geometry.area / 10000
+
+# Extract village area
+village_area = redd_area + nonredd_area
 
 
+# %%
 ############################################################################
 
 
@@ -201,7 +214,74 @@ tmf_zonal = singleyear_zonal(tmf_arrlist, years, villages, nodata_val,
                              tmf_profile['transform'])
 
 
+# %%
+############################################################################
 
+
+# EXTRACT DEFORESTATION PER YEAR FOR GRNP AREA
+
+
+############################################################################
+def grnp_zonal(arrlist, yearrange, affine):
+    
+    # Create empty list to hold statistics
+    stats = []
+    
+    # Iterate over each array
+    for arr, year in zip(arrlist, yearrange):
+    
+        # Calculate zonal statistics
+        deforestation_stats = zonal_stats(grnp.dissolve(), arr, nodata = nodata_val, 
+                                          affine = affine, stats="count")
+        
+        # Extract redd deforestation (proportion of area)
+        grnp_stats = (deforestation_stats[0]['count'] * pixel_area) / grnp_area
+        
+        # Add deforestation stats to list
+        stats.append({'Year': year, 'GRNP': grnp_stats[0]})
+        
+    # Convert stats list to dataframe
+    stats_df = pd.DataFrame(stats)
+    
+    return stats_df
+
+def villages_zonal(arrlist, yearrange, affine):
+    
+    # Create empty list to hold statistics
+    stats = []
+    
+    # Iterate over each array
+    for arr, year in zip(arrlist, yearrange):
+    
+        # Calculate zonal statistics
+        deforestation_stats = zonal_stats(villages.dissolve(), arr, nodata = nodata_val, 
+                                          affine = affine, stats="count")
+        
+        # Extract redd deforestation (proportion of area)
+        village_stats = (deforestation_stats[0]['count'] * pixel_area) / village_area
+        
+        # Add deforestation stats to list
+        stats.append({'Year': year, 'Villages': village_stats})
+        
+    # Convert stats list to dataframe
+    stats_df = pd.DataFrame(stats)
+    
+    return stats_df
+
+# Extract gfc data for grnp area
+gfc_grnp = grnp_zonal(gfc_arrlist, years, gfc_profile['transform'])
+
+# Extract tmf data for grnp area
+tmf_grnp = grnp_zonal(tmf_arrlist, years, tmf_profile['transform'])
+
+# Extract gfc data for village area
+gfc_villages = villages_zonal(gfc_arrlist, years, gfc_profile['transform'])
+
+# Extract tmf data for village area
+tmf_villages = villages_zonal(tmf_arrlist, years, tmf_profile['transform'])
+
+
+# %%
 ############################################################################
 
 
@@ -209,48 +289,38 @@ tmf_zonal = singleyear_zonal(tmf_arrlist, years, villages, nodata_val,
 
 
 ############################################################################
-# Color palatte
-redd_col1 = "#820300"  # Darker Red
-
-nonredd_col1 = "#4682B4"  # Darker Blue - lighter
-
-gfc_col = "#820300"  # Darker Red
-
-tmf_col = "#4682B4"  # Darker Blue - lighter
-
 # Initialize figure
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 6.5))
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_zonal['REDD+'], color=gfc_col, linewidth = 2,
+plt.plot(years, gfc_zonal['REDD+']*100, color=gfc_col, linewidth = 2,
          label='GFC Deforestation in REDD+ Villages')
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, tmf_zonal['REDD+'], color=tmf_col, linewidth = 2,
-         label='TMF Deforestation and Degradation in REDD+ Villages')
+plt.plot(years, tmf_zonal['REDD+']*100, color=tmf_col, linewidth = 2,
+         label='TMF Deforestation in REDD+ Villages')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, gfc_zonal['Non-REDD+'], color=gfc_col, linewidth = 2, 
+plt.plot(years, gfc_zonal['Non-REDD+']*100, color=gfc_col, linewidth = 2, 
          label='GFC Deforestation in Non-REDD+ Villages', linestyle = '--')
 
 # Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_zonal['Non-REDD+'], color=tmf_col, linewidth = 2,
-         label='TMF Deforestation and Degradation in Non-REDD+ Villages',
+plt.plot(years, tmf_zonal['Non-REDD+']*100, color=tmf_col, linewidth = 2,
+         label='TMF Deforestation in Non-REDD+ Villages',
          linestyle = '--')
 
 # Add labels and title
-plt.xlabel('Year', fontsize = 12)
-plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area', fontsize = 12)
-# plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
+plt.xlabel('Year', fontsize = 17)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 17)
 
 # Add x tickmarks
-plt.xticks(years, fontsize = 11)
+plt.xticks(years, fontsize = 16)
 
 # Edit y tickmark fontsize
-plt.yticks(fontsize = 11)
+plt.yticks(fontsize = 16)
 
 # Add legend
-plt.legend(fontsize = 11)
+plt.legend(fontsize = 14, loc="lower left")
 
 # Add gridlines
 plt.grid(linestyle = "--", alpha = 0.6)
@@ -260,205 +330,87 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
-# DIFFERENCE IN DIFFERENCES ANALYSIS
-
-
-############################################################################
-# Calculate gfc redd+/non-redd+ difference
-gfc_diffs = gfc_zonal['Non-REDD+'] - gfc_zonal['REDD+']
-
-# Calculate tmf redd+/non-redd+ difference
-tmf_diffs = tmf_zonal['Non-REDD+'] - tmf_zonal['REDD+']
-
-# Calculate gfc counterfactual treatment
-gfc_cf = gfc_zonal['Non-REDD+'] - gfc_diffs[0]
-
-# Calculate tmf counterfactual treatment
-tmf_cf = tmf_zonal['Non-REDD+'] - tmf_diffs[0]
-
-# Calculate gfc difference in differences
-gfc_dd = gfc_zonal['REDD+'] - gfc_cf
-
-# Calculate tmf difference in differences
-tmf_dd = tmf_zonal['REDD+'] - tmf_cf
-
+# PLOT DEFORESTATION PER AREA (AOI)
 
 
 ############################################################################
 
-
-# PLOT DEFORESTATION RATES WITH COUNTERFACTUAL
-
-
-############################################################################
+# Initialize figure
 plt.figure(figsize=(10, 6))
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_zonal['REDD+'], color=redd_col1,
-         label='GFC REDD+ Deforestation')
+plt.plot(years, gfc_villages['Villages']*100, color=bluecols[0], linewidth = 2,
+         label='GFC Deforestation')
 
 # Plot the pixel values for REDD+ villages
-plt.plot(years, gfc_cf, color=redd_col1,
-         label='GFC Counterfactual Non-REDD+ Deforestation', 
-         linestyle = '--')
-
-# Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_zonal['REDD+'], color=nonredd_col1, 
-          label='TMF REDD+ Deforestation')
-
-# Plot the pixel values for non-REDD+ villages
-plt.plot(years, tmf_cf, color=nonredd_col1,
-          label='TMF Counterfactual Non-REDD+ Deforestation',
-          linestyle = '--')
+plt.plot(years, tmf_villages['Villages']*100, color=bluecols[1], linewidth = 2,
+         label='TMF Deforestation')
 
 # Add labels and title
-plt.xlabel('Year')
-plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area')
-plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
+plt.xlabel('Year', fontsize = 17)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 17)
 
 # Add x tickmarks
-plt.xticks(years, rotation=45)
+plt.xticks(years, fontsize = 16)
+
+# Edit y tickmark fontsize
+plt.yticks(fontsize = 16)
 
 # Add legend
-plt.legend()
+plt.legend(fontsize = 16, loc="lower left")
 
-# Show the grid and plot
-plt.grid(True)
-plt.tight_layout()  # Adjust layout for better spacing
+# Add gridlines
+plt.grid(linestyle = "--", alpha = 0.6)
+
+# Show plot
+plt.tight_layout()
+
 plt.show()
 
 
 
+# %%
 ############################################################################
 
 
-# PLOT DIFFERENCE IN DIFFERENCES (BAR)
+# PLOT DEFORESTATION PER AREA (GRNP)
 
 
 ############################################################################
-# Set bar width
-bar_width = 0.3
-
-# Define x values
-x = np.arange(len(years))
-
-# Initiate figure
+# Initialize figure
 plt.figure(figsize=(10, 6))
 
-# Add gfc data to figure
-plt.bar(x - bar_width/2, gfc_dd, width=bar_width, label='GFC Deforestation', 
-        color=redd_col1)
+# Plot the pixel values for REDD+ villages
+plt.plot(years, gfc_grnp['GRNP']*100, color=bluecols[0], linewidth = 2,
+         label='GFC Deforestation')
 
-# Add tmf data to figure
-plt.bar(x + bar_width/2, tmf_dd, width=bar_width, label='TMF Deforestation', 
-        color=nonredd_col1)
+# Plot the pixel values for REDD+ villages
+plt.plot(years, tmf_grnp['GRNP']*100, color=bluecols[1], linewidth = 2,
+         label='TMF Deforestation')
 
-# Add axes lables
-plt.xlabel('Year')
-plt.ylabel('Difference in Difference for Deforestation %')
-
-# Add title
-plt.title('Difference in Difference Analysis of GFC and TMF Deforestation')
-
-# Add legend
-plt.legend()
-
-# Set major tickmark spacing
-plt.gca().yaxis.set_major_locator(MultipleLocator(0.01))
-
-# Set minor tickmark spacing
-plt.gca().yaxis.set_minor_locator(MultipleLocator(0.005))
-
-# Add gridlines
-plt.grid(axis='y', which='major', linestyle = "-")
-plt.grid(axis='y', which='minor', linestyle = "--")
+# Add labels and title
+plt.xlabel('Year', fontsize = 17)
+plt.ylabel('Proportional Deforestation Area (%)', fontsize = 17)
 
 # Add x tickmarks
-plt.xticks(x, years)
+plt.xticks(years, fontsize = 16)
 
-# Adjust plot layout
-plt.tight_layout()
-
-# Show plot
-plt.show()
-
-
-
-############################################################################
-
-
-# CALCULATE AND PLOT DIFFERENCES BETWEEN REDD / NONREDD
-
-
-############################################################################
-# Calculate differences for gfc data
-gfc_rdif = gfc_zonal['REDD+'] - gfc_zonal['Non-REDD+']
-
-# Calculate differences for tmf data
-tmf_rdif = tmf_zonal['REDD+'] - tmf_zonal['Non-REDD+']
-
-# Set bar width
-bar_width = 0.3
-
-# Define x values
-x = np.arange(len(years))
-
-# Initiate figure
-plt.figure(figsize=(6.9, 4.5))
-
-# Add gfc data to figure
-plt.bar(x - bar_width/2, gfc_rdif, width=bar_width, label='GFC Deforestation', 
-        color=redd_col1)
-
-# Add tmf data to figure
-plt.bar(x + bar_width/2, tmf_rdif, width=bar_width, label='TMF Deforestation', 
-        color=nonredd_col1)
-
-# Add axes lables
-plt.xlabel('Year')
-plt.ylabel('Difference b/w Non-REDD+ and REDD+ Deforestation (%)')
-
-# Add title
-plt.title('Estimated deforestation (2013-2023)')
+# Edit y tickmark fontsize
+plt.yticks(fontsize = 16)
 
 # Add legend
-plt.legend()
-
-# Set major tickmark spacing
-plt.gca().yaxis.set_major_locator(MultipleLocator(0.01))
-
-# Set minor tickmark spacing
-plt.gca().yaxis.set_minor_locator(MultipleLocator(0.005))
+plt.legend(fontsize = 16, loc="upper right")
 
 # Add gridlines
-plt.grid(axis='y', which='major', linestyle = "-")
-plt.grid(axis='y', which='minor', linestyle = "--")
-
-# Add x tickmarks
-plt.xticks(x, years)
-
-# Adjust plot layout
-plt.tight_layout()
+plt.grid(linestyle = "--", alpha = 0.6)
 
 # Show plot
+plt.tight_layout()
 plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

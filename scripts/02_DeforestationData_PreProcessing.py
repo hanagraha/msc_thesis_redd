@@ -11,7 +11,6 @@ TMF rasters. It also uses 1 shapefile and 1 geojson that are found in the
 GIT repository.
 
 Expected execution time: ~6min
-
 """
 
 ############################################################################

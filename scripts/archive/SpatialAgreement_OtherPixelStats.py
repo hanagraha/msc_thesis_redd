@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Nov  7 11:34:35 2024
+Created on Thu Mar 27 16:20:40 2025
 
 @author: hanna
 """
-
 
 ############################################################################
 
@@ -18,7 +17,6 @@ import rasterio
 import geopandas as gpd
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import matthews_corrcoef
 from scipy.stats import chi2_contingency
@@ -53,20 +51,11 @@ out_dir = os.path.join(os.getcwd(), 'data', 'intermediate')
 # Define study range years
 years = range(2013, 2024)
 
-# Set default plotting colors
+# Color Palette
 defaultblue = "#4682B4"
 reddcol = "brown"
 nonreddcol = "dodgerblue"
 grnpcol = "darkgreen"
-
-reddcol = "#820300"  # Darker Red
-grnpcol = "#4682B4"  # Darker Blue - lighter
-
-# Define Color Palatte (3 colors)
-blue1 = "#1E2A5E"
-blue2 = "#83B4FF"
-blue3 = "brown"
-bluecols = [blue1, blue2, blue3]
 
 
 
@@ -144,6 +133,44 @@ nonredd_geom = [villages.loc[0, 'geometry']]
 
 # Create GRNP geometry
 grnp_geom = grnp.geometry
+
+
+# %%
+############################################################################
+
+
+# RECLASSIFY ALL BINARY LAYERS TO 1, 2, NODATA
+
+
+############################################################################
+"""
+To calculate Cohen's Kappa (next processing step), each dataset must have the 
+same values. This preliminary step ensures each deforestation array has 
+comparable values of 1 (not deforested), 2 (deforested), and nodata
+"""
+# Reclassify GFC lossyear array with 1, 2, and numpy nodata
+gfc_simpbin = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
+valcheck(gfc_simpbin[1], "gfc simple binary")
+
+# Save each gfc simple binary raster to drive
+gfc_simpbin_files = filestack_write(gfc_simpbin, years, rasterio.uint8, 
+                                    "gfc_simple_binary")
+
+# Reclassify TMF deforestation and degradation array with 1, 2, and numpy nodata
+tmf_simpbin = binary_reclass(tmf_defordegra, years, 2, 1, nodata_val)
+valcheck(tmf_simpbin[1], "tmf simple binary")
+
+# Save each tmf simple binary raster to drive
+tmf_simpbin_files = filestack_write(tmf_simpbin, years, rasterio.uint8, 
+                                    "tmf_simple_binary")
+
+# Clip reclassified GFC binary arrays to REDD+, non-REDD+, and GRNP area
+gfc_redd_simpbin, gfc_nonredd_simpbin, gfc_grnp_simpbin = filestack_clip_multi(
+    gfc_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
+
+# Clip reclassified TMF binary arrays to REDD+, non-REDD+, and GRNP area
+tmf_redd_simpbin, tmf_nonredd_simpbin, tmf_grnp_simpbin = filestack_clip_multi(
+    tmf_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
 
 
 # %%
@@ -281,314 +308,6 @@ def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     # Show the plot
     plt.tight_layout()
     plt.show()
-
-
-# %%
-############################################################################
-
-
-# OVERALL AGREEMENT
-
-
-############################################################################
-# Define function to calculate overall agreement
-def ov_agree(spatagree_arrs):
-    
-    # Create empty list to hold statistics
-    prop_agree = []
-    
-    # Iterate over each array
-    for arr in spatagree_arrs:
-        
-        # Calculate total agreement
-        ag = (np.sum(arr == 5)) + (np.sum(arr == 8))
-        
-        # Calculate total disagreement
-        disag = (np.sum(arr == 6)) + (np.sum(arr == 7))
-        
-        # Calculate overall agreement
-        ov_ag = (ag / (ag + disag))*100
-        
-        # Add overall agreement to list
-        prop_agree.append(ov_ag)
-        
-    return prop_agree
-    
-# Calculate overall agreement
-ov_ag_aoi = ov_agree(spatagree_arrs)
-
-# Calculate overall agreement for redd
-ov_ag_redd = ov_agree(ag_redd)
-
-# Calculate overall agreement for nonredd area
-ov_ag_nonredd = ov_agree(ag_nonredd)
-
-# Calculate overall agreement for grnp area
-ov_ag_grnp = ov_agree(ag_grnp)
-
-# Plot overall agreement for aoi
-lineplot(ov_ag_aoi, "Overall Spatial Agreement between GFC and TMF Datasets", 
-         "AOI", "Overall Agreement (%)", 95, 98)
-
-# Plot overall agreement for redd, nonredd, and grnp area
-tripleplot(ov_ag_redd, ov_ag_nonredd, ov_ag_grnp, 
-           "Overall Spatial Agreement between GFC and TMF Datasets", 
-           "Overall Agreement (%)", 92, 100)
-
-
-# %%
-############################################################################
-
-
-# UNDISTURBED AGREEMENT
-
-
-############################################################################
-# Define function to calculate overall agreement
-def for_agree(spatagree_arrs):
-    
-    # Create empty list to hold statistics
-    prop_agree = []
-    
-    # Iterate over each array
-    for arr in spatagree_arrs:
-        
-        # Calculate total agreement
-        ag = (np.sum(arr == 5))
-        
-        # Calculate total disagreement
-        disag = (np.sum(arr == 6)) + (np.sum(arr == 7))
-        
-        # Calculate overall agreement
-        ov_ag = (ag / (ag + disag))*100
-        
-        # Add overall agreement to list
-        prop_agree.append(ov_ag)
-        
-    return prop_agree
-    
-# Calculate overall agreement
-for_ag_aoi = for_agree(spatagree_arrs)
-
-# Calculate overall agreement for redd
-for_ag_redd = for_agree(ag_redd)
-
-# Calculate overall agreement for nonredd area
-for_ag_nonredd = for_agree(ag_nonredd)
-
-# Calculate overall agreement for grnp area
-for_ag_grnp = for_agree(ag_grnp)
-
-# Plot overall agreement for aoi
-lineplot(for_ag_aoi, "Undisturbed Spatial Agreement between GFC and TMF Datasets", 
-         "AOI", "Undisturbed Agreement (%)", 95, 98)
-
-# Plot overall agreement for redd, nonredd, and grnp area
-tripleplot(for_ag_redd, for_ag_nonredd, for_ag_grnp, 
-           "Spatial Agreement Relative to Undisturbed Area", 
-           "Undisturbed Agreement (%)", 92, 100)
-
-
-# %%
-############################################################################
-
-
-# DEFORESTATION AGREEMENT
-
-
-############################################################################
-# Define function to calculate deforestation agreement
-def defor_agree(spatagree_arrs):
-    
-    # Create empty list to hold statistics
-    prop_agree = []
-    
-    # Iterate over each array
-    for arr in spatagree_arrs:
-        
-        # Calculate total agreement
-        ag = np.sum(arr == 8)
-        
-        # Calculate total disagreement
-        disag = (np.sum(arr == 6)) + (np.sum(arr == 7))
-        
-        # Calculate overall agreement
-        ov_ag = (ag / (ag + disag))*100
-        
-        # Add overall agreement to list
-        prop_agree.append(ov_ag)
-        
-    return prop_agree
-
-# Calculate deforestation agreement for aoi
-defor_ag_aoi = defor_agree(spatagree_arrs)
-
-# Calculate deforestation agreement for redd
-defor_ag_redd = defor_agree(ag_redd)
-
-# Calculate deforestation agreement for nonredd area
-defor_ag_nonredd = defor_agree(ag_nonredd)
-
-# Calculate deforestation agreement for grnp area
-defor_ag_grnp = defor_agree(ag_grnp)
-
-# Plot deforestation agreement for aoi
-lineplot(defor_ag_aoi, "Deforestation Spatial Agreement between GFC and TMF Datasets", 
-         "AOI", "Deforestation Agreement (%)", 10, 30)
-
-# Plot deforestation agreement for redd, nonredd, and grnp area
-tripleplot(defor_ag_redd, defor_ag_nonredd, defor_ag_grnp, 
-           "Spatial Agreement Relative to Deforestation Area", 
-           "Deforestation Agreement (%)", 0, 35)
-
-# %%
-# Initialize figure
-plt.figure(figsize = (10, 6))
-
-# Plot redd+ data
-plt.plot(years, defor_ag_redd, label = "REDD+", color = reddcol, 
-         linewidth = 2)
-
-# Plot nonredd data
-plt.plot(years, defor_ag_nonredd, label = "Non-REDD+", color = reddcol, 
-         linewidth = 2, linestyle = "--")
-
-# Add axes labels
-plt.xlabel("Year", fontsize = 16)
-plt.ylabel("Deforestation Agreement (%)", fontsize = 16)
-
-# Add gridlines
-plt.grid(True, linestyle = "--", alpha = 0.6)
-
-# Add legend
-plt.legend(loc='best', fontsize = 14)
-
-# Add x tickmarks
-plt.xticks(years, fontsize = 14)
-plt.yticks(fontsize = 14)
-
-# Adjust yaxis limits
-plt.ylim(10, 35)
-
-# Show the plot
-plt.tight_layout()
-plt.show()
-
-
-# %%
-############################################################################
-
-
-# PLOT SIDE BY SIDE: OVERALL AND DEFORESTATION AGREEMENT
-
-
-############################################################################
-# Initialize figure with subplots
-fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-
-# Plot 1: overall spatial agreement
-axes[0].plot(years, ov_ag_redd, color=reddcol, linewidth=2,
-             label='REDD+')
-axes[0].plot(years, ov_ag_nonredd, color=reddcol, linewidth=2,
-             label='non-REDD', linestyle = "--")
-axes[0].plot(years, ov_ag_grnp, color=grnpcol, linewidth=2, 
-             label='GRNP')
-
-# Add x axis label
-axes[0].set_xlabel('Year', fontsize=16)
-
-# Add y axis label
-axes[0].set_ylabel('Overall Agreement (%)', fontsize=16)
-
-# Add tickmarks
-axes[0].set_xticks(years)
-axes[0].tick_params(axis='both', labelsize=14)
-
-# Add legend
-axes[0].legend(fontsize=16, loc = 'lower right')
-
-# Add gridlines
-axes[0].grid(linestyle="--", alpha=0.6)
-
-# Adjust yaxis limits
-axes[0].set_ylim(92, 100)
-
-# Plot 2: deforestation spatial agreement
-axes[1].plot(years, defor_ag_redd, label = "REDD+", color = reddcol)
-axes[1].plot(years, defor_ag_nonredd, label = "Non-REDD+", color = reddcol, 
-             linestyle = "--")
-axes[1].plot(years, defor_ag_grnp, label = "GRNP", color = grnpcol)
-
-# Add tickmarks
-axes[1].set_xticks(years)
-axes[1].tick_params(axis='both', labelsize=14)
-
-# Add x axis label
-axes[1].set_xlabel('Year', fontsize=16)
-
-# Add y axis label
-axes[1].set_ylabel('Deforestation Agreement (%)', fontsize=16)
-
-# Add gridlines
-axes[1].grid(True, linestyle = "--")
-
-# Add legend
-# axes[1].legend(fontsize=16)
-
-# Adjust yaxis limits
-axes[1].set_ylim(0, 35)
-
-# Show plot
-plt.tight_layout()
-plt.show()
-
-
-# %%
-############################################################################
-
-
-# CALCULATE POTENTIAL DEFORESTATION RANGES
-
-
-############################################################################
-# Define function to calculate potential deforestation range
-def defor_range(spatagree_arrs):
-    
-    # Create empty list to hold statistics
-    min_defors = []
-    max_defors = []
-    ranges = []
-    
-    # Iterate over each array
-    for arr in spatagree_arrs:
-        
-        # Calculate min potential defor (defor agree)
-        min_defor = np.sum(arr == 8)
-        
-        # Calculate max potential defor (all defor)
-        max_defor = (np.sum(arr == 6)) + (np.sum(arr == 7))
-        
-        # Add min and max defor to lists
-        min_defors.append(min_defor)
-        max_defors.append(max_defor)
-        ranges.append(max_defor - min_defor)
-        
-    # Combine lists into dataframe
-    defor_range = pd.DataFrame({"Min": min_defors,
-                                "Max": max_defors,
-                                "Range": ranges})
-        
-    return defor_range
-    
-# Calculate potential deforestation range
-potdefor = defor_range(spatagree_arrs)
-
-# Calculate sum potential deforestation
-print(f"Potential Minimum Deforestation: {potdefor['Min'].sum()} ha")
-print(f"Potential Maximum Deforestation: {potdefor['Max'].sum()} ha")
-print(f"Potential Variation in Deforestation: {potdefor['Range'].sum()} ha")
-
-
 
 
 # %%
@@ -839,20 +558,3 @@ lineplot(kappa_aoi, "Cohen's Kappa for GFC and TMF Datasets",
 tripleplot(kappa_redd, kappa_nonredd, kappa_grnp, 
            "Cohen's Kappa for GFC and TMF Datasets", 
            "Cohen's Kappa", 0, 0.5)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

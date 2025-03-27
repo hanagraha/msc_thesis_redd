@@ -3,6 +3,11 @@
 Created on Thu Oct  3 18:18:38 2024
 
 @author: hanna
+
+This file uses annual rasters for gfc lossyear and tmf defordegra created
+in 02_DeforestationData_PreProcessing.py to calculate spatial agreement. 
+
+Expected runtime: <1min
 """
 
 ############################################################################
@@ -12,16 +17,12 @@ Created on Thu Oct  3 18:18:38 2024
 
 
 ############################################################################
-
 import rasterio
 import geopandas as gpd
 import pandas as pd
 import os
 import numpy as np
 from rasterio.mask import mask
-from statsmodels.stats.contingency_tables import mcnemar 
-import matplotlib.pyplot as plt
-from sklearn.metrics import cohen_kappa_score
 
 
 
@@ -59,6 +60,7 @@ years = range(2013, 2024)
 
 
 ############################################################################
+# Define function to read list of files
 def read_files(pathlist):
     
     # Create empty list to hold arrays
@@ -77,44 +79,51 @@ def read_files(pathlist):
             
     return arrlist, profile
 
-# Raster data filepaths
+# Define gfc lossyear file
 gfc_lossyear_file = "data/hansen_preprocessed/gfc_lossyear_fm.tif"
+
+# Define tmf defordegra file
 tmf_defordegra_file = "data/jrc_preprocessed/tmf_defordegrayear_fm.tif"
 
-# gfc lossyear filepaths
+# Define annual gfc filepaths
 gfc_annual_files = [f"data/hansen_preprocessed/gfc_lossyear_fm_{year}.tif"
                     for year in years]
 
+# Define annual tmf filepaths
 tmf_annual_files = [f"data/jrc_preprocessed/tmf_defordegrayear_fm_{year}.tif"
                     for year in years]
 
+# Read annual gfc rasters
 gfc_arrs, gfc_profile = read_files(gfc_annual_files)
 
+# Read annual tmf rasters
 tmf_arrs, tmf_profile = read_files(tmf_annual_files)
 
-
-# Read raster data
+# Read gfc lossyear
 with rasterio.open(gfc_lossyear_file) as gfc:
     gfc_lossyear = gfc.read(1)
     
+# Read tmf defordegra
 with rasterio.open(tmf_defordegra_file) as tmf:
     tmf_defordegra = tmf.read(1)
     profile = tmf.profile
 
-# Read vector data
+# Read villages shapefile
 villages = gpd.read_file("data/village polygons/village_polygons.shp")
+
+# Read grnp shapefile
 grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 
-# Create REDD+ and non-REDD+ polygons
+# Simplify villages to only redd and nonredd villages
 villages = villages[['grnp_4k', 'geometry']]
 villages = villages.dissolve(by='grnp_4k')
 villages = villages.reset_index()
 
-# Create REDD+ and non-REDD+ geometries
+# Create redd and nonredd geometries
 redd_geom = villages.loc[1, 'geometry']
 nonredd_geom = villages.loc[0, 'geometry']
 
-# Create GRNP geometry
+# Create grnp geometry
 grnp_geom = grnp.geometry
 
 
@@ -122,7 +131,7 @@ grnp_geom = grnp.geometry
 ############################################################################
 
 
-# CREATE BINARY GFC AND TMF LAYERS
+# RECLASSIFY ANNUAL GFC AND TMF LAYERS FOR SPATIAL AGREEMENT
 
 
 ############################################################################
@@ -274,185 +283,8 @@ valcheck(aoi_agreement[1], "aoi spatial agreement")
 agreement_files = filestack_write(aoi_agreement, years, rasterio.uint8, 
                                   "agreement_gfc_combtmf")
 
-# Clip agreement rasters to REDD+, non-REDD+, and GRNP area
-redd_agreement, nonredd_agreement, grnp_agreement = filestack_clip_multi(
-    agreement_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
-
-# Double check values
-valcheck(redd_agreement[1], "redd+ agreement")
-valcheck(nonredd_agreement[1], "non-redd+ agreement")
-valcheck(grnp_agreement[1], "grnp agreement")
 
 
-# %%
-############################################################################
-
-
-# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO AOI)
-
-
-############################################################################
-# Define function to calculate agreement statistics for one image
-def agreestats(image, class1=5, class2=6, class3=7, class4=8):
-    # Mask out NoData (255) values
-    valid_pixels = image[image != 255]
-    
-    # Count pixels with values 5, 6, 7, and 8
-    total_pixels = valid_pixels.size
-    count_5 = np.sum(valid_pixels == class1) # agreement undisturbed
-    count_6 = np.sum(valid_pixels == class2) # only gfc detects deforested
-    count_7 = np.sum(valid_pixels == class3) # only tmf detects deforested
-    count_8 = np.sum(valid_pixels == class4) # agreement deforested
-    
-    # Reclassify counts to agreement and disagreement
-    agreement_undisturbed = count_5
-    disagreement = count_6 + count_7
-    agreement_deforested = count_8
-    
-    # Calculate ratios
-    perc_5 = (agreement_undisturbed / total_pixels)*100
-    perc_67 = (disagreement / total_pixels)*100
-    perc_8 = (agreement_deforested / total_pixels)*100
-    
-    return perc_5, perc_67, perc_8
-
-# Define function to calculate agreement statistics for multiple images
-def agreestat_summary(imagelist, yearrange):
-    # Create an empty list
-    agree_stats = []
-    
-    # Calculate statistics for each image
-    for var, year, in zip(imagelist, yearrange):
-        perc_5, perc_67, perc_8 = agreestats(var)
-        
-        # Append results to list as a dictionary
-        agree_stats.append({
-            'Year': year,
-            'Agree_Undisturbed': perc_5,
-            'Disagree': perc_67,
-            'Agree_Deforested': perc_8
-        })   
-    
-    # Convert list to dataframe
-    agree_stats = pd.DataFrame(agree_stats)
-    
-    return agree_stats
-
-# Calculate summary statistics for AOI
-aoi_agree_stats = agreestat_summary(aoi_agreement, years)
-
-# Calculate summary statistics for REDD+ area
-redd_agree_stats = agreestat_summary(redd_agreement, years)
-
-# Calculate summary statistics for non-REDD+ area
-nonredd_agree_stats = agreestat_summary(nonredd_agreement, years)
-
-# Calculate summary statistics for GRNP area
-grnp_agree_stats= agreestat_summary(grnp_agreement, years)
-
-
-# %%
-############################################################################
-
-
-# CALCULATE SPATIAL AGREEMENT STATISTICS (RELATIVE TO DEFORESTATION AREA)
-
-
-############################################################################
-# Define function to calculate agreement statistics for one image
-def rel_agreestats(image, class1=5, class2=6, class3=7, class4=8):
-    # Mask out NoData (255) values
-    valid_pixels = image[image != 255]
-    
-    # Count pixels with values 5, 6, 7, and 8
-    count_5 = np.sum(valid_pixels == class1) # agreement undisturbed
-    count_6 = np.sum(valid_pixels == class2) # only gfc detects deforested
-    count_7 = np.sum(valid_pixels == class3) # only tmf detects deforested
-    count_8 = np.sum(valid_pixels == class4) # agreement deforested
-    
-    # Reclassify counts to agreement and disagreement
-    agreement_undisturbed = count_5
-    disagreement = count_6 + count_7
-    agreement_deforested = count_8
-    
-    # Calculate ratios
-    perc_5 = (agreement_undisturbed / (agreement_undisturbed + disagreement))*100
-    perc_67 = (disagreement / (disagreement + agreement_deforested))*100
-    perc_8 = (agreement_deforested / (disagreement + agreement_deforested))*100
-    
-    return perc_5, perc_67, perc_8
-
-# Define function to create agreement relative statistic summary
-def rel_agreestat_summary(imagelist, yearrange):
-    # Create an empty list
-    agree_stats = []
-    
-    # Calculate statistics for each image
-    for var, year, in zip(imagelist, yearrange):
-        perc_5, perc_67, perc_8 = rel_agreestats(var)
-        
-        # Append results to list as a dictionary
-        agree_stats.append({
-            'Year': year,
-            'Agree_Undisturbed': perc_5,
-            'Disagree': perc_67,
-            'Agree_Deforested': perc_8
-        })   
-    
-    # Convert list to dataframe
-    agree_stats = pd.DataFrame(agree_stats)
-    
-    return agree_stats
-
-# Calculate summary statistics for AOI
-aoi_agree_rel_stats = rel_agreestat_summary(aoi_agreement, years)
-
-# Calculate summary statistics for REDD+ area
-redd_agree_rel_stats = rel_agreestat_summary(redd_agreement, years)
-
-# Calculate summary statistics for non-REDD+ area
-nonredd_agree_rel_stats = rel_agreestat_summary(nonredd_agreement, years)
-
-# Calculate summary statistics for GRNP area
-grnp_agree_rel_stats= rel_agreestat_summary(grnp_agreement, years)
-
-
-# %%
-############################################################################
-
-
-# RECLASSIFY ALL BINARY LAYERS TO 1, 2, NODATA
-
-
-############################################################################
-"""
-To calculate Cohen's Kappa (next processing step), each dataset must have the 
-same values. This preliminary step ensures each deforestation array has 
-comparable values of 1 (not deforested), 2 (deforested), and nodata
-"""
-# Reclassify GFC lossyear array with 1, 2, and numpy nodata
-gfc_simpbin = binary_reclass(gfc_lossyear, years, 2, 1, nodata_val)
-valcheck(gfc_simpbin[1], "gfc simple binary")
-
-# Save each gfc simple binary raster to drive
-gfc_simpbin_files = filestack_write(gfc_simpbin, years, rasterio.uint8, 
-                                    "gfc_simple_binary")
-
-# Reclassify TMF deforestation and degradation array with 1, 2, and numpy nodata
-tmf_simpbin = binary_reclass(tmf_defordegra, years, 2, 1, nodata_val)
-valcheck(tmf_simpbin[1], "tmf simple binary")
-
-# Save each tmf simple binary raster to drive
-tmf_simpbin_files = filestack_write(tmf_simpbin, years, rasterio.uint8, 
-                                    "tmf_simple_binary")
-
-# Clip reclassified GFC binary arrays to REDD+, non-REDD+, and GRNP area
-gfc_redd_simpbin, gfc_nonredd_simpbin, gfc_grnp_simpbin = filestack_clip_multi(
-    gfc_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
-
-# Clip reclassified TMF binary arrays to REDD+, non-REDD+, and GRNP area
-tmf_redd_simpbin, tmf_nonredd_simpbin, tmf_grnp_simpbin = filestack_clip_multi(
-    tmf_simpbin_files, years, [redd_geom], [nonredd_geom], grnp_geom, nodata_val)
 
 
 

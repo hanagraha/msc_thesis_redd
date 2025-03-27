@@ -4,6 +4,9 @@ Created on Mon Sep 23 17:56:10 2024
 
 @author: hanna
 
+This file compares data from TMF's transition map, annual change map, 
+deforestation year, and degradation year to GFC's lossyear data. 
+
 Expected execution time: <1min
 """
 
@@ -46,6 +49,20 @@ nodata_val = 255
 
 # Define year range
 years = list(range(2013, 2024))
+
+# Color Palatte (TMF Defor + Degra)
+blue1 = "#1E2A5E"
+blue2 = "#83B4FF"
+blue3 = "brown"
+brown = '#48202a'
+beige = '#ddcc77'
+bluecols = [blue1, blue2, blue3]
+
+# Color Palette (GFC vs TMF - redd vs nonredd)
+redd_col1 = "#820300"  # Darker Red
+redd_col2 = "#820300"  # Lighter Red - darker
+nonredd_col1 = "#4682B4"  # Darker Blue - lighter
+nonredd_col2 = "#4682B4"  # Lighter Blue
 
 
 
@@ -100,11 +117,11 @@ villages = villages.dissolve(by='grnp_4k')
 villages = villages.reset_index()
 
 
-
+# %%
 ############################################################################
 
 
-# EXPLORE ANNUAL CHANGE DATASET
+# EXPLORE/PLOT ANNUAL CHANGE MAP
 
 
 ############################################################################
@@ -170,11 +187,11 @@ plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
-# EXPLORE TRANSITION MAP DATASET
+# EXPLORE/PLOT TRANSITION MAP
 
 
 ############################################################################
@@ -191,7 +208,6 @@ coverage, the value "0" pixels will excluded from the following analysis
 unique_values = unique_values[1:10]
 pixel_counts = pixel_counts[1:10]
 
-
 # List class labels (from the tmf manual)
 tmf_trans_labels = ['Undisturbed tropical moist forest', 
                     'Degraded tropical moist forest',
@@ -203,9 +219,10 @@ tmf_trans_labels = ['Undisturbed tropical moist forest',
                     'Permanent and seasonal water',
                     'Other land cover']
 
-
-### CALCULATE PIXEL CLASS DISTRIBUTIONS
+# Calculate total number of pixels
 total_pixels = np.sum(pixel_counts)
+
+# Calculate proportional pixel counts
 pixel_percent = (pixel_counts / total_pixels)*100
 
 # Store in a dataframe
@@ -220,32 +237,32 @@ tmf_trans_summary = pd.DataFrame({
 tmf_trans_sorted = tmf_trans_summary.sort_values(by='Pixel_Percent', 
                                                  ascending=False)
 
+# Initialize figure
+plt.figure(figsize=(10, 8))
 
-### PLOT AS BAR CHART
-plt.figure(figsize=(10, 6))
+# Add bar data
 bars = plt.bar(tmf_trans_sorted['Label'], tmf_trans_sorted['Pixel_Percent'])
 
-# Add labels and title
-plt.xlabel('Land Cover Classes')
-plt.ylabel('Pixel Percent (%)')
-plt.title('Pixel Percentage by Land Cover Class (Sorted)')
+# Add axes labels
+plt.xlabel('Land Cover Classes', fontsize = 16)
+plt.ylabel('Pixel Percent (%)', fontsize = 16)
 
 # Rotate x-axis labels for better readability
-plt.xticks(rotation=45, ha='right')
+plt.xticks(rotation=45, ha='right', fontsize = 16)
 
 # Add grid lines
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.grid(axis='y', linestyle='--', alpha=0.6)
 
-# Display the plot
+# Show plot
 plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
-# EXTRACT DEFORESTATION PER YEAR FOR WHOLE AOI
+# EXPLORE TMF DEFORESTATION AND DEGRADATION MAPS (# PIXELS)
 
 
 ############################################################################
@@ -254,8 +271,7 @@ gfc_loss_aoi = aoi.copy()
 tmf_defor_aoi = aoi.copy()
 tmf_degra_aoi = aoi.copy()
 
-### EXTRACT DEFORESTATION PIXELS
-# GFC lossyear
+# Extract years from GFC lossyear
 for year, raster_path in zip(range(2013, 2024), gfc_lossyear_paths):
     with rasterio.open(raster_path) as src:
         raster_data = src.read(1)
@@ -267,7 +283,7 @@ for year, raster_path in zip(range(2013, 2024), gfc_lossyear_paths):
     
 print("Extracted gfc deforestation in AOI")
 
-# TMF Deforestation Year
+# Extract years from TMF Deforestation Year
 for year, raster_path in zip(range(2013, 2024), tmf_deforyear_paths):
     with rasterio.open(raster_path) as src:
         raster_data = src.read(1)
@@ -279,7 +295,7 @@ for year, raster_path in zip(range(2013, 2024), tmf_deforyear_paths):
     
 print("Extracted tmf deforestation in AOI")
 
-# TMF Degradation Year
+# Extract years from TMF Degradation Year
 for year, raster_path in zip(range(2013, 2024), tmf_degrayear_paths):
     with rasterio.open(raster_path) as src:
         raster_data = src.read(1)
@@ -291,69 +307,76 @@ for year, raster_path in zip(range(2013, 2024), tmf_degrayear_paths):
     
 print("Extracted tmf degradation in AOI")
 
-
-### PLOT RESULTS
-# Assuming gfc_loss_aoi, tmf_defor_aoi, and tmf_degra_aoi have columns for each year
-years = list(range(2013, 2024))
-
-# Extracting deforestation pixels per year
+# Extract deforestation pixels per year
 gfc_loss_pixels = [gfc_loss_aoi[str(year)].values[0] for year in years]
 tmf_defor_pixels = [tmf_defor_aoi[str(year)].values[0] for year in years]
 tmf_degra_pixels = [tmf_degra_aoi[str(year)].values[0] for year in years]
 
+# Extract deforestation ha per year
+gfc_loss_ha = [x * 0.09 for x in gfc_loss_pixels]
+tmf_defor_ha = [x * 0.09 for x in tmf_defor_pixels]
+tmf_degra_ha = [x * 0.09 for x in tmf_degra_pixels]
+
 # Combine tmf_defor and tmf_degra for the line plot
 tmf_combined_pixels = [defor + degra for defor, degra in zip(tmf_defor_pixels, tmf_degra_pixels)]
+tmf_combined_ha = [defor + degra for defor, degra in zip(tmf_defor_ha, tmf_degra_ha)]
 
+
+# %%
+############################################################################
+
+
+# PLOT TMF DEFORESTATION AND DEGRADATION MAPS (HA)
+
+
+############################################################################
 # Set bar width
 bar_width = 0.4
 index = np.arange(len(years))
 
-# Color Palette
-tmf_col2 = "#6BAF4B"  # Bright Olive Green
-gfc_col2 = "#800020"  # Burgundy (distinct)
-tmf_col1 = "#A1D8D5"  # Light Teal
-gfc_col1 = "#2E5B2E"  # Dark Green
-tmf_col3 = "#FF7F50"  # Coral (distinct)
-
-# Create the plot
+# Initialize plot
 fig, ax = plt.subplots(figsize=(10, 6))
 
 # Plot GFC Loss AOI bars
-bars1 = ax.bar(index - bar_width/2, gfc_loss_pixels, bar_width, 
-               label='GFC Tree Cover Loss', color=gfc_col1)
+ax.bar(index - bar_width/2, gfc_loss_ha, bar_width, color = beige,
+       label = 'GFC Tree Cover Loss')
 
 # Plot TMF Deforestation and Degradation stacked bars
-bars2 = ax.bar(index + bar_width/2, tmf_defor_pixels, bar_width, 
-               label='TMF Deforestation', color=tmf_col1)
-bars3 = ax.bar(index + bar_width/2, tmf_degra_pixels, bar_width, 
-               label='TMF Degradation', bottom=tmf_defor_pixels, color=tmf_col2)
+ax.bar(index + bar_width/2, tmf_defor_ha, bar_width, color = bluecols[0],
+       label = 'TMF Deforestation')
+
+ax.bar(index + bar_width/2, tmf_degra_ha, bar_width, color = bluecols[1],
+       label = 'TMF Degradation', bottom = tmf_defor_ha)
 
 # Add lines through the top of GFC Loss AOI bars
-ax.plot(index - bar_width/2, gfc_loss_pixels, color=gfc_col2, 
-        label='GFC Tree Cover Loss (line)')
+ax.plot(index - bar_width/2, gfc_loss_ha, color = brown, 
+        label = 'GFC Tree Cover Loss (line)')
 
 # Add lines through the top of TMF Combined bars
-ax.plot(index + bar_width/2, tmf_combined_pixels, color=tmf_col3,
-        label='TMF Combined (line)')
+ax.plot(index + bar_width/2, tmf_combined_ha, color = brown, linestyle = '--',
+        label = 'TMF Combined (line)')
 
 # Customize the plot
-ax.set_xlabel('Year')
-ax.set_ylabel('Number of Pixels')
-ax.set_title('GFC Tree Cover Loss vs TMF Deforestation + Degradation in the Gola REDD+ AOI')
+ax.set_xlabel('Year', fontsize=16)
+ax.set_ylabel('Deforestation Area (ha)', fontsize=16)
 ax.set_xticks(index)
-ax.set_xticklabels(years)
-ax.legend()
+ax.set_xticklabels(years, fontsize=16)
+ax.tick_params(axis='y', labelsize=16)  
+ax.legend(fontsize=16)
+
+# Add gridlines
+ax.grid(True, linestyle = '--', alpha = 0.6)
 
 # Display the plot
 plt.tight_layout()
 plt.show()
 
 
-
+# %%
 ############################################################################
 
 
-# EXTRACT DEFORESTATION PER YEAR PER REDD+ / NON-REDD+ AREA
+# EXPLORE TMF DEFORESTATION AND DEGRADATION PER REDD+ / NON-REDD+ AREA
 
 
 ############################################################################
@@ -362,8 +385,7 @@ gfc_loss_stats = villages.copy()
 tmf_defor_stats = villages.copy()
 tmf_degra_stats = villages.copy()
 
-### EXTRACT DEFORESTATION PIXELS
-# GFC lossyear
+# Extract years from GFC lossyear
 for year, raster_path in zip(range(2013, 2024), gfc_lossyear_paths):
     
     with rasterio.open(raster_path) as src:
@@ -377,7 +399,7 @@ for year, raster_path in zip(range(2013, 2024), gfc_lossyear_paths):
     
 print("Extracted gfc deforestation in villages")
 
-# TMF deforestation year
+# Extract years from TMF deforestation
 for year, raster_path in zip(range(2013, 2024), tmf_deforyear_paths):
     
     with rasterio.open(raster_path) as src:
@@ -391,7 +413,7 @@ for year, raster_path in zip(range(2013, 2024), tmf_deforyear_paths):
     
 print("Extracted tmf deforestation in villages")
 
-# TMF degradation year
+# Extract years from TMF degradation
 for year, raster_path in zip(range(2013, 2024), tmf_degrayear_paths):
     
     with rasterio.open(raster_path) as src:
@@ -405,46 +427,63 @@ for year, raster_path in zip(range(2013, 2024), tmf_degrayear_paths):
     
 print("Extracted tmf degradation in villages")
 
-
-### CALCULATE DEFORESTATION AS PROPORTION OF AREA
 # Extract the columns for years 2013-2023
 years = gfc_loss_stats.columns[2:]
 
+# Extract gfc redd statistics
 gfc_redd_pixels = gfc_loss_stats.loc[1, years].values
+
+# Extract gfc nonredd statistics
 gfc_nonredd_pixels = gfc_loss_stats.loc[0, years].values
 
+# Extract tmf deforestation in redd
 tmf_defor_redd_pixels = tmf_defor_stats.loc[1, years].values
+
+# Extract tmf deforestation in nonredd
 tmf_defor_nonredd_pixels = tmf_defor_stats.loc[0, years].values
 
+# Extract tmf degradation in redd
 tmf_degra_redd_pixels = tmf_degra_stats.loc[1, years].values
+
+# Extract tmf degradation in nonredd
 tmf_degra_nonredd_pixels = tmf_degra_stats.loc[0, years].values
 
+# Combine tmf deforestation and degradation in redd
 tmf_redd_pixels = [defor + degra for defor, degra in zip(
     tmf_defor_redd_pixels, tmf_degra_redd_pixels)]
+
+# Convert tmf defordegra pixels to array
 tmf_redd_pixels = np.array(tmf_redd_pixels, dtype=object)
 
+# Combine tmf deforestation and degradation in nonredd
 tmf_nonredd_pixels = [defor + degra for defor, degra in zip(
     tmf_defor_nonredd_pixels, tmf_degra_nonredd_pixels)]
+
+# Convert tmf defordegra pixels to array
 tmf_nonredd_pixels = np.array(tmf_nonredd_pixels, dtype=object)
 
-# Convert deforestation pixels to area proportion
-pixel_area = 0.09
+# Convert gfc redd predictions to area proportion
+gfc_redd_perc = ((gfc_redd_pixels * 0.09) / redd_area)*100
 
-gfc_redd_perc = ((gfc_redd_pixels * pixel_area) / redd_area)*100
-gfc_nonredd_perc = ((gfc_nonredd_pixels * pixel_area) / nonredd_area)*100
+# Convert gfc nonredd predictions to area proportion
+gfc_nonredd_perc = ((gfc_nonredd_pixels * 0.09) / nonredd_area)*100
 
-tmf_redd_perc = ((tmf_redd_pixels * pixel_area) / redd_area)*100
-tmf_nonredd_perc = ((tmf_nonredd_pixels * pixel_area) / nonredd_area)*100
+# Convert tmf redd predictions to area proportion
+tmf_redd_perc = ((tmf_redd_pixels * 0.09) / redd_area)*100
+
+# Convert tmf nonredd predictions to area proportion
+tmf_nonredd_perc = ((tmf_nonredd_pixels * 0.09) / nonredd_area)*100
 
 
-### PLOT RESULTS
-# Color palatte
-redd_col1 = "#820300"  # Darker Red
-redd_col2 = "#820300"  # Lighter Red - darker
+# %%
+############################################################################
 
-nonredd_col1 = "#4682B4"  # Darker Blue - lighter
-nonredd_col2 = "#4682B4"  # Lighter Blue
 
+# PLOT TMF DEFORESTATION AND DEGRADATION PER REDD+ / NON-REDD+ AREA
+
+
+############################################################################
+# Initiate figure
 plt.figure(figsize=(10, 6))
 
 # Plot the pixel values for REDD+ villages
@@ -468,26 +507,20 @@ plt.plot(years, tmf_nonredd_perc, color=nonredd_col2,
 # Add labels and title
 plt.xlabel('Year')
 plt.ylabel('% of Deforestation Pixels Per REDD+/Non-REDD+ Area')
-plt.title('Deforestation in REDD+ vs Non-REDD+ Villages (2013-2023)')
 
 # Add legend
 plt.legend()
 
-# Show the grid and plot
+# Add gridlines
 plt.grid(True)
-plt.xticks(rotation=45)  # Rotate x-ticks for better readability
-plt.tight_layout()  # Adjust layout for better spacing
+
+# Adjust tickmarks
+plt.xticks(rotation=45)
+
+# Show plot
+plt.tight_layout()
 plt.show()
 
-
-
-############################################################################
-
-
-# DIFFERENCE IN DIFFERENCES ANALYSIS
-
-
-############################################################################
 
 
 

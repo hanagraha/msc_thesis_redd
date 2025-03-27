@@ -17,13 +17,10 @@ import os
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import savefig
 import numpy as np
-import statistics
 import rasterio
-from rasterstats import zonal_stats
-from rasterio.features import geometry_mask
 from rasterio.mask import mask
-from matplotlib.ticker import MultipleLocator
 
 
 
@@ -310,6 +307,9 @@ first_defor_redd = steh_area(points_redd, strat_redd, ['defor1'], redd_pix, redd
 all_defor_redd = steh_area(points_redd, strat_redd, ['defor1', 'defor2', 'defor3'], 
                            redd_pix, redd_ha)
 
+recur_defor_redd = steh_area(points_redd, strat_redd, ['defor2', 'defor3'], 
+                             redd_pix, redd_ha)
+
 # Calculate nonredd area deforestation (first)
 first_defor_nonredd = steh_area(points_nonredd, strat_nonredd, ['defor1'], 
                                 nonredd_pix, nonredd_ha)
@@ -317,6 +317,9 @@ first_defor_nonredd = steh_area(points_nonredd, strat_nonredd, ['defor1'],
 # Calculate nonredd area deforestation (all)
 all_defor_nonredd = steh_area(points_nonredd, strat_nonredd, ['defor1', 'defor2', 'defor3'], 
                               nonredd_pix, nonredd_ha)
+
+recur_defor_nonredd = steh_area(points_nonredd, strat_nonredd, ['defor2', 'defor3'], 
+                                nonredd_pix, nonredd_ha)
 
 # Extract redd area calculated by stehman
 steh_redd = protc_stats['protc_gfc_redd']['area'] * redd_ha
@@ -687,6 +690,13 @@ axes[1].grid(linestyle="--", alpha=0.6)
 
 # Show plot
 plt.tight_layout()
+
+# Define plot path
+savepath = "data/plots/Presentation Plots/rq4_redd_deforarea.png"
+
+# Download plot
+savefig(savepath, transparent=True)
+
 plt.show()
 
 
@@ -1076,6 +1086,12 @@ plt.grid(linestyle = "--", alpha = 0.6)
 plt.xticks(years, fontsize = 14)
 plt.yticks(fontsize = 14)
 
+# Define plot path
+savepath = "data/plots/Presentation Plots/rq3_recur_defor.png"
+
+# Download plot
+savefig(savepath, transparent=True)
+
 # Show the plot
 plt.show()
 
@@ -1242,65 +1258,6 @@ plt.grid(linestyle="--", alpha=0.6)
 # Show plot
 plt.tight_layout()
 plt.show()
-
-
-
-# %%
-############################################################################
-
-
-# CALCULATE STANDARD ERROR FOR AREA ESTIMATION
-
-
-############################################################################
-"""
-V(Y) = (1/N2) * (strata_size^2 * ((1-proportion of class in strata / sample size)))
-"""
-# Extract gfc area errors
-gfc_errors = protd_stats['protd_gfc']['se_a']
-
-# Extract tmf area errors
-tmf_errors = protd_stats['protd_tmf']['se_a']
-
-# Extract se area errors
-se_errors = protd_stats['protd_se']['se_a']
-
-
-# Calculate sample variance
-
-# Calculate number of pixels per strata
-pixvals, pixcounts = np.unique(stratmap, return_counts = True)
-
-# Create dataframe
-strata_size = pd.DataFrame({'strata': pixvals[:-1],
-                            'size': pixcounts[:-1]})
-
-# Iterate over each strata
-for idx, row in strata_size.iterrows():
-    
-    # Extract strata number
-    strata = row['strata']
-    
-    # Extract strata size
-    size = row['size']
-    
-    # Subset validation data for that strata
-    data = valdata[valdata['strata'] == strata]
-    
-    # Separate all deforestation events
-    defor = 
-    
-    # Calculate indicator row (correct/incorrect classification)
-    if data['gfc'] == data['defor1']
-    
-    # Define sample mean of strata
-    mean = 
-    
-    # Iterate over each point in strata
-    for point in data:
-        
-        # Define y_u indicator variable
-        y_u = 
 
 
 

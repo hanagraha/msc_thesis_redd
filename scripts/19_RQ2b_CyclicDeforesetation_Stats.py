@@ -167,14 +167,14 @@ def stacked_bar(bardata, linedata, linelabel):
     ax1.set_xticklabels(bardata.index, rotation = 0)
     
     # Add axes labels
-    ax1.set_xlabel("Year")
-    ax1.set_ylabel("Deforestation Count (# of Pixels)")
+    ax1.set_xlabel("Year", fontsize = 16)
+    ax1.set_ylabel("Deforestation Count (# of Reference Points)", fontsize = 16)
     
     # Add gridlines
     ax1.grid(True, linestyle='--', alpha=0.6)
     
     # Add legend
-    ax1.legend(loc="upper left")
+    ax1.legend(loc="upper left", fontsize = 16)
     
     # Show plot
     plt.tight_layout()
@@ -426,7 +426,7 @@ redd_defor_vals, redd_total_defor = calc_defor(points_redd)
 nonredd_defor_vals, nonredd_total_defor = calc_defor(points_nonredd)
     
 # Plot deforestation counts
-stacked_bar(defor_vals[2:], total_defor[2:], "Total Deforestation")
+stacked_bar(defor_vals[2:-1], total_defor[2:-1], "Total Deforestation")
 
 
 # %%
@@ -469,6 +469,53 @@ nonredd_defor_after, nonredd_defor_first, nonredd_defor_props = calc_props(nonre
 double_bar(defor_after[2:13], "Recurrent Deforestation", regr_first[1:12], 
            "Forest Regrowth (After First Deforestation Event)", defor_first[2:13],
            "First Detected Deforestation")
+
+# %%
+
+#  Adjust data
+barstack_data = defor_vals[2:-1]
+barstack_data.columns = ["First Event", "Second Event", "Third Event"]
+
+# Initialize a wider figure
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# X locations for bars
+x = np.arange(len(barstack_data.index))  # Adjust x positions
+
+# Initiate bar stack at 0
+bottom = np.zeros(len(barstack_data))
+
+# Iterate over each deforestation event
+for i, col in enumerate(barstack_data.columns):
+    
+    # Add bar data
+    ax.bar(x, barstack_data[col], label=col, color=bluecols[i], width=0.7, 
+           bottom=bottom)
+    
+    # Update bar stack bottom
+    bottom += barstack_data[col]
+
+# Add line plot
+ax.plot(x, total_defor[2:-1], color=bluecols[2], label="Total Deforestation", 
+        linewidth=3, linestyle = '--')
+
+# Add axes labels
+ax.set_xlabel("Year", fontsize=14)
+ax.set_ylabel("# of Reference Points", fontsize=14)
+
+# Adjust axes tickmarks
+ax.set_xticks(x)
+ax.set_xticklabels(barstack_data.index, fontsize=14, rotation=0)
+ax.tick_params(axis='y', labelsize=14)
+
+# Add gridlines
+ax.grid(True, linestyle='--', alpha=0.6)
+
+# Legend
+ax.legend(loc="upper center", fontsize=14, ncol=4, bbox_to_anchor=(0.5, -0.14))
+
+# Show plot
+plt.show()
 
 
 # %%

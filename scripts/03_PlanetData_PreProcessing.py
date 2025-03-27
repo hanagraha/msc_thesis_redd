@@ -4,7 +4,12 @@ Created on Mon Oct 21 10:51:03 2024
 
 @author: hanna
 
-Estimated runtime: start 5:42 end 6:16
+This file conducts the following preprocessing steps: mosaicing, reprojecting,
+resampling, compositing, and clipping. The processing is done for PlanetScope 
+and RapidEye imagery. The images themselves must be downloaded manually from
+the Planet online database and saved in the folder planet_raw. 
+
+Estimated runtime: ~35min
 """
 
 ############################################################################
