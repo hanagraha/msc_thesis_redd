@@ -3,6 +3,10 @@
 Created on Fri Dec 20 11:43:31 2024
 
 @author: hanna
+
+This file visualizes the results from Stehman Statistics in script 15. 
+
+Expected runtime: <1min
 """
 
 

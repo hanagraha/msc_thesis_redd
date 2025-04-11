@@ -4,7 +4,11 @@ Created on Fri Dec 13 17:15:56 2024
 
 @author: hanna
 
-start time: 3:30
+This file calculates NDVI and NDMI based on Landsat composites. 
+Landsat January composites are created in the GEE code editor and should be 
+saved in the folder: data/cc_composites/L8_Jan and data/cc_composites/L8_Annual
+
+Estimated runtime: ~15min
 """
 
 ############################################################################
@@ -62,7 +66,6 @@ else:
 
 
 
-
 ############################################################################
 
 
@@ -85,7 +88,7 @@ l8_jan.insert(0, l8[0])
 valpoints = gpd.read_file("data/validation/validation_datasets/validation_points_780.shp")
 
 
-
+# %%
 ############################################################################
 
 
@@ -93,7 +96,6 @@ valpoints = gpd.read_file("data/validation/validation_datasets/validation_points
 
 
 ############################################################################
-# %%
 # Define function to calculate ndvi
 def calc_ndvi(l8_path, years):
     
@@ -212,7 +214,7 @@ def extract_val(points_gdf, tiflist, tifnames):
         print(f"Added data for {name}")
         
     return gdf
-# %%
+
 # Calculate annual ndvi
 ndvi_files = calc_ndvi(l8, years)
 
@@ -244,7 +246,7 @@ ndmi_jan_files = calc_ndmi(l8_jan, years)
 jan_ndmi = extract_val(valpoints, ndmi_files, ndmi_labs)
 
 
-
+# %%
 ############################################################################
 
 
@@ -266,7 +268,7 @@ jan_ndvi.to_csv("data/validation/jan_ndvi.csv", index=False)
 jan_ndmi.to_csv("data/validation/jan_ndmi.csv", index=False)
 
 
-
+# %%
 ############################################################################
 
 

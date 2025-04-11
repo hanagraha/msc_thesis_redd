@@ -4,7 +4,9 @@ Created on Wed Mar  5 15:10:35 2025
 
 @author: hanna
 
-This file calculates the deforestation agreement per deforestation patch. 
+This file calculates the deforestation agreement per deforestation patch to 
+plot different relationships betwen deforestation patch size and spatial
+agreement
 
 Estimated runtime: ~2min
 """
@@ -169,40 +171,6 @@ agsize_boxdata = patch_boxdata(agsize_patch_atts, "Potential Deforestation")
 
 
 ############################################################################
-# Flatten agreement ratio rasters
-agratio_forclust_flat = [arr.flatten() for arr in agratio_forclust_arrs]
-
-# Flatten size rasters
-agsize_forclust_flat = [arr.flatten() for arr in agsize_forclust_arrs]
-
-# Remove nodata values
-datamasks = [(arr != 255) for arr in agratio_forclust_flat]
-
-# Create empty dictionary to hold data
-ratsize = {}
-
-# Iterate over each array and mask
-for ratio, size, mask, year in zip(agratio_forclust_flat, agsize_forclust_flat, 
-                                   datamasks, years):
-    
-    # Create dataframe
-    df = pd.DataFrame({
-        "Agreement Ratio": ratio[mask],
-        "Patch Size": size[mask]
-        })
-    
-    # Add dataframe to dictionary
-    ratsize[year] = df
-
-# Extract list of patch sizes
-allsizes = [np.unique(size) for size in agsize_forclust_arrs]
-
-# Test with 2013
-sizelist2013 = allsizes[0]
-size2013 = agsize_forclust_arrs[0]
-ratio2013 = agratio_forclust_arrs[0]
-year = 2013
-
 patchratios = {}
 
 # Iterate over each array

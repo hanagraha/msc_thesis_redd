@@ -4,7 +4,11 @@ Created on Thu Nov  7 11:34:35 2024
 
 @author: hanna
 
-This file calculates statistics
+This file calculates spatial agreement statistics: overall agreement, 
+agreement proportional to undisturbed area, and agreement proportional to 
+deforested/disturbed area. 
+
+Estimated runtime: ~1min
 """
 
 
@@ -200,20 +204,21 @@ def lineplot(ydata, title, ylab, yaxis, lim_low, lim_up):
     plt.plot(years, ydata, label = ylab, color = defaultblue)
     
     # Add title
-    plt.title(title)
+    plt.title(title, fontsize = 16)
     
     # Add axes labels
-    plt.xlabel("Year")
-    plt.ylabel(yaxis)
+    plt.xlabel("Year", fontsize = 16)
+    plt.ylabel(yaxis, fontsize = 16)
     
     # Add gridlines
-    plt.grid(True, linestyle = "--")
+    plt.grid(True, linestyle = "--", alpha = 0.6)
     
     # Add legend
-    plt.legend(loc='best')
+    plt.legend(loc='best', fontsize = 16)
     
     # Add x tickmarks
-    plt.xticks(years, rotation=45)
+    plt.xticks(years, rotation=0, fontsize = 16)
+    plt.yticks(fontsize = 16)
     
     # Adjust yaxis limits
     plt.ylim(lim_low, lim_up)
@@ -226,7 +231,7 @@ def lineplot(ydata, title, ylab, yaxis, lim_low, lim_up):
 def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     
     # Initialize figure
-    plt.figure(figsize = (6.9, 4.5))
+    plt.figure(figsize = (10, 6))
     
     # Plot redd+ data
     plt.plot(years, redd, label = "REDD+", color = reddcol)
@@ -239,20 +244,21 @@ def tripleplot(redd, nonredd, grnp, title, yaxis, lim_low, lim_up):
     plt.plot(years, grnp, label = "GRNP", color = grnpcol)
     
     # Add title
-    plt.title(title)
+    plt.title(title, fontsize = 16)
     
     # Add axes labels
-    plt.xlabel("Year")
-    plt.ylabel(yaxis)
+    plt.xlabel("Year", fontsize = 16)
+    plt.ylabel(yaxis, fontsize = 16)
     
     # Add gridlines
     plt.grid(True, linestyle = "--")
     
     # Add legend
-    plt.legend(loc='best')
+    plt.legend(loc='best', fontsize = 16)
     
     # Add x tickmarks
-    plt.xticks(years)
+    plt.xticks(years, fontsize = 16)
+    plt.yticks(fontsize = 16)
     
     # Adjust yaxis limits
     plt.ylim(lim_low, lim_up)

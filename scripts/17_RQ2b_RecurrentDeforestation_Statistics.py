@@ -3,6 +3,10 @@
 Created on Fri Dec 20 15:26:48 2024
 
 @author: hanna
+
+This file calculates statistics on recurrent deforestation events. 
+
+Expected runtime: <1min
 """
 
 ############################################################################
@@ -374,7 +378,7 @@ annual_plt(regr_time, "Average Regrowth Duration (Years)")
 ############################################################################
 
 
-# CALCULATE MULTIPLE DEFORESTATION COUNTS
+# CALCULATE MULTIPLE DEFORESTATION COUNTS (STACKED BAR)
 
 
 ############################################################################
@@ -433,7 +437,7 @@ stacked_bar(defor_vals[2:-1], total_defor[2:-1], "Total Deforestation")
 ############################################################################
 
 
-# CALCULATE MULTIPLE DEFORESTATION PROPORTIONS
+# CALCULATE MULTIPLE DEFORESTATION PROPORTIONS (MULTI BAR)
 
 
 ############################################################################
@@ -460,18 +464,20 @@ redd_defor_after, redd_defor_first, redd_defor_props = calc_props(redd_defor_val
 # Calculate deforestation proportions for nonredd areas
 nonredd_defor_after, nonredd_defor_first, nonredd_defor_props = calc_props(nonredd_defor_vals)
 
-# # Plot total additional defor and regrowth (all)
-# double_bar(defor_after[2:13], "Recurrent Deforestation", regr_vals[1:12],
-#            "Forest Regrowth (All Deforestation Events)", defor_first[2:13],
-#            "Total Deforestation (First Detection)")
-
 # Plot total additional defor and regrowth (first)
 double_bar(defor_after[2:13], "Recurrent Deforestation", regr_first[1:12], 
            "Forest Regrowth (After First Deforestation Event)", defor_first[2:13],
            "First Detected Deforestation")
 
-# %%
 
+# %%
+############################################################################
+
+
+# CALCULATE MULTIPLE DEFORESTATION PROPORTIONS (STACKED BAR MANUAL)
+
+
+############################################################################
 #  Adjust data
 barstack_data = defor_vals[2:-1]
 barstack_data.columns = ["First Event", "Second Event", "Third Event"]
@@ -522,7 +528,7 @@ plt.show()
 ############################################################################
 
 
-# SPECIAL PLOTTING: REDD+ AND NONREDD+ DEFORESTATION
+# SIDE BY SIDE PLOTS: REDD+ AND NONREDD+ RECURRENT DEFORESTATION
 
 
 ############################################################################
@@ -597,7 +603,14 @@ plt.tight_layout()
 plt.show()
 
 
+# %%
+############################################################################
 
+
+# SIDE BY SIDE PLOTS: REDD+ AND NONREDD+ RECURRENT DEFORESTATION PROPORTIONS
+
+
+############################################################################
 # Initialize figure
 fig, axes = plt.subplots(1, 2, figsize = (18, 6))
 
@@ -640,63 +653,6 @@ axes[1].set_ylabel("Recurrent Deforestation Events / First Deforestation Event")
 
 # Add legend
 axes[1].legend()
-
-# Show plot
-plt.tight_layout()
-plt.show()
-
-
-
-# Initialize figure
-plt.figure(figsize = (10, 6))
-
-# Plot 1: redd+ deforestation proportions
-plt.plot(years, redd_defor_props[2:13], color = "crimson", label = 
-         "Proportion of recurrent to first deforestation in REDD+ villages")
-
-# Add tickmarks for each year
-plt.gca().set_xticks(years)
-
-# Define y axis limits
-plt.ylim(0, 0.7)
-
-# Add gridlines
-plt.grid(True, linestyle = "--", alpha = 0.6)
-
-# Add axes labels
-plt.xlabel("Year", fontsize = 12)
-plt.ylabel("Recurrent Deforestation / First Deforestation (Ratio)", 
-           fontsize = 12)
-
-# Add legend
-plt.legend(fontsize = 12)
-
-# Show plot
-plt.tight_layout()
-plt.show()
-
-
-
-# Initialize figure
-plt.figure(figsize = (10, 6))
-
-# Plot 1: redd+ deforestation proportions
-plt.plot(years, nonredd_defor_props[2:13], color = "crimson", label = 
-         "Proportion of recurrent to first deforestation in non-REDD+ villages")
-
-# Add tickmarks for each year
-plt.gca().set_xticks(years)
-
-# Add gridlines
-plt.grid(True, linestyle = "--", alpha = 0.6)
-
-# Add axes labels
-plt.xlabel("Year", fontsize = 12)
-plt.ylabel("Recurrent Deforestation / First Deforestation (Ratio)", 
-           fontsize = 12)
-
-# Add legend
-plt.legend(fontsize = 12)
 
 # Show plot
 plt.tight_layout()

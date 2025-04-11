@@ -3,6 +3,11 @@
 Created on Thu Jan 30 11:17:56 2025
 
 @author: hanna
+
+This file plots statistics on pixel counting versus area estimation
+deforestation predictions. 
+
+Estimated runtime: <1min
 """
 
 ############################################################################
@@ -398,7 +403,7 @@ protc_eea = calc_eea(protc_stats)
 ############################################################################
 
 
-# PLOT REDD DEFORESTATION (HA)
+# PLOT REDD/NONREDD DEFORESTATION (HA)
 
 
 ############################################################################
@@ -544,7 +549,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT REDD DEFORESTATION (%)
+# PLOT REDD/NONREDD DEFORESTATION (%)
 
 
 ############################################################################
@@ -873,7 +878,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT MULTIPLE VALIDATION AND PREDICTED DEFORESTATION
+# PLOT PIXEL COUNTING AND AREA ESTIMATION DEFORESTATION (REDD/NONREDD)
 
 
 ############################################################################
@@ -900,10 +905,6 @@ axes[0].plot(years, gfc_zonal['REDD+'], linestyle='-', color = bluecols[0],
 # Add tmf deforestation data
 axes[0].plot(years, tmf_zonal['REDD+'], linestyle='-', color = bluecols[1], 
          label='TMF REDD+ Deforestation', linewidth = 2)
-
-# Add se deforestation data
-axes[0].plot(years, se_zonal['REDD+'], linestyle='-', color = "#A0C878", 
-         label='SE REDD+ Deforestation', linewidth = 2)
 
 # Add x-axis tick marks
 axes[0].set_xticks(years)
@@ -935,10 +936,6 @@ axes[1].plot(years, gfc_zonal['Non-REDD+'], linestyle='-', color = bluecols[0],
 axes[1].plot(years, tmf_zonal['Non-REDD+'], linestyle='-', color = bluecols[1], 
          label='TMF Non-REDD+ Deforestation', linewidth = 2)
 
-# Add se deforestation data
-axes[1].plot(years, se_zonal['Non-REDD+'], linestyle='-', color = "#A0C878", 
-         label='SE Non-REDD+ Deforestation', linewidth = 2)
-
 # Add x-axis tick marks
 axes[1].set_xticks(years)
 
@@ -966,7 +963,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT MULTIPLE VALIDATION AND PREDICTED DEFORESTATION
+# PLOT PIXEL COUNTING AND AREA ESTIMATION DEFORESTATION (AOI)
 
 
 ############################################################################
@@ -1023,7 +1020,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT MULTIPLE DEFORESTATION EVENTS
+# PLOT MULTIPLE DEFORESTATION EVENTS W/ CONFIDENCE (AOI)
 
 
 ############################################################################
@@ -1100,7 +1097,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT GFC AND EAD FOR CANVA
+# PLOT PIXEL COUNTING AND AREA ESTIMATION DEFORESTATION (ONLY GFC)
 
 
 ############################################################################
@@ -1214,7 +1211,7 @@ plt.show()
 ############################################################################
 
 
-# PLOT GFC AND EAD FOR CANVA (SINGLE)
+# PLOT PIXEL COUNTING AND AREA ESTIMATION DEFORESTATION (ONLY GFC)
 
 
 ############################################################################

@@ -3,6 +3,13 @@
 Created on Fri Oct  4 17:50:37 2024
 
 @author: hanna
+
+This file stratifies the area of interest into 23 strata, sampling 60 points
+from the first 22 strata, and 120 points from the last strata. These sample 
+points are then labeled to create a reference dataset for the Gola REDD+
+project region. 
+
+Estimated runtime: ~19min
 """
 
 ############################################################################

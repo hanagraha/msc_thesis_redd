@@ -2,6 +2,12 @@
 """
 Created on Thu Nov 14 10:52:36 2024
 
+This file adapts the validation datasets based on three definitions of 
+agreement. The file requires labeled reference data in the folder:
+    data/validation/validation_datasets
+
+Expected runtime: <1min
+
 @author: hanna
 """
 
@@ -75,8 +81,7 @@ years = range(2013, 2024)
 datanames = ["gfc", "tmf", "se"]
 
 # Define new folder names for validation protocols
-protocol_folders = ["val_prota", "val_protb", "val_protc", "val_prota_buff", 
-                    "val_protb_buff", "val_protc_buff"]
+protocol_folders = ["val_prota", "val_protb", "val_protc"]
 
 # Create new folders (if necessary)
 newfolder(protocol_folders, val_dir)
@@ -110,11 +115,8 @@ def csv_read(datapath, delimiter):
     
     return data
 
-# Read no buffer validation data
+# Read validation data
 val_data = csv_read("data/validation/validation_datasets/validation_points_780.csv", ",")
-
-# Read buffered validation data
-val_data_buff = csv_read("data/validation/validation_datasets_backup/validation_points_2013_2023_780_buffer.csv", ",")
 
 # Read validation data subset
 val_data_irr = csv_read("data/validation/validation_datasets/validation_points_115_subsample.csv", ";")
@@ -181,17 +183,18 @@ plt.bar(nonredd_strata[0] + width/2, nonredd_strata[1], width, label =
         "Non-REDD+ Villages", color = bluecols[1])
 
 # Add axes tiitles
-plt.xlabel("Strata", fontsize = 12)
-plt.ylabel("Point Count", fontsize = 12)
+plt.xlabel("Strata", fontsize = 16)
+plt.ylabel("Point Count", fontsize = 16)
 
 # Add tickmarks
-plt.xticks(redd_strata[0])
+plt.xticks(redd_strata[0], fontsize = 16)
+plt.yticks(fontsize = 16)
 
 # Add gridlines
-plt.grid(True, linestyle = "--")
+plt.grid(True, linestyle = "--", alpha = 0.6)
 
 # Add legend
-plt.legend(fontsize = 12)
+plt.legend(fontsize = 16)
 
 # Display the plot
 plt.tight_layout()
@@ -303,18 +306,6 @@ prota_se = prot_a(val_data, "se", keepcols)
 # Create list of all protocol a data
 prota_data = [prota_gfc, prota_tmf, prota_se]
 
-# Run protocol a for gfc (buffered)
-prota_gfc_buff = prot_a(val_data_buff, "gfc", keepcols)
-
-# Run protocol a for tmf (buffered)
-prota_tmf_buff = prot_a(val_data_buff, "tmf", keepcols)
-
-# Run protocol a for se (buffered)
-prota_se_buff = prot_a(val_data_buff, "se", keepcols)
-
-# Create list of all protocol a data (buffered)
-prota_data_buff = [prota_gfc_buff, prota_tmf_buff, prota_se_buff]
-
 
 # %%
 ############################################################################
@@ -365,18 +356,6 @@ protb_se = prot_b(val_data, 'se', keepcols)
 # Create list of all protocol d data
 protb_data = [protb_gfc, protb_tmf, protb_se]
 
-# Run protocol b for gfc (buffered)
-protb_gfc_buff = prot_b(val_data_buff, 'gfc', keepcols)
-
-# Run protocol b for tmf (buffered)
-protb_tmf_buff = prot_b(val_data_buff, 'tmf', keepcols)
-
-# Run protocol c for se (buffered)
-protb_se_buff = prot_b(val_data_buff, 'se', keepcols)
-
-# Create list of all protocol d data (buffered)
-protb_data_buff = [protb_gfc_buff, protb_tmf_buff, protb_se_buff]
-
 
 # %%
 ############################################################################
@@ -425,18 +404,6 @@ protc_se = prot_c(val_data, 'se', keepcols)
 # Create list of all protocol d data
 protc_data = [protc_gfc, protc_tmf, protc_se]
 
-# Run protocol b for gfc (buffered)
-protc_gfc_buff = prot_c(val_data_buff, 'gfc', keepcols)
-
-# Run protocol b for tmf (buffered)
-protc_tmf_buff = prot_c(val_data_buff, 'tmf', keepcols)
-
-# Run protocol c for se (buffered)
-protc_se_buff = prot_c(val_data_buff, 'se', keepcols)
-
-# Create list of all protocol d data (buffered)
-protc_data_buff = [protc_gfc_buff, protc_tmf_buff, protc_se_buff]
-
 
 # %%
 ############################################################################
@@ -478,15 +445,6 @@ protb_redd, protb_nonredd = reddsplit(protb_data, datanames)
 
 # Split protocol c datasets
 protc_redd, protc_nonredd = reddsplit(protc_data, datanames)
-
-# Split protocol a datasets (buffered)
-prota_redd_buff, prota_nonredd_buff = reddsplit(prota_data_buff, datanames)
-
-# Split protocol b datasets (buffered)
-protb_redd_buff, protb_nonredd_buff = reddsplit(protb_data_buff, datanames)
-
-# Split protocol c datasets (buffered)
-protc_redd_buff, protc_nonredd_buff = reddsplit(protc_data_buff, datanames)
 
 
 # %%
@@ -577,33 +535,6 @@ write_dic(protc_redd, "protc", "redd")
 
 # write nonredd protc data
 write_dic(protc_nonredd, "protc", "nonredd")
-
-# Write prota data to folder (buffered)
-write_list(prota_data_buff, datanames, "prota", "buff")
-
-# Write protb data to folder (buffered)
-write_list(protb_data_buff, datanames, "protb", "buff")
-
-# Write protc data to folder (buffered)
-write_list(protc_data_buff, datanames, "protc", "buff")
-
-# write redd prota data (buffered)
-write_dic(prota_redd_buff, "prota", "redd", "buff")
-
-# write nonredd prota data (buffered)
-write_dic(prota_nonredd_buff, "prota", "nonredd", "buff")
-
-# write redd protb data (buffered)
-write_dic(protb_redd_buff, "protb", "redd", "buff")
-
-# write nonredd protb data (buffered)
-write_dic(protb_nonredd_buff, "protb", "nonredd", "buff")
-
-# write redd protc data (buffered)
-write_dic(protc_redd_buff, "protc", "redd", "buff")
-
-# write nonredd protc data (buffered)
-write_dic(protc_nonredd_buff, "protc", "nonredd", "buff")
 
 
 

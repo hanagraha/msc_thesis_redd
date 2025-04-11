@@ -3,6 +3,11 @@
 Created on Tue Oct 15 10:57:46 2024
 
 @author: hanna
+
+This file clusters deforestation into patches, assigning spatial agreement
+and patch size to the pixel value. 
+
+Estimated runtime: ~2 hours
 """
 
 ############################################################################

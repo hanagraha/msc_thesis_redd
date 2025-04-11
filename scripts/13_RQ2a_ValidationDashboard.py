@@ -3,6 +3,12 @@
 Created on Tue Dec 10 15:49:58 2024
 
 @author: hanna
+
+This code creates an interactive dashboard hosted through Dash available at:
+    http://127.0.0.1:8050/
+
+Estimated runtime: <1min
+    
 """
 
 ############################################################################
@@ -890,33 +896,16 @@ def subsamp(data, samp_size):
         samples = pd.concat([samples, strat_sample])
     
     return samples.sort_index()
-
-# Define function to save gdf as csv
-def write_csv(gdf, out_dir, outfilename):
-    
-    # Convert csv geometry to WKT
-    gdf['geometry'] = gpd.GeoSeries.from_wkt(gdf['geometry'])
-    
-    # Convert dataframe to geodataframe
-    gdf = gpd.GeoDataFrame(gdf, geometry = 'geometry', crs="EPSG:32629")
-    
-    # Define output path
-    outfilepath = os.path.join(out_dir, f"{outfilename}.csv")
-
-    # Save the GeoDataFrame as a CSV file
-    gdf.to_csv(outfilepath, index=True)
-    
-    # Print statement
-    print(f"File saved to {outfilepath}")
  
 # Create subsample for inter-rater reliability
 irr_samp = subsamp(valpoints, 5)
 
+# Define output filepath
+outfilepath = os.path.join(val_dir, 
+                           "validation_points_115_subsample_nolabel.csv")
+
 # Save subsample to drive
-write_csv(irr_samp, val_dir, "validation_points_115_subsample_nolabel")
-
-
-
+irr_samp.to_csv(outfilepath)
 
 
 
