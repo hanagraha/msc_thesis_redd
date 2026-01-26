@@ -35,7 +35,8 @@ import os
 print("Current Working Directory:", os.getcwd())
 
 # Change to a new directory (ADAPT THIS!!!)
-os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+# os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+os.chdir(r"\\mefe38.gfz.de\mefe_glm1\person\graham\projectdata\redd-sierraleone")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
@@ -60,7 +61,7 @@ gfc_urls = ["https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-
             "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_lossyear_10N_020W.tif"]
 
 # Directory to save the files
-gfc_dir = "data/hansen_raw"
+gfc_dir = "hansen_raw"
 
 # List to store newly created filenames
 gfc_files = []
@@ -104,7 +105,7 @@ tmf_urls = ["https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=til
             "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=TransitionMap_MainClasses&lat=N10&lon=W20"]
 
 # Directory to save the files
-tmf_dir = "data/jrc_raw"
+tmf_dir = "jrc_raw"
 
 # List to store newly created filenames
 tmf_files = []

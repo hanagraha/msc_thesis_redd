@@ -32,7 +32,8 @@ import os
 print("Current Working Directory:", os.getcwd())
 
 # Change to a new directory (ADAPT THIS!!!)
-os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+# os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+os.chdir(r"\\mefe38.gfz.de\mefe_glm1\person\graham\projectdata\redd-sierraleone")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())

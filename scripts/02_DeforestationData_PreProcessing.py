@@ -43,25 +43,31 @@ import shutil
 print("Current Working Directory:", os.getcwd())
 
 # Change to a new directory (ADAPT THIS!!!)
-os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+# os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
+os.chdir(r"\\mefe38.gfz.de\mefe_glm1\person\graham\projectdata\redd-sierraleone")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
 
 # Define gfc input folder
-gfc_folder = "data/hansen_raw"
+# gfc_folder = "data/hansen_raw"
+gfc_folder = 'hansen_raw'
 
 # Define tmf input folder
-tmf_folder = "data/jrc_raw"
+# tmf_folder = "data/jrc_raw"
+tmf_folder = "jrc_raw"
 
 # Define gfc output folder
-gfc_processed_folder = "data/hansen_preprocessed"
+# gfc_processed_folder = "data/hansen_preprocessed"
+gfc_processed_folder = "hansen_preprocessed"
 
 # Define tmf output folder
-tmf_processed_folder = "data/jrc_preprocessed"
+# tmf_processed_folder = "data/jrc_preprocessed"
+tmf_processed_folder = "jrc_preprocessed"
 
 # Define temporary folder
-temp_folder = "data/temp"
+# temp_folder = "data/temp"
+temp_folder = "temp"
 
 # If temporary folder doesn't exist
 if not os.path.exists(temp_folder):
@@ -99,10 +105,12 @@ tmf_files = [f"{tmf_folder}/{file}" for file in os.listdir(tmf_folder) if
              file.endswith('.tif')]
 
 # Read grnp shapefile
-grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
+# grnp = gpd.read_file("data/gola gazetted polygon/Gola_Gazetted_Polygon.shp")
+grnp = gpd.read_file("gola gazetted polygon/Gola_Gazetted_Polygon.shp")
 
 # Read village shapefile
-villages = gpd.read_file("data/village polygons/VillagePolygons.geojson")
+# villages = gpd.read_file("data/village polygons/VillagePolygons.geojson")
+villages = gpd.read_file("village polygons/VillagePolygons.geojson")
 
 # Combine grnp and villages to create aoi
 aoi = gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True)).dissolve()
@@ -307,7 +315,7 @@ undisturbed forests will have value 0 (instead of 2000)
 Expected runtime: <1min
 """
 # Define gfc lossyear raster
-gfc_lossyear = gfc_clipped_rasts[0]
+gfc_lossyear = gfc_clipped_rasts[0].astype(np.int16)
 
 # Add 2000 to all non-NA years
 gfc_lossyear_new = np.where(gfc_lossyear != nodata_val, gfc_lossyear + 2000, 
@@ -558,7 +566,8 @@ agreement_profile = gfc_profile.copy()
 agreement_profile.update(dtype=rasterio.uint8, nodata=0)
 
 # Define output filepath
-agreement_path = "data/temp/forestmask_spatial_agreement.tif"
+# agreement_path = "data/temp/forestmask_spatial_agreement.tif"
+agreement_path = "temp/forestmask_spatial_agreement.tif"
 
 # Write baseline forest agreement to file
 with rasterio.open(agreement_path, 'w', **agreement_profile) as dst:
@@ -592,7 +601,8 @@ have data
 gfc_lossyear = np.squeeze(gfc_lossyear_new, axis=0)
 
 # Define gfc baseline forest filepath
-gfc_baseforest_path = "data/temp/gfc_baselineforest.tif"
+# gfc_baseforest_path = "data/temp/gfc_baselineforest.tif"
+gfc_baseforest_path = "temp/gfc_baselineforest.tif"
 
 # Create mask for pixels that were NOT deforested between 2001-2012
 gfc_mask2012 = (gfc_lossyear < 2001) | (gfc_lossyear > 2012)
