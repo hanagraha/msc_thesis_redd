@@ -36,7 +36,7 @@ print("Current Working Directory:", os.getcwd())
 
 # Change to a new directory (ADAPT THIS!!!)
 # os.chdir("C:\\Users\\hanna\\Documents\\WUR MSc\\MSc Thesis\\redd-thesis")
-os.chdir(r"\\mefe38.gfz.de\mefe_glm1\person\graham\projectdata\redd-sierraleone")
+os.chdir(r"Z:\person\graham\projectdata\redd-sierraleone")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
@@ -90,6 +90,7 @@ for url in gfc_urls:
 # Define tmf data urls
 tmf_urls = ["https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DegradationYear&lat=N10&lon=W20",
             "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W20",
+            "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2012&lat=N10&lon=W20",
             "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2013&lat=N10&lon=W20",
             "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2014&lat=N10&lon=W20", 
             "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2015&lat=N10&lon=W20", 
