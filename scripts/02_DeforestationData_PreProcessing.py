@@ -216,8 +216,8 @@ gfc_reproj_files = reproject_raster(gfc_files, epsg_string, temp_folder)
 
 # Reproject tmf rasters
 tmf_reproj_files = reproject_raster(tmf_files, epsg_string, temp_folder)
-    
-    
+
+tmf_files = ['jrc_raw/tmf_AnnualChange_2012.tif']    
     
 ############################################################################
 
