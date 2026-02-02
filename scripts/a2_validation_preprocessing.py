@@ -258,45 +258,61 @@ def optA_buff(valdata, col, filename=False):
     return val_data_exp
 
 # Run time insensitive on buffered predictions
-gfc_buff_optA = optA_buff(valdata_buffered, 'gfc_lossyear_buff_clean', filename='gfc_timeinsensitive_buffered')   
-tmf_distbuff_optA = optA_buff(valdata_buffered, 'tmfac_dist_buff_clean', filename='tmf_timeinsensitive_dist_buffered')
-tmf_deforbuff_optA = optA_buff(valdata_buffered, 'tmfac_defor_buff_clean', filename='tmf_timeinsensitive_defor_buffered')
+gfc_buff_optA = optA_buff(valdata_buffered, 'gfc_lossyear_buff_clean', 
+                          filename='gfc_timeinsensitive_buffered')   
+tmf_distbuff_optA = optA_buff(valdata_buffered, 'tmfac_dist_buff_clean', 
+                              filename='tmf_timeinsensitive_dist_buffered')
+tmf_deforbuff_optA = optA_buff(valdata_buffered, 'tmfac_defor_buff_clean', 
+                               filename='tmf_timeinsensitive_defor_buffered')
 
 
 # ---------------- OPTION B: ANY YEAR ----------------
 # Define function for any year match + one year buffer
-def optB(valdata, col):
+def optB(valdata, map_col, ref_col, filename=False):
     
     # Copy input validation data
     val_data = valdata.copy()
-    
-    # Create mask where any defor year matches dataset
-    mask = val_data[col].between(val_data['defor1'] - 1, val_data['defor1'] + 1)
 
-    # Assign dataset year where mask is true, otherwise first defor year
-    val_data['prot_b'] = np.where(mask, val_data[col], val_data['defor1'])
-    
-    return val_data
+    # Define function to check for matches within tolerance
+    def matches(map_value, ref_value):
 
-def buffer_matches(valdata, buffer_col, ref_col, tol=1):
+        # Convert list to float array
+        map_array = np.array(map_value, dtype=int)
 
-    df = valdata.copy()
-
-    def get_optB(buffer_values, ref_value):
-        buffer_array = np.array(buffer_values, dtype=float)
-        # Check if any value is within ±tol of ref_value
-        if np.any(np.abs(buffer_array - ref_value) <= tol):
+        # Check if year exists within tolerance
+        if np.any(np.abs(map_array - ref_value) <= 1):
             return ref_value
+        
+        # Return first value if no match
         else:
-            return buffer_array[0]  # first value if no match
+            return map_array[0] 
 
-    df["optB"] = df.apply(
-        lambda row: get_optB(row[buffer_col], row[ref_col]),
+    # Apply matching function to each row
+    val_data["map"] = val_data.apply(
+        lambda row: matches(row[map_col], row[ref_col]),
         axis=1
     )
 
-    return df
+    # Create reference column
+    val_data["ref"] = val_data[ref_col]
 
+    # Keep only relevant columns
+    val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
+    
+    # Optional export
+    if filename:
+        val_data_exp.to_csv(f'native_validation/yearmatch/{filename}.csv', index=False)
+        print(f"Exported native_validation/yearmatch/{filename}.csv")
+
+    return val_data_exp
+
+# Run year matching for gfc and tmf
+gfc_optB = optB(valdata_buffered, 'gfc_lossyear_buff_clean', 'defor1',
+                filename='gfc_yearmatch_buffered')
+tmf_defor_optB = optB(valdata_buffered, 'tmfac_defor_buff_clean', 'defor1', 
+                filename='tmf_yearmatch_defor_buffered')
+tmf_dist_optB = optB(valdata_buffered, 'tmfac_dist_buff_clean', 'defor1', 
+                filename='tmf_yearmatch_dist_buffered')
 
 
 # ---------------- OPTION C: ONE YEAR BUFFER ----------------
