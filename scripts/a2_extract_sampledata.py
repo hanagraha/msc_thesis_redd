@@ -84,6 +84,26 @@ def raster_extract(rasterpath, samples):
 for name, path in rasters.items():
     valdata_expanded[name] = raster_extract(path, valdata_expanded)
 
+# Define function to combine
+def combine_cols(df, collist): 
+
+    # Create copy
+    df_copy = df.copy()
+
+    # Combine valid years from each column into list
+    combined = df_copy.apply(lambda row: [int(v) for v in sorted(np.unique(
+        [row[c] for c in collist]) ) if v == 0 or 2013 <= v <= 2023], axis=1)
+
+    return combined
+
+# Define deforestation columns
+tmf_deforcols = ['tmfac_defor1', 'tmfac_defor2', 'tmf_deforyear']
+tmf_distcols = tmf_deforcols + ['tmfac_degra1', 'tmfac_degra2', 'tmf_degrayear']
+
+# Add valid and unique years to dataframe
+valdata_expanded["tmfac_defor"] = combine_cols(valdata_expanded, tmf_deforcols)
+valdata_expanded["tmfac_dist"] = combine_cols(valdata_expanded, tmf_distcols)
+
 # Export expanded validation data
 valdata_expanded.to_csv("native_validation/validation_mapdata.csv", index=False)
 
