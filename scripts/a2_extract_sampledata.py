@@ -71,7 +71,7 @@ def raster_extract(rasterpath, samples):
     with rasterio.open(rasterpath) as src:
 
         # Collect values at sample points
-        values = np.array([v[0] for v in src.sample(coords, masked=False)])
+        values = np.array([v[0] for v in src.sample(coords, masked=False)], dtype=int)
         nodata = src.nodata
 
     # Only replace nodata if you truly want to
@@ -85,14 +85,18 @@ for name, path in rasters.items():
     valdata_expanded[name] = raster_extract(path, valdata_expanded)
 
 # Define function to combine
-def combine_cols(df, collist): 
+def combine_cols(df, collist):
 
-    # Create copy
+    # Create copy of samples
     df_copy = df.copy()
 
-    # Combine valid years from each column into list
-    combined = df_copy.apply(lambda row: [int(v) for v in sorted(np.unique(
-        [row[c] for c in collist]) ) if v == 0 or 2013 <= v <= 2023], axis=1)
+    # Create combined list of unique non-0 years
+    combined = df_copy.apply(
+        lambda row: sorted(
+            {int(v) for v in row[collist] if 2012 <= v <= 2023}
+        ) or [0],
+        axis=1
+    )
 
     return combined
 
@@ -101,8 +105,11 @@ tmf_deforcols = ['tmfac_defor1', 'tmfac_defor2', 'tmf_deforyear']
 tmf_distcols = tmf_deforcols + ['tmfac_degra1', 'tmfac_degra2', 'tmf_degrayear']
 
 # Add valid and unique years to dataframe
-valdata_expanded["tmfac_defor"] = combine_cols(valdata_expanded, tmf_deforcols)
-valdata_expanded["tmfac_dist"] = combine_cols(valdata_expanded, tmf_distcols)
+valdata_expanded["tmf_defor"] = combine_cols(valdata_expanded, tmf_deforcols)
+valdata_expanded["tmf_dist"] = combine_cols(valdata_expanded, tmf_distcols)
+
+# Combine reference years
+valdata_expanded["ref_years"] = combine_cols(valdata_expanded, ['defor1', 'defor2', 'defor3'])
 
 # Export expanded validation data
 valdata_expanded.to_csv("native_validation/validation_mapdata.csv", index=False)
@@ -154,8 +161,11 @@ tmf_dist = tmf_defor + valdata_buffered["tmfac_degra1_buff"] + valdata_buffered[
     + valdata_buffered["tmf_degrayear_buff"]
 
 # Add valid and unique years to dataframe
-valdata_buffered["tmfac_defor_buff"] = tmf_defor.apply(valid_years)
-valdata_buffered["tmfac_dist_buff"] = tmf_dist.apply(valid_years)
+valdata_buffered["tmf_defor_buff"] = tmf_defor.apply(valid_years)
+valdata_buffered["tmf_dist_buff"] = tmf_dist.apply(valid_years)
+
+# Combine reference years
+valdata_buffered["ref_years"] = combine_cols(valdata_buffered, ['defor1', 'defor2', 'defor3'])
 
 # Export buffered validation data
 valdata_buffered.to_csv("native_validation/validation_mapdata_buffered.csv", index=False)
