@@ -1,9 +1,8 @@
 
 """
 Option A: Time insensitive
-Option B: Any year match
-Option C: 1 year buffer to deforestation year
-Option D: Exact year match
+Option B: One year buffer to any disturbance year
+Option C: One year buffer to first disturbance year
 """
 
 # -------------------------------------------------------------------------
@@ -50,7 +49,7 @@ valdata = csv_read("native_validation/validation_mapdata.csv")
 valdata_buff = csv_read("native_validation/validation_mapdata_buffered.csv")
 
 # Convert string lists to lists
-for col in valdata.columns[-2:]:
+for col in valdata.columns[-3:]:
     valdata[col] = valdata[col].apply(
         lambda x: ast.literal_eval(x) if isinstance(x, str) else []
     )
@@ -62,7 +61,7 @@ for col in valdata_buff.columns[4:]:
 
 
 # -------------------------------------------------------------------------
-# PREPROCESS DATA: TIME INSENSITIVE, EXACT
+# PREPROCESS DATA: TIME INSENSITIVE (EXACT PIXEL)
 # -------------------------------------------------------------------------
 # Define function to manipulate with protocol A
 def optA(valdata, col_list, filename=False):
@@ -116,7 +115,7 @@ tmf_optA_defor = optA(valdata, ["tmf_deforyear", "tmfac_defor1", "tmfac_defor2"]
 
 
 # -------------------------------------------------------------------------
-# PREPROCESS DATA: TIME INSENSITIVE, BUFFERED
+# PREPROCESS DATA: TIME INSENSITIVE (BUFFERED PIXEL)
 # -------------------------------------------------------------------------
 # Define option a function for buffered preditions
 def optA_buff(valdata, col, filename=False):
@@ -167,7 +166,7 @@ tmf_deforbuff_optA = optA_buff(valdata_buff, 'tmfac_defor_buff',
 
 
 # -------------------------------------------------------------------------
-# PREPROCESS DATA: YEAR MATCHING + YEAR BUFFER
+# PREPROCESS DATA: ANY DISTURBANCE YEAR
 # -------------------------------------------------------------------------
 # Define function for any year match + one year buffer
 def optB(valdata, map_col, ref_col, filename=False):
@@ -203,8 +202,8 @@ def optB(valdata, map_col, ref_col, filename=False):
     
     # Optional export
     if filename:
-        val_data_exp.to_csv(f'native_validation/yearmatch/{filename}.csv', index=False)
-        print(f"Exported native_validation/yearmatch/{filename}.csv")
+        val_data_exp.to_csv(f'native_validation/anyyear/{filename}.csv', index=False)
+        print(f"Exported native_validation/anyyear/{filename}.csv")
 
     return val_data_exp
 
@@ -222,30 +221,83 @@ tmf_distbuff_optB = optB(valdata_buff, 'tmfac_dist_buff', 'defor1',
 
 
 # -------------------------------------------------------------------------
-# PREPROCESS DATA: EXACT
+# PREPROCESS DATA: TIME SENSITIVE
 # -------------------------------------------------------------------------
-# Define function for exact year
-def optC(valdata, col):
+# Define function for any year match + one year buffer
+def time_sensitive(valdata, map_col, ref_col, folder = False):
     
     # Copy input validation data
     val_data = valdata.copy()
-    
-    # Create mask where any defor year matches dataset
-    mask = val_data[col].between(val_data['defor1'] - 1, val_data['defor1'] + 1)
 
-    # Assign dataset year where mask is true, otherwise first defor year
-    val_data['prot_b'] = np.where(mask, val_data[col], val_data['defor1'])
+    # Define function to check for matches within tolerance
+    def matches(map_value, ref_value):
 
-    # Create reference column
-    val_data["ref"] = val_data[ref_col]
+        # Convert map values to array
+        map_array = np.array(map_value, dtype=int) if isinstance(map_value,
+            (list, np.ndarray)) else np.array([map_value], dtype=int)
+
+        # Convert ref values to array
+        ref_array = np.array(ref_value, dtype=int) if isinstance(ref_value, 
+            (list, np.ndarray)) else np.array([ref_value], dtype=int)
+
+        # Compute pairwise differences
+        diff = np.abs(map_array[:, None] - ref_array[None, :])
+
+        # Find first matching reference year (with one year buffer)
+        match_indices = np.where(diff <= 1)
+
+        # If there is a match, return match year from ref array
+        if match_indices[1].size > 0:
+            return int(ref_array[match_indices[1][0]])
+        
+        # If no match, return first map year
+        else:
+            return int(map_array[0])
+        
+    # Apply matching function to each row
+    val_data["map"] = val_data.apply(
+        lambda row: matches(row[map_col], row[ref_col]),
+        axis=1
+    )
+
+    # Create reference column (take first element if list)
+    val_data["ref"] = val_data[ref_col].apply(
+        lambda x: x[0] if isinstance(x, (list, np.ndarray)) else x
+    )
 
     # Keep only relevant columns
     val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
     
-    return val_data
+    # Optional export
+    if folder:
+        val_data_exp.to_csv(f'native_validation/{folder}/{map_col}_{folder}.csv', index=False)
+        print(f"Exported native_validation/{folder}/{map_col}_{folder}.csv")
 
-# Run protocol b for gfc 
-protb_gfc = optB(valdata, 'gfc')
+    return val_data_exp
 
-# Run protocol b for tmf 
-protb_tmf = optB(valdata, 'tmf')
+# Preprocess gfc data (pixel)
+gfc_lossyear_any = time_sensitive(valdata, "gfc_lossyear", "ref_years", folder="anyyear")
+gfc_lossyear_first = time_sensitive(valdata, "gfc_lossyear", "defor1", folder='firstyear')
+
+# Preprocess tmf defor data (pixel)
+tmf_defor_any = time_sensitive(valdata, 'tmf_defor', 'ref_years', folder="anyyear")
+tmf_defor_first = time_sensitive(valdata, 'tmf_defor', 'defor1', folder='firstyear')
+
+# Preprocess tmf dist data (pixel)
+tmf_dist_any = time_sensitive(valdata, 'tmf_dist', 'ref_years', folder="anyyear")
+tmf_dist_first = time_sensitive(valdata, 'tmf_dist', 'defor1', folder="firstyear")
+
+# Preprocess gfc data (buffered)
+gfc_lossyear_any_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'ref_years', folder='anyyear')
+gfc_lossyear_first_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'defor1', folder='firstyear')
+
+# Preprocess tmf defor data (pixel)
+tmf_defor_any_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'ref_years', folder="anyyear")
+tmf_defor_first_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'defor1', folder='firstyear')
+
+# Preprocess tmf dist data (pixel)
+tmf_dist_any_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'ref_years', folder="anyyear")
+tmf_dist_first_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'defor1', folder="firstyear")
+
+
+
