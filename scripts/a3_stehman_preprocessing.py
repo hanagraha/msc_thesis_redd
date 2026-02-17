@@ -102,7 +102,7 @@ def optA(valdata, col_list, filename=False):
     return val_data_exp
     
 # Run protocol a for gfc 
-gfc_optA = optA(valdata, ["gfc_lossyear"], filename="gfc_timeinsensitive")
+gfc_optA = optA(valdata, ["gfc_lossyear"], filename="gfc_lossyear_timeinsensitive")
 
 # Run protocol a for tmf disturbances
 tmf_optA_dist = optA(valdata, ["tmf_deforyear", "tmf_degrayear", 
@@ -154,15 +154,15 @@ def optA_buff(valdata, col, filename=False):
 
 # Run protocol a for gfc disturbances
 gfc_buff_optA = optA_buff(valdata_buff, 'gfc_lossyear_buff', 
-                          filename='gfc_timeinsensitive_buffered')   
+                          filename='gfc_lossyear_buff_timeinsensitive')   
 
 # Run protocol a for tmf disturbances
-tmf_distbuff_optA = optA_buff(valdata_buff, 'tmfac_dist_buff', 
-                              filename='tmf_timeinsensitive_dist_buffered')
+tmf_distbuff_optA = optA_buff(valdata_buff, 'tmf_dist_buff', 
+                              filename='tmf_dist_buff_timeinsensitive')
 
 # Run protocol a for tmf deforestation
-tmf_deforbuff_optA = optA_buff(valdata_buff, 'tmfac_defor_buff', 
-                               filename='tmf_timeinsensitive_defor_buffered')
+tmf_deforbuff_optA = optA_buff(valdata_buff, 'tmf_defor_buff', 
+                               filename='tmf_defor_buff_timeinsensitive')
 
 
 # -------------------------------------------------------------------------
