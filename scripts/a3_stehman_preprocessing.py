@@ -164,60 +164,78 @@ tmf_distbuff_optA = optA_buff(valdata_buff, 'tmf_dist_buff',
 tmf_deforbuff_optA = optA_buff(valdata_buff, 'tmf_defor_buff', 
                                filename='tmf_defor_buff_timeinsensitive')
 
+# Run protocol a for tmf deforestation
+tmf_optA_defor2 = optA_buff(valdata, "tmf_defor", 
+    filename = "tmf_defor_timeinsensitive2")
+
+# Create custom disturbance column
+valdata["tmf_dist_custom"] = (
+    valdata["tmf_defor"] + valdata["tmf_dist"]
+).apply(lambda x: sorted(list(set(x))))
+
+
+tmf_optA_dist2 = optA_buff(valdata, "tmf_dist_custom", 
+    filename = "tmf_dist_timeinsensitive2")
+
 
 # -------------------------------------------------------------------------
 # PREPROCESS DATA: ANY DISTURBANCE YEAR
 # -------------------------------------------------------------------------
-# Define function for any year match + one year buffer
-def optB(valdata, map_col, ref_col, filename=False):
+# # Define function for any year match + one year buffer
+# def optB(valdata, map_col, ref_col, filename=False):
     
-    # Copy input validation data
-    val_data = valdata.copy()
+#     # Copy input validation data
+#     val_data = valdata.copy()
 
-    # Define function to check for matches within tolerance
-    def matches(map_value, ref_value):
+#     # Define function to check for matches within tolerance
+#     def matches(map_value, ref_value):
 
-        # Convert list to float array
-        map_array = np.array(map_value, dtype=int)
+#         # Convert list to float array
+#         map_array = np.array(map_value, dtype=int)
 
-        # Check if year exists within tolerance
-        if np.any(np.abs(map_array - ref_value) <= 1):
-            return ref_value
+#         # Check if year exists within tolerance
+#         if np.any(np.abs(map_array - ref_value) <= 1):
+#             return ref_value
         
-        # Return first value if no match
-        else:
-            return map_array[0] 
+#         # Return first value if no match
+#         else:
+#             return map_array[0] 
 
-    # Apply matching function to each row
-    val_data["map"] = val_data.apply(
-        lambda row: matches(row[map_col], row[ref_col]),
-        axis=1
-    )
+#     # Apply matching function to each row
+#     val_data["map"] = val_data.apply(
+#         lambda row: matches(row[map_col], row[ref_col]),
+#         axis=1
+#     )
 
-    # Create reference column
-    val_data["ref"] = val_data[ref_col]
+#     # Create reference column
+#     val_data["ref"] = val_data[ref_col]
 
-    # Keep only relevant columns
-    val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
+#     # Keep only relevant columns
+#     val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
     
-    # Optional export
-    if filename:
-        val_data_exp.to_csv(f'native_validation/anyyear/{filename}.csv', index=False)
-        print(f"Exported native_validation/anyyear/{filename}.csv")
+#     # Optional export
+#     if filename:
+#         val_data_exp.to_csv(f'native_validation/anyyear/{filename}.csv', index=False)
+#         print(f"Exported native_validation/anyyear/{filename}.csv")
 
-    return val_data_exp
+#     return val_data_exp
 
-# Run year matching for gfc and tmf (exact)
-tmf_defor_optB = optB(valdata, "tmfac_defor", "defor1", filename = "tmf_yearmatch_defor")
-tmf_dist_optB = optB(valdata, "tmfac_dist", "defor1", filename = "tmf_yearmatch_dist")
+# # Run year matching for gfc and tmf (exact)
+# tmf_defor_optB = optB(valdata, "tmfac_defor", "defor1", filename = "tmf_yearmatch_defor")
+# tmf_dist_optB = optB(valdata, "tmfac_dist", "defor1", filename = "tmf_yearmatch_dist")
 
-# Run year matching for gfc and tmf (buffered)
-gfc_buff_optB = optB(valdata_buff, 'gfc_lossyear_buff', 'defor1',
-                filename='gfc_yearmatch_buffered')
-tmf_deforbuff_optB = optB(valdata_buff, 'tmfac_defor_buff', 'defor1', 
-                filename='tmf_yearmatch_defor_buffered')
-tmf_distbuff_optB = optB(valdata_buff, 'tmfac_dist_buff', 'defor1', 
-                filename='tmf_yearmatch_dist_buffered')
+# # Run year matching for gfc and tmf (exact)
+# tmf_defor2_optB = optB(valdata, "tmf_defor", "defor1", filename = "tmf_yearmatch_defor2")
+
+
+
+# # Run year matching for gfc and tmf (buffered)
+# gfc_buff_optB = optB(valdata_buff, 'gfc_lossyear_buff', 'defor1',
+#                 filename='gfc_yearmatch_buffered')
+# tmf_deforbuff_optB = optB(valdata_buff, 'tmfac_defor_buff', 'defor1', 
+#                 filename='tmf_yearmatch_defor_buffered')
+# tmf_distbuff_optB = optB(valdata_buff, 'tmfac_dist_buff', 'defor1', 
+#                 filename='tmf_yearmatch_dist_buffered')
 
 
 # -------------------------------------------------------------------------

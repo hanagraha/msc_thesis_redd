@@ -81,6 +81,11 @@ gfc_timeinsensitive_stats <- valstats(gfc_timeinsensitive, stratmap, "timeinsens
 tmfdefor_timeinsensitive_stats <- valstats(tmfdefor_timeinsensitive, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive")
 tmfdist_timeinsensitive_stats <- valstats(tmfdist_timeinsensitive, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive")
 
+tmfdefor_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_defor_timeinsensitive2.csv")
+tmfdefor_timeinsensitive2_stats <- valstats(tmfdefor_timeinsensitive2, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive2")
+
+tmfdist_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_dist_timeinsensitive2.csv")
+tmfdist_timeinsensitive2_stats <- valstats(tmfdist_timeinsensitive2, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive2")
 
 # -------------------------------------------------------------------------
 # TIME INSENSITIVE BUFFER STATISTICS
@@ -138,6 +143,9 @@ tmfdefor_anyyear_buff_stats <- valstats(tmfdefor_anyyear_buff, stratmap, "anyyea
 tmfdist_anyyear_buff_stats <- valstats(tmfdist_anyyear_buff, stratmap, "anyyear", "tmf_dist_buff_anyyear")
 
 
+tmfdefor2_anyyear_buff <- read.csv("native_validation/anyyear/tmf_defor_buff_anyyear2.csv")
+
+
 # -------------------------------------------------------------------------
 # TIME SENSITIVE BUFFER STATISTICS (FIRST YEAR)
 # -------------------------------------------------------------------------
@@ -150,6 +158,41 @@ tmfdist_firstyear_buff <- read.csv("native_validation/firstyear/tmf_dist_buff_fi
 gfc_firstyear_buff_stats <- valstats(gfc_firstyear_buff, stratmap, "firstyear", "gfc_lossyear_buff_firstyear")
 tmfdefor_firstyear_buff_stats <- valstats(tmfdefor_firstyear_buff, stratmap, "firstyear", "tmf_defor_buff_firstyear")
 tmfdist_firstyear_buff_stats <- valstats(tmfdist_firstyear_buff, stratmap, "firstyear", "tmf_dist_buff_firstyear")
+
+
+# -------------------------------------------------------------------------
+# STATISTICS FOR AREA ESTIMATION
+# -------------------------------------------------------------------------
+# Read map and reference labels
+native_valdata <- read.csv("native_validation/validation_mapdata.csv")
+
+# Filter data for gfc
+gfc_area <- native_valdata[, c("strata", "defor1", "gfc_lossyear")]
+colnames(gfc_area) <- c("strata", "ref", "map")
+
+# Filter data for tmf defor year
+tmfdefor_area <- native_valdata[, c("strata", "defor1", "tmf_deforyear")]
+colnames(tmfdefor_area) <- c("strata", "ref", "map")
+
+# Calculate statistics
+native_gfc_stats <- valstats(gfc_area, stratmap, "area_estimation", "gfc_lossyear")
+native_tmfdefor_stats <- valstats(tmfdefor_area, stratmap, "area_estimation", "tmf_deforyear")
+
+# Filter data for second disturbance
+gfc_area2 <- native_valdata[, c("strata", "defor2", "gfc_lossyear")]
+colnames(gfc_area2) <- c("strata", "ref", "map")
+
+# Filter data for third disturbance
+gfc_area3 <- native_valdata[, c("strata", "defor3", "gfc_lossyear")]
+colnames(gfc_area3) <- c("strata", "ref", "map")
+
+# Calculate statistics
+native_gfc2_stats <- valstats(gfc_area2, stratmap, "area_estimation", "gfc_lossyear2")
+native_gfc3_stats <- valstats(gfc_area3, stratmap, "area_estimation", "gfc_lossyear3")
+
+
+
+
 
 
 
