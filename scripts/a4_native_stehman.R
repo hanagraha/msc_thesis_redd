@@ -69,21 +69,31 @@ valstats <- function(valdata, stratmap, folder, filename){
 
 
 # -------------------------------------------------------------------------
-# TIME INSENSITIVE STATISTICS
+# TIME INSENSITIVE PIXEL STATISTICS
 # -------------------------------------------------------------------------
 # Read map and reference labels
-gfc_optA <- read.csv("native_validation/timeinsensitive/gfc_timeinsensitive.csv")
-tmf_optA <- read.csv("native_validation/timeinsensitive/tmf_timeinsensitive.csv")
-gfc_optA_buff <- read.csv("native_validation/timeinsensitive/gfc_timeinsensitive_buffered.csv")
-tmf_optA_dist_buff <- read.csv("native_validation/timeinsensitive/tmf_timeinsensitive_dist_buffered.csv")
-tmf_optA_defor_buff <- read.csv("native_validation/timeinsensitive/tmf_timeinsensitive_dist_buffered.csv")
+gfc_timeinsensitive <- read.csv("native_validation/timeinsensitive/gfc_lossyear_timeinsensitive.csv")
+tmfdefor_timeinsensitive <- read.csv("native_validation/timeinsensitive/tmf_defor_timeinsensitive.csv")
+tmfdist_timeinsensitive <- read.csv("native_validation/timeinsensitive/tmf_dist_timeinsensitive.csv")
 
 # Calculate statistics
-gfc_optA_stats <- timeinsensitive(gfc_optA, stratmap, "timeinsensitive", "gfc_timeinsensitive")
-tmf_optA_stats <- timeinsensitive(tmf_optA, stratmap, "timeinsensitive", "tmf_timeinsensitive")
-gfc_optA_buff_stats <- timeinsensitive(gfc_optA_buff, stratmap, "timeinsensitive", "gfc_timeinsensitive_buffered")
-tmf_optA_distbuff_stats <- timeinsensitive(tmf_optA_dist_buff, stratmap, "timeinsensitive","tmf_timeinsensitive_dist_buffered")
-tmf_optA_deforbuff_stats <- timeinsensitive(tmf_optA_defor_buff, stratmap, "timeinsensitive","tmf_timeinsensitive_defor_buffered")
+gfc_timeinsensitive_stats <- valstats(gfc_timeinsensitive, stratmap, "timeinsensitive", "gfc_lossyear_timeinsensitive")
+tmfdefor_timeinsensitive_stats <- valstats(tmfdefor_timeinsensitive, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive")
+tmfdist_timeinsensitive_stats <- valstats(tmfdist_timeinsensitive, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive")
+
+
+# -------------------------------------------------------------------------
+# TIME INSENSITIVE BUFFER STATISTICS
+# -------------------------------------------------------------------------
+# Read map and reference labels
+gfc_timeinsensitive_buff <- read.csv("native_validation/timeinsensitive/gfc_lossyear_buff_timeinsensitive.csv")
+tmfdefor_timeinsensitive_buff <- read.csv("native_validation/timeinsensitive/tmf_defor_buff_timeinsensitive.csv")
+tmfdisttimeinsensitive_buff <- read.csv("native_validation/timeinsensitive/tmf_dist_buff_timeinsensitive.csv")
+
+# Calculate statistics
+gfc_anyyear_buff_stats <- valstats(gfc_timeinsensitive_buff, stratmap, "timeinsensitive", "gfc_lossyear_buff_timeinsensitive")
+tmfdefor_anyyear_buff_stats <- valstats(tmfdefor_timeinsensitive_buff, stratmap, "timeinsensitive", "tmf_defor_buff_timeinsensitive")
+tmfdist_anyyear_buff_stats <- valstats(tmfdisttimeinsensitive_buff, stratmap, "timeinsensitive", "tmf_dist_buff_timeinsensitive")
 
 
 # -------------------------------------------------------------------------
@@ -123,9 +133,9 @@ tmfdefor_anyyear_buff <- read.csv("native_validation/anyyear/tmf_defor_buff_anyy
 tmfdist_anyyear_buff <- read.csv("native_validation/anyyear/tmf_dist_buff_anyyear.csv")
 
 # Calculate statistics
-gfc_anyyear_buff_stats <- valstats(gfc_anyyear_buff, stratmap, "anyyear", "gfc_lossyear_anyyear")
-tmfdefor_anyyear_buff_stats <- valstats(tmfdefor_anyyear_buff, stratmap, "anyyear", "tmf_defor_anyyear")
-tmfdist_anyyear_buff_stats <- valstats(tmfdist_anyyear_buff, stratmap, "anyyear", "tmf_dist_anyyear")
+gfc_anyyear_buff_stats <- valstats(gfc_anyyear_buff, stratmap, "anyyear", "gfc_lossyear_buff_anyyear")
+tmfdefor_anyyear_buff_stats <- valstats(tmfdefor_anyyear_buff, stratmap, "anyyear", "tmf_defor_buff_anyyear")
+tmfdist_anyyear_buff_stats <- valstats(tmfdist_anyyear_buff, stratmap, "anyyear", "tmf_dist_buff_anyyear")
 
 
 # -------------------------------------------------------------------------
