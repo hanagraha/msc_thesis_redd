@@ -81,11 +81,13 @@ gfc_timeinsensitive_stats <- valstats(gfc_timeinsensitive, stratmap, "timeinsens
 tmfdefor_timeinsensitive_stats <- valstats(tmfdefor_timeinsensitive, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive")
 tmfdist_timeinsensitive_stats <- valstats(tmfdist_timeinsensitive, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive")
 
+# Try again
 tmfdefor_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_defor_timeinsensitive2.csv")
 tmfdefor_timeinsensitive2_stats <- valstats(tmfdefor_timeinsensitive2, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive2")
 
 tmfdist_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_dist_timeinsensitive2.csv")
 tmfdist_timeinsensitive2_stats <- valstats(tmfdist_timeinsensitive2, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive2")
+
 
 # -------------------------------------------------------------------------
 # TIME INSENSITIVE BUFFER STATISTICS
@@ -106,13 +108,21 @@ tmfdist_anyyear_buff_stats <- valstats(tmfdisttimeinsensitive_buff, stratmap, "t
 # -------------------------------------------------------------------------
 # Read map and reference labels
 gfc_anyyear <- read.csv("native_validation/anyyear/gfc_lossyear_anyyear.csv")
-tmfdefor_anyyear <- read.csv("native_validation/anyyear/tmf_defor_anyyear.csv")
+tmfdefor_anyyear <- read.csv("native_validation/anyyear2/tmf_defor_anyyear2.csv")
 tmfdist_anyyear <- read.csv("native_validation/anyyear/tmf_dist_anyyear.csv")
 
 # Calculate statistics
 gfc_anyyear_stats <- valstats(gfc_anyyear, stratmap, "anyyear", "gfc_lossyear_anyyear")
-tmfdefor_anyyear_stats <- valstats(tmfdefor_anyyear, stratmap, "anyyear", "tmf_defor_anyyear")
+tmfdefor_anyyear_stats <- valstats(tmfdefor_anyyear, stratmap, "anyyear2", "tmf_defor_anyyear2")
 tmfdist_anyyear_stats <- valstats(tmfdist_anyyear, stratmap, "anyyear", "tmf_dist_anyyear")
+
+# Try again (defor)
+tmfdefor_anyyear2 <- read.csv("native_validation/anyyear/tmf_defor_anyyear_manual.csv")
+tmfdefor_anyyear2_stats <- valstats(tmfdefor_anyyear2, stratmap, "anyyear", "tmf_defor_anyyear_manual")
+
+# Try again (dist)
+tmfdist_anyyear2 <- read.csv("native_validation/anyyear/tmf_dist2_anyyear.csv")
+tmfdist_anyyear2_stats <- valstats(tmfdist_anyyear2, stratmap, "anyyear", "tmf_dist2_anyyear")
 
 
 # -------------------------------------------------------------------------
