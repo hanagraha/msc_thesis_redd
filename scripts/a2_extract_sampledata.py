@@ -46,6 +46,7 @@ valdata = csv_read("validation/validation_datasets/validation_points_780.csv")
 # Define dictionary of prediction datasets
 rasters = {
     'gfc_lossyear': 'native_validation/gfc_lossyear_native.tif',
+    'gfc_lossyear_50cc': 'native_validation/gfc_lossyear_50cc_native.tif',
     'tmf_deforyear': 'native_validation/tmf_deforyear_native.tif',
     'tmf_degrayear': 'native_validation/tmf_degrayear_native.tif',
     'tmfac_defor1': 'native_validation/tmfac_firstdeforyear_native.tif',
@@ -102,11 +103,25 @@ def combine_cols(df, collist):
 
 # Define deforestation columns
 tmf_deforcols = ['tmfac_defor1', 'tmfac_defor2', 'tmf_deforyear']
-tmf_distcols = tmf_deforcols + ['tmfac_degra1', 'tmfac_degra2', 'tmf_degrayear']
+tmf_distcols = ['tmfac_degra1', 'tmfac_degra2', 'tmf_degrayear']
 
 # Add valid and unique years to dataframe
 valdata_expanded["tmf_defor"] = combine_cols(valdata_expanded, tmf_deforcols)
 valdata_expanded["tmf_dist"] = combine_cols(valdata_expanded, tmf_distcols)
+
+# Convert gfc predictions to lists
+valdata_expanded['gfc_loss'] = combine_cols(valdata_expanded, ['gfc_lossyear'])
+valdata_expanded['gfc_loss50cc'] = combine_cols(valdata_expanded, ['gfc_lossyear_50cc'])
+
+# Combine deforestation years to disturbance years (only 0 from defor, not degra)
+valdata_expanded["tmf_dist"] = valdata_expanded.apply(
+    lambda row: (
+        sorted(set(row["tmf_defor"] + row["tmf_dist"]))
+        if 0 in row["tmf_defor"]
+        else sorted(v for v in set(row["tmf_defor"] + row["tmf_dist"]) if v != 0)
+    ),
+    axis=1
+)
 
 # Combine reference years
 valdata_expanded["ref_years"] = combine_cols(valdata_expanded, ['defor1', 'defor2', 'defor3'])
@@ -163,6 +178,10 @@ tmf_dist = tmf_defor + valdata_buffered["tmfac_degra1_buff"] + valdata_buffered[
 # Add valid and unique years to dataframe
 valdata_buffered["tmf_defor_buff"] = tmf_defor.apply(valid_years)
 valdata_buffered["tmf_dist_buff"] = tmf_dist.apply(valid_years)
+
+# Remove 0 from tmf_dist if there was a deforestation year
+valdata_buffered.loc[valdata_buffered['tmf_defor_buff'].apply(lambda x: 0 not in x), 'tmf_dist_buff'] = \
+    valdata_buffered.loc[valdata_buffered['tmf_defor_buff'].apply(lambda x: 0 not in x), 'tmf_dist_buff'].apply(lambda x: [i for i in x if i != 0])
 
 # Combine reference years
 valdata_buffered["ref_years"] = combine_cols(valdata_buffered, ['defor1', 'defor2', 'defor3'])

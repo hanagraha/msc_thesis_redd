@@ -83,6 +83,12 @@ with rasterio.open('temp/gfc_lossyear_reprojected_clipped.tif') as rast:
 # Calculate pixel area (ha)
 gfc_pixarea = gfc_res[0] * gfc_res[1] / 10000
 
+# Define gfc forest mask (50% canopy cover)
+gfc_mask = (gfc_tc2000 >= 50)
+
+# Mask disturbances
+gfc_lossyear50 = np.where(gfc_mask, gfc_lossyear, 255)
+
 
 # -------------------------------------------------------------------------
 # TMF DATA
@@ -476,6 +482,7 @@ def export_raster(data, profile, filename):
 
 # GFC predictions (lossyear)
 export_raster(gfc_lossyear, gfc_profile, "gfc_lossyear_native")
+export_raster(gfc_lossyear50, gfc_profile, "gfc_lossyear_50cc_native")
 
 # TMF predictions
 export_raster(tmf_deforyear, tmf_profile, "tmf_deforyear_native")

@@ -49,86 +49,22 @@ valdata = csv_read("native_validation/validation_mapdata.csv")
 valdata_buff = csv_read("native_validation/validation_mapdata_buffered.csv")
 
 # Convert string lists to lists
-for col in valdata.columns[-3:]:
+for col in valdata.columns[-5:]:
     valdata[col] = valdata[col].apply(
         lambda x: ast.literal_eval(x) if isinstance(x, str) else []
     )
 
-for col in valdata_buff.columns[4:]:
+for col in valdata_buff.columns[5:]:
     valdata_buff[col] = valdata_buff[col].apply(
         lambda x: ast.literal_eval(x) if isinstance(x, str) else []
     )
 
-# Adapt tmf_dist to include 0 if defor is 0
-valdata["tmf_dist2"] = valdata.apply(
-    lambda row: sorted(
-        set(
-            (row["tmf_dist"] if isinstance(row["tmf_dist"], list) else [row["tmf_dist"]]) +
-            (row["tmf_defor"] if isinstance(row["tmf_defor"], list) else [row["tmf_defor"]])
-        )
-    ),
-    axis=1
-)
 
 # -------------------------------------------------------------------------
-# PREPROCESS DATA: TIME INSENSITIVE (EXACT PIXEL)
-# -------------------------------------------------------------------------
-# Define function to manipulate with protocol A
-def optA(valdata, col_list, filename=False):
-    
-    # Copy input validation data
-    val_data = valdata.copy()
-
-    # Iterate over each row in validation dataset
-    for idx, row in val_data.iterrows():
-        
-        # If deforestation IS detected in validation dataset
-        if row['defor1'] != 0:
-            
-            # Label deforestation
-            val_data.loc[idx, 'ref'] = 1
-        
-        # If deforestation is NOT detected in validation dataset
-        else: 
-            
-            # Label undeforested
-            val_data.loc[idx, 'ref'] = 0
-        
-        # Check if any of the columns indicate disturbance
-        if any((row[col] != 0 and row[col] != 255) for col in col_list):
-                val_data.loc[idx, 'map'] = 1
-
-        else:
-            val_data.loc[idx, 'map'] = 0
-
-    # Subset columns
-    val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
-
-    # If filename is provided, export the data
-    if filename:
-        val_data_exp.to_csv(f'native_validation/timeinsensitive/{filename}.csv', index=True)
-        print(f"Exported native_validation/timeinsensitive/{filename}.csv")
-            
-    return val_data_exp
-    
-# Run protocol a for gfc 
-gfc_optA = optA(valdata, ["gfc_lossyear"], filename="gfc_lossyear_timeinsensitive")
-
-# Run protocol a for tmf disturbances
-tmf_optA_dist = optA(valdata, ["tmf_deforyear", "tmf_degrayear", 
-    "tmfac_defor1", "tmfac_defor2", "tmfac_degra1", "tmfac_degra2"], 
-    filename = "tmf_dist_timeinsensitive")
-
-# Run protocol a for tmf deforestation
-tmf_optA_defor = optA(valdata, ["tmf_deforyear", "tmfac_defor1", "tmfac_defor2"], 
-    filename = "tmf_defor_timeinsensitive")
-
-
-# -------------------------------------------------------------------------
-# PREPROCESS DATA: TIME INSENSITIVE (BUFFERED PIXEL)
+# PREPROCESS DATA: TIME INSENSITIVE 
 # -------------------------------------------------------------------------
 # Define option a function for buffered preditions
-def optA_buff(valdata, col, filename=False):
+def timeinsensitive(valdata, col, filename=False):
 
     # Copy input
     val_data = valdata.copy()
@@ -141,7 +77,7 @@ def optA_buff(valdata, col, filename=False):
         val_data.loc[idx, 'ref'] = ref_val
 
         # If list is empty, assign 0
-        if not row[col]:
+        if not row[col] or row[col] == [0]:
             val_data.loc[idx, 'map'] = 0
         
         # If list and reference contain 0, assign 0
@@ -162,35 +98,35 @@ def optA_buff(valdata, col, filename=False):
     
     return val_data_exp
 
-# Run protocol a for gfc disturbances
-gfc_buff_optA = optA_buff(valdata_buff, 'gfc_lossyear_buff', 
-                          filename='gfc_lossyear_buff_timeinsensitive')   
+# Run for gfc disturbances (pixel)
+gfc_lossyear_timeinsensitive = timeinsensitive(valdata, 'gfc_loss', 
+    filename='gfc_lossyear_timeinsensitive')   
+gfc_lossyear50cc_timeinsensitive = timeinsensitive(valdata, 'gfc_loss50cc', 
+    filename='gfc_lossyear50cc_timeinsensitive')
 
-# Run protocol a for tmf disturbances
-tmf_distbuff_optA = optA_buff(valdata_buff, 'tmf_dist_buff', 
-                              filename='tmf_dist_buff_timeinsensitive')
+# Run for tmf disturbances (pixel)
+tmf_defor_timeinsensitive = timeinsensitive(valdata, 'tmf_defor', 
+    filename='tmf_defor_timeinsensitive')   
+tmf_dist_timeinsensitive = timeinsensitive(valdata, 'tmf_dist', 
+    filename='tmf_dist_timeinsensitive')
 
-# Run protocol a for tmf deforestation
-tmf_deforbuff_optA = optA_buff(valdata_buff, 'tmf_defor_buff', 
-                               filename='tmf_defor_buff_timeinsensitive')
+# Run for gfc disturbances (buffered)
+gfc_lossyear_buff_timeinsensitive = timeinsensitive(valdata_buff, 'gfc_lossyear_buff', 
+    filename='gfc_lossyear_buff_timeinsensitive')   
+gfc_lossyear50cc_buff_timeinsensitive = timeinsensitive(valdata_buff, 'gfc_lossyear_50cc_buff', 
+    filename='gfc_lossyear50cc_buff_timeinsensitive')
 
-# Run protocol a for tmf deforestation
-tmf_optA_defor2 = optA_buff(valdata, "tmf_defor", 
-    filename = "tmf_defor_timeinsensitive2")
-
-# Create custom disturbance column
-valdata["tmf_dist_custom"] = (
-    valdata["tmf_defor"] + valdata["tmf_dist"]
-).apply(lambda x: sorted(list(set(x))))
-
-
-tmf_optA_dist2 = optA_buff(valdata, "tmf_dist_custom", 
-    filename = "tmf_dist_timeinsensitive2")
+# Run for tmf disturbances (buffered)
+tmf_defor_buff_timeinsensitive = timeinsensitive(valdata_buff, 'tmf_defor_buff', 
+    filename='tmf_defor_buff_timeinsensitive')   
+tmf_dist_buff_timeinsensitive = timeinsensitive(valdata_buff, 'tmf_dist_buff', 
+    filename='tmf_dist_buff_timeinsensitive')
 
 
 # -------------------------------------------------------------------------
 # PREPROCESS DATA: TIME SENSITIVE
 # -------------------------------------------------------------------------
+"""
 # Define function for any year match + one year buffer
 def time_sensitive(valdata, map_col, ref_col, folder = False):
     
@@ -244,8 +180,12 @@ def time_sensitive(valdata, map_col, ref_col, folder = False):
     return val_data_exp
 
 # Preprocess gfc data (pixel)
-gfc_lossyear_any = time_sensitive(valdata, "gfc_lossyear", "ref_years", folder="anyyear")
-gfc_lossyear_first = time_sensitive(valdata, "gfc_lossyear", "defor1", folder='firstyear')
+gfc_lossyear_any = time_sensitive(valdata, "gfc_loss", "ref_years", folder="anyyear")
+gfc_lossyear_first = time_sensitive(valdata, "gfc_loss", "defor1", folder='firstyear')
+
+# Preprocess gfc 50cc data (pixel)
+gfc_lossyear_50cc_any = time_sensitive(valdata, "gfc_loss50cc", "ref_years", folder="anyyear")
+gfc_lossyear_50cc_first = time_sensitive(valdata, "gfc_loss50cc", "defor1", folder='firstyear')
 
 # Preprocess tmf defor data (pixel)
 tmf_defor_any = time_sensitive(valdata, 'tmf_defor', 'ref_years', folder="anyyear")
@@ -259,29 +199,25 @@ tmf_dist_first = time_sensitive(valdata, 'tmf_dist', 'defor1', folder="firstyear
 gfc_lossyear_any_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'ref_years', folder='anyyear')
 gfc_lossyear_first_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'defor1', folder='firstyear')
 
-# Preprocess tmf defor data (pixel)
+# Preprocess tmf defor data (buffered)
 tmf_defor_any_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'ref_years', folder="anyyear")
 tmf_defor_first_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'defor1', folder='firstyear')
 
-# Preprocess tmf dist data (pixel)
+# Preprocess tmf dist data (buffered)
 tmf_dist_any_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'ref_years', folder="anyyear")
 tmf_dist_first_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'defor1', folder="firstyear")
 
-# TRY AGAIN: tmf dist any year (pixel)
-tmf_dist_any2 = time_sensitive(valdata, 'tmf_dist2', 'ref_years', folder="anyyear")
-tmf_dist_first2 = time_sensitive(valdata, 'tmf_dist2', 'defor1', folder='firstyear')
 
-
+"""
 # -------------------------------------------------------------------------
 # PREPROCESS DATA: TIME SENSITIVE (TRY AGAIN)
 # -------------------------------------------------------------------------
 def time_sensitive(valdata, map_col, ref_col, folder=False):
-    
+
     val_data = valdata.copy()
 
     def matches(map_value, ref_value):
 
-        # Convert to arrays
         map_array = np.array(map_value, dtype=int) if isinstance(
             map_value, (list, np.ndarray)
         ) else np.array([map_value], dtype=int)
@@ -290,25 +226,28 @@ def time_sensitive(valdata, map_col, ref_col, folder=False):
             ref_value, (list, np.ndarray)
         ) else np.array([ref_value], dtype=int)
 
-        # Compute pairwise differences
         diff = np.abs(map_array[:, None] - ref_array[None, :])
         match_indices = np.where(diff <= 1)
 
-        # If match exists
-        if match_indices[1].size > 0:
-            matched_ref = int(ref_array[match_indices[1][0]])
-            matched_map = int(map_array[match_indices[0][0]])
-            return matched_map, matched_ref
+        if match_indices[0].size > 0:
+            map_idx = match_indices[0][0]
+            ref_idx = match_indices[1][0]
 
-        # If no match
-        else:
-            return int(map_array[0]), int(ref_array[0])
+            matched_map = int(map_array[map_idx])
+            matched_ref = int(ref_array[ref_idx])
 
-    # Apply matching
-    val_data[["map", "ref"]] = val_data.apply(
-        lambda row: matches(row[map_col], row[ref_col]),
-        axis=1,
-        result_type="expand"
+            # 🔹 NEW LOGIC: force equality if diff == 1
+            if abs(matched_map - matched_ref) == 1:
+                matched_map = matched_ref
+
+            return matched_ref, matched_map
+
+        return int(ref_array[0]), int(map_array[0])
+
+    # Apply and unpack both values
+    val_data[["ref", "map"]] = val_data.apply(
+        lambda row: pd.Series(matches(row[map_col], row[ref_col])),
+        axis=1
     )
 
     val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
@@ -322,5 +261,34 @@ def time_sensitive(valdata, map_col, ref_col, folder=False):
 
     return val_data_exp
 
+# Preprocess gfc data (pixel)
+gfc_lossyear_any = time_sensitive(valdata, "gfc_loss", "ref_years", folder="anyyear")
+gfc_lossyear_first = time_sensitive(valdata, "gfc_loss", "defor1", folder='firstyear')
+
+# Preprocess gfc 50cc data (pixel)
+gfc_lossyear_50cc_any = time_sensitive(valdata, "gfc_loss50cc", "ref_years", folder="anyyear")
+gfc_lossyear_50cc_first = time_sensitive(valdata, "gfc_loss50cc", "defor1", folder='firstyear')
+
 # Preprocess tmf defor data (pixel)
-tmf_defor_any = time_sensitive(valdata, 'tmf_defor', 'ref_years', folder="anyyear2")
+tmf_defor_any = time_sensitive(valdata, 'tmf_defor', 'ref_years', folder="anyyear")
+tmf_defor_first = time_sensitive(valdata, 'tmf_defor', 'defor1', folder='firstyear')
+
+# Preprocess tmf dist data (pixel)
+tmf_dist_any = time_sensitive(valdata, 'tmf_dist', 'ref_years', folder="anyyear")
+tmf_dist_first = time_sensitive(valdata, 'tmf_dist', 'defor1', folder="firstyear")
+
+# Preprocess gfc data (buffered)
+gfc_lossyear_any_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'ref_years', folder='anyyear')
+gfc_lossyear_first_buff = time_sensitive(valdata_buff, 'gfc_lossyear_buff', 'defor1', folder='firstyear')
+
+# Preprocess gfc data 50% canopy (buffered)
+gfc_lossyear_50cc_any_buff = time_sensitive(valdata_buff, 'gfc_lossyear_50cc_buff', 'ref_years', folder='anyyear')
+gfc_lossyear_50cc_first_buff = time_sensitive(valdata_buff, 'gfc_lossyear_50cc_buff', 'defor1', folder='firstyear')
+
+# Preprocess tmf defor data (buffered)
+tmf_defor_any_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'ref_years', folder="anyyear")
+tmf_defor_first_buff = time_sensitive(valdata_buff, 'tmf_defor_buff', 'defor1', folder='firstyear')
+
+# Preprocess tmf dist data (buffered)
+tmf_dist_any_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'ref_years', folder="anyyear")
+tmf_dist_first_buff = time_sensitive(valdata_buff, 'tmf_dist_buff', 'defor1', folder="firstyear")
