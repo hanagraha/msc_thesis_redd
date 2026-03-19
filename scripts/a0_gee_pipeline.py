@@ -21,6 +21,11 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from rasterstats import zonal_stats
 
+
+from shapely.geometry import shape
+import json
+
+
 # Check current working directory
 print("Current Working Directory:", os.getcwd())
 
@@ -29,6 +34,69 @@ os.chdir(r"Z:\person\graham\projectdata\redd-sierraleone")
 
 # Verify the working directory has been changed
 print("New Working Directory:", os.getcwd())
+
+
+# -------------------------------------------------------------------------
+# DEFINE CONSTANTS
+# -------------------------------------------------------------------------
+# Define annual change classes
+tmf_annualchange_dict = {
+    1: 'Undisturbed TMF',
+    2: 'Degraded TMF',
+    3: 'Deforested TMF',
+    4: 'TMF Regrowth',
+    5: 'Water',
+    6: 'Other',
+    0: 'No data'
+}
+
+# Define main transition map classes
+tmf_maintrans_dict = {
+    10: 'Undisturbed TMF',
+    20: 'Degraded TMF', 
+    30: 'TMF Regrowth',
+    41: 'Deforested - Tree Plantations',
+    42: 'Deforested - Water',  
+    43: 'Deforested - Other',
+    50: 'Ongoing Deforestation/Degradation',
+    60: 'Water',
+    70: 'Other'
+}
+
+# Define years
+years = list(range(2013, 2024))
+
+# Define color palatte 
+bluecols = ['brown', "#1E2A5E", "#83B4FF"]
+
+
+# -------------------------------------------------------------------------
+# READ SAMPLE DATA
+# -------------------------------------------------------------------------
+# Define function to read csv as geodataframe
+def csv_read(datapath):
+    
+    # Read validation data
+    data = pd.read_csv(datapath, delimiter=",")
+    
+    # Parse GeoJSON strings to Shapely geometries
+    data['geometry'] = data['.geo'].apply(lambda x: shape(json.loads(x)))
+
+    # Drop unnecessary columns
+    data = data.drop(columns=['.geo', 'system:index'])
+    
+    # Convert dataframe to geodataframe
+    data = gpd.GeoDataFrame(data, geometry='geometry', crs="EPSG:32629")
+    
+    return data.reset_index(drop=True)
+
+# Read samples with exact pixel map data
+valdata_fm = csv_read("ee_processed/sampledata/valdata_map_fm.csv")
+valdata_tm = csv_read("ee_processed/sampledata/valdata_map_tm.csv")
+
+# Read samples with 3x3 window map data (mode)
+valdata_fm_window = csv_read("ee_processed/sampledata/valdata_mapwindow_fm.csv")
+valdata_tm_window = csv_read("ee_processed/sampledata/valdata_mapwindow_tm.csv")
 
 
 # -------------------------------------------------------------------------
