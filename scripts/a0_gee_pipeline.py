@@ -87,122 +87,250 @@ def csv_read(datapath):
     
     # Convert dataframe to geodataframe
     data = gpd.GeoDataFrame(data, geometry='geometry', crs="EPSG:32629")
+
+    # Convert all data columns (excl. geometry) to integer
+    data.iloc[:, :-1] = data.iloc[:, :-1].fillna(255).astype(int)
     
     return data.reset_index(drop=True)
 
 # Read samples with exact pixel map data
+valdata = csv_read("ee_processed/sampledata/valdata_map.csv")
 valdata_fm = csv_read("ee_processed/sampledata/valdata_map_fm.csv")
 valdata_tm = csv_read("ee_processed/sampledata/valdata_map_tm.csv")
 
 # Read samples with 3x3 window map data (mode)
+valdata_mapwindow = csv_read("ee_processed/sampledata/valdata_mapwindow.csv")
 valdata_fm_window = csv_read("ee_processed/sampledata/valdata_mapwindow_fm.csv")
 valdata_tm_window = csv_read("ee_processed/sampledata/valdata_mapwindow_tm.csv")
 
-
-# -------------------------------------------------------------------------
-# GFC DATA
-# -------------------------------------------------------------------------
-# Read gfc tree cover 2000
-with rasterio.open('temp/gfc_treecover2000_reprojected_clipped.tif') as rast:     
-    gfc_tc2000 = rast.read(1)
-
-# Read gfc lossyear
-with rasterio.open('temp/gfc_lossyear_reprojected_clipped.tif') as rast:     
-    gfc_lossyear = rast.read(1)
-    gfc_profile = rast.profile
-    gfc_res = rast.res
-
-# Calculate pixel area (ha)
-gfc_pixarea = gfc_res[0] * gfc_res[1] / 10000
-
-# Define gfc forest mask (50% canopy cover)
-gfc_mask = (gfc_tc2000 >= 50)
-
-# Mask disturbances
-gfc_lossyear50 = np.where(gfc_mask, gfc_lossyear, 255)
+# Convert gfc to years
+valdata['gfc_lossyear'] = np.where(valdata['gfc_lossyear'] == 0, 0, valdata['gfc_lossyear'] + 2000)
+valdata_fm['gfc_lossyear_fm'] = np.where(valdata_fm['gfc_lossyear_fm'] == 0, 0, valdata_fm['gfc_lossyear_fm'] + 2000)
+valdata_tm['gfc_lossyear_tm'] = np.where(valdata_tm['gfc_lossyear_tm'] == 0, 0, valdata_tm['gfc_lossyear_tm'] + 2000)
+valdata_mapwindow['gfc_lossyear_mode'] = np.where(valdata_mapwindow['gfc_lossyear_mode'] == 0, 0, valdata_mapwindow['gfc_lossyear_mode'] + 2000)
+valdata_fm_window['gfc_lossyear_fm_mode'] = np.where(valdata_fm_window['gfc_lossyear_fm_mode'] == 0, 0, valdata_fm_window['gfc_lossyear_fm_mode'] + 2000)
+valdata_tm_window['gfc_lossyear_tm_mode'] = np.where(valdata_tm_window['gfc_lossyear_tm_mode'] == 0, 0, valdata_tm_window['gfc_lossyear_tm_mode'] + 2000)
 
 
 # -------------------------------------------------------------------------
-# TMF DATA
+# READ RASTER DATA
 # -------------------------------------------------------------------------
-# Read tmf deforestation year
-with rasterio.open('temp/tmf_DeforestationYear_reprojected_clipped.tif') as rast:     
-    tmf_deforyear = rast.read(1)
-    tmf_profile = rast.profile
-    tmf_res = rast.res
-    tmf_crs = rast.crs
+# Define function to read raster stack
+def read_raster(filepath):
+    
+    with rasterio.open(filepath) as src:
+        
+        # Check CRS and shape
+        print(f"CRS: {src.crs}")
+        print(f"Shape (bands, rows, cols): {src.count, src.height, src.width}")
+        print(f"Pixel size (x, y): {src.res}")
 
-# Calculate pixel area (ha)
-tmf_pixarea = tmf_res[0] * tmf_res[1] / 10000
+        # Extract band names
+        bandnames = src.descriptions
 
-# Read tmf degradation year
-with rasterio.open('temp/tmf_DegradationYear_reprojected_clipped.tif') as rast:     
-    tmf_degrayear = rast.read(1)
+        # Initialize empty dictionary
+        bands = {}
 
-# Read tmf annual change 2012
-with rasterio.open('temp/tmf_AnnualChange_2012_reprojected_clipped.tif') as rast:     
-    tmf_ac2012 = rast.read(1)
+        # Iterate over each band
+        for i, name in enumerate(bandnames, start=1):
+            
+            # Read band data to dictionary
+            bands[name] = src.read(i)
+    
+    return bands
 
-# Read tmf transition map
-with rasterio.open('temp/tmf_TransitionMap_MainClasses_reprojected_clipped.tif') as rast:     
-    tmf_transition = rast.read(1)
-
-# Define annual change paths
-tmf_acpaths = sorted(f"temp/{file}" for file in os.listdir('temp')
-    if file.startswith("tmf_AnnualChange") and file.endswith("_clipped.tif"))
-
-# Initialize empty list to hold annual change data
-tmf_annualchange = []
-
-# Iterate over each path and read raster data
-for path in tmf_acpaths:
-    with rasterio.open(path) as rast:
-        tmf_annualchange.append(rast.read(1))
+# Read unmasked data
+datastack = read_raster("ee_processed/unmasked/datastack.tif")
+datastack_fm = read_raster("ee_processed/masked-undisturbed/rasters/datastack_fm.tif")
+datastack_tm = read_raster("ee_processed/masked-forest/rasters/datastack_tm.tif")
 
 
 # -------------------------------------------------------------------------
-# AREA OF INTEREST
+# EXTRACT DISTURBANCE YEARS AS LIST
 # -------------------------------------------------------------------------
-# Read grnp shapefile
-grnp = gpd.read_file("gola gazetted polygon/Gola_Gazetted_Polygon.shp")
+# Extract all possible disturbance years
+def unqiueyears(row):
 
-# Read village shapefile
-villages = gpd.read_file("village polygons/VillagePolygons.geojson")
+    # Extract unique values
+    values = row.unique().astype(int)
 
-# Combine grnp and villages to create aoi
-aoi = gpd.GeoDataFrame(pd.concat([villages, grnp], ignore_index=True)).dissolve()
+    # Get valid disturbance years
+    validdist = values[(values != 0) & (values >= 2013) & (values <= 2023)].astype(int)
 
-with rasterio.open("reference_raster.tif") as src:
-    ref_transform = src.transform
-    ref_crs = src.crs
-    ref_shape = src.shape
+    return validdist.tolist() if len(validdist) > 0 else [0]
 
-    # Create AOI mask (True = inside AOI)
-    from rasterio.features import geometry_mask
-    aoi_mask = ~geometry_mask(
-        aoi_geoms,
-        transform=ref_transform,
-        invert=False,
-        out_shape=ref_shape
+# Extract tmf disturbance years as list
+valdata['tmf_distlist'] = valdata[['tmf_dist1', 'tmf_dist2', 'tmf_dist3']].apply(unqiueyears, axis=1)
+valdata_fm['tmf_distlist'] = valdata_fm[['tmf_dist1_fm', 'tmf_dist2_fm', 'tmf_dist3_fm']].apply(unqiueyears, axis=1)
+valdata_tm['tmf_distlist'] = valdata_tm[['tmf_dist1_tm', 'tmf_dist2_tm', 'tmf_dist3_tm']].apply(unqiueyears, axis=1)
+valdata_mapwindow['tmf_distlist'] = valdata_mapwindow[['tmf_dist1_mode', 'tmf_dist2_mode', 'tmf_dist3_mode']].apply(unqiueyears, axis=1)
+valdata_fm_window['tmf_distlist'] = valdata_fm_window[['tmf_dist1_fm_mode', 'tmf_dist2_fm_mode', 'tmf_dist3_fm_mode']].apply(unqiueyears, axis=1)
+valdata_tm_window['tmf_distlist'] = valdata_tm_window[['tmf_dist1_tm_mode', 'tmf_dist2_tm_mode', 'tmf_dist3_tm_mode']].apply(unqiueyears, axis=1) 
+
+# Extract gfc disturbance years as list
+valdata['gfc_losslist'] = valdata[['gfc_lossyear']].apply(unqiueyears, axis=1)
+valdata_fm['gfc_losslist'] = valdata_fm[['gfc_lossyear_fm']].apply(unqiueyears, axis=1)
+valdata_tm['gfc_losslist'] = valdata_tm[['gfc_lossyear_tm']].apply(unqiueyears, axis=1)
+valdata_mapwindow['gfc_losslist'] = valdata_mapwindow[['gfc_lossyear_mode']].apply(unqiueyears, axis=1)
+valdata_fm_window['gfc_losslist'] = valdata_fm_window[['gfc_lossyear_fm_mode']].apply(unqiueyears, axis=1)
+valdata_tm_window['gfc_losslist'] = valdata_tm_window[['gfc_lossyear_tm_mode']].apply(unqiueyears, axis=1)
+
+
+# -------------------------------------------------------------------------
+# PREPROCESS DATA: TIME INSENSITIVE 
+# -------------------------------------------------------------------------
+# Define function for processing time insensitive map-reference matches
+def timeinsensitive(valdata, col, filename=False):
+
+    # Copy input
+    val_data = valdata.copy()
+    
+    # Iterate over each row in validation dataset
+    for idx, row in val_data.iterrows():
+
+        # Assign binary reference value
+        ref_val = 1 if row['defor1'] != 0 else 0
+        val_data.loc[idx, 'ref'] = ref_val
+
+        # If list is empty, assign 0
+        if row[col] == [0]:
+            val_data.loc[idx, 'map'] = 0
+        
+        # If list and reference contain 0, assign 0
+        elif ref_val == 0 and 0 in row[col]:
+            val_data.loc[idx, 'map'] = 0
+        
+        # If list contains disturbance years, assign 1
+        else:
+            val_data.loc[idx, 'map'] = 1
+
+    # Keep only relevant columns
+    val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
+    
+    # Optional export
+    if filename:
+        val_data_exp.to_csv(f'ee_processed/timeinsensitive/{filename}.csv', index=False)
+        print(f"Exported ee_processed/timeinsensitive/{filename}.csv")
+    
+    return val_data_exp
+
+# Process for time insenstive map-reference matches (unmasked)
+gfc_timeinsensitive = timeinsensitive(valdata, 'gfc_losslist', filename='gfc_timeinsensitive')
+tmf_timeinsensitive = timeinsensitive(valdata, 'tmf_distlist', filename='tmf_dist_timeinsensitive')
+
+# Process for time insenstive map-reference matches (undisturbed forest mask)
+gfc_timeinsensitive_fm = timeinsensitive(valdata_fm, 'gfc_losslist', filename='gfc_timeinsensitive_fm')
+tmf_timeinsensitive_fm = timeinsensitive(valdata_fm, 'tmf_distlist', filename='tmf_dist_timeinsensitive_fm')
+
+# Process for time insenstive map-reference matches (forest mask)
+gfc_timeinsensitive_tm = timeinsensitive(valdata_tm, 'gfc_losslist', filename='gfc_timeinsensitive_tm')
+tmf_timeinsensitive_tm = timeinsensitive(valdata_tm, 'tmf_distlist', filename='tmf_dist_timeinsensitive_tm')
+
+# Process for time insenstive map-reference matches (3x3 window mode, unmasked)
+gfc_timeinsensitive_window = timeinsensitive(valdata_mapwindow, 'gfc_losslist', filename='gfc_timeinsensitive_window')
+tmf_timeinsensitive_window = timeinsensitive(valdata_mapwindow, 'tmf_distlist', filename='tmf_dist_timeinsensitive_window')
+
+# Process for time insenstive map-reference matches (3x3 window mode, undisturbed forest mask)
+gfc_timeinsensitive_fm_window = timeinsensitive(valdata_fm_window, 'gfc_losslist', filename='gfc_timeinsensitive_fm_window')
+tmf_timeinsensitive_fm_window = timeinsensitive(valdata_fm_window, 'tmf_distlist', filename='tmf_dist_timeinsensitive_fm_window')
+
+# Process for time insenstive map-reference matches (3x3 window mode, forest mask)
+gfc_timeinsensitive_tm_window = timeinsensitive(valdata_tm_window, 'gfc_losslist', filename='gfc_timeinsensitive_tm_window')
+tmf_timeinsensitive_tm_window = timeinsensitive(valdata_tm_window, 'tmf_distlist', filename='tmf_dist_timeinsensitive_tm_window')
+
+
+# -------------------------------------------------------------------------
+# PREPROCESS DATA: TIME SENSITIVE
+# -------------------------------------------------------------------------
+# Define function for processing time sensitive map-reference matches
+def timesensitive(valdata, map_col, ref_col, folder=False):
+
+    # Copy input
+    val_data = valdata.copy()
+
+    # Define function to compare map and reference values
+    def matches(map_value, ref_value):
+        
+        # Convert map values to array
+        map_array = np.array(map_value, dtype=int) if isinstance(
+            map_value, (list, np.ndarray)
+        ) else np.array([map_value], dtype=int)
+
+        # Convert ref values to array
+        ref_array = np.array(ref_value, dtype=int) if isinstance(
+            ref_value, (list, np.ndarray)
+        ) else np.array([ref_value], dtype=int)
+
+        # Compute pairwise differences
+        diff = np.abs(map_array[:, None] - ref_array[None, :])
+
+        # Find first matching reference year (with one year buffer)
+        match_indices = np.where(diff <= 1)
+
+        # If there is a match, return match year from ref array
+        if match_indices[0].size > 0:
+            map_idx = match_indices[0][0]
+            ref_idx = match_indices[1][0]
+
+            matched_map = int(map_array[map_idx])
+            matched_ref = int(ref_array[ref_idx])
+
+            # Force equality if diff == 1
+            if abs(matched_map - matched_ref) == 1:
+                matched_map = matched_ref
+
+            return matched_ref, matched_map
+
+        return int(ref_array[0]), int(map_array[0])
+
+    # Apply and unpack both values
+    val_data[["ref", "map"]] = val_data.apply(
+        lambda row: pd.Series(matches(row[map_col], row[ref_col])),
+        axis=1
     )
 
+    val_data_exp = val_data[['strata', 'geometry', 'ref', 'map']]
+
+    if folder:
+        val_data_exp.to_csv(
+            f'ee_processed/{folder}/{map_col}_{folder}.csv',
+            index=False
+        )
+        print(f"Exported ee_processed/{folder}/{map_col}_{folder}.csv")
+
+    return val_data_exp
+
 
 # -------------------------------------------------------------------------
-# CREATE COMBINED FOREST MASK
-# -------------------------------------------------------------------------
-# Define gfc tree cover in 2012
-gfc_treecover2012 = (gfc_tc2000 >= 50) & ((gfc_lossyear == 0) | (gfc_lossyear > 2012)).astype(np.uint8)
+# Process for detecting first disturbance between 2013-2023
 
-# Define tmf tree cover in 2012
-tmf_undisturbed2012 = (tmf_ac2012 == 1).astype(np.uint8)
-tmf_treecover2012 = (tmf_ac2012 ==1) | (tmf_ac2012 == 2) | (tmf_ac2012 == 4).astype(np.uint8)
 
-# Create combined forest mask
-agreement = np.zeros(gfc_treecover2012.shape, dtype=np.uint8)
 
-agreement = np.where(gfc_treecover2012,           agreement | 1, agreement)
-agreement = np.where(tmf_undisturbed2012, agreement | 2, agreement)
-agreement = np.where(tmf_treecover2012,   agreement | 4, agreement)
+# Unmasked
+gfc_first = timesensitive(valdata, 'gfc_losslist', 'defor1', folder='firstyear')
+tmf_first = timesensitive(valdata, 'tmf_distlist', 'defor1', folder='firstyear')
 
-# --- Apply nodata outside AOI ---
-agreement = np.where(aoi_mask, agreement, 255).astype(np.uint8)
+# Process for time insenstive map-reference matches (undisturbed forest mask)
+gfc_timeinsensitive_fm = timesensitive(valdata_fm, 'gfc_losslist', filename='gfc_timeinsensitive_fm')
+tmf_timeinsensitive_fm = timesensitive(valdata_fm, 'tmf_distlist', filename='tmf_dist_timeinsensitive_fm')
+
+# Process for time insenstive map-reference matches (forest mask)
+gfc_timeinsensitive_tm = timesensitive(valdata_tm, 'gfc_losslist', filename='gfc_timeinsensitive_tm')
+tmf_timeinsensitive_tm = timesensitive(valdata_tm, 'tmf_distlist', filename='tmf_dist_timeinsensitive_tm')
+
+# Process for time insenstive map-reference matches (3x3 window mode, unmasked)
+gfc_timeinsensitive_window = timesensitive(valdata_mapwindow, 'gfc_losslist', filename='gfc_timeinsensitive_window')
+tmf_timeinsensitive_window = timesensitive(valdata_mapwindow, 'tmf_distlist', filename='tmf_dist_timeinsensitive_window')
+
+# Process for time insenstive map-reference matches (3x3 window mode, undisturbed forest mask)
+gfc_timeinsensitive_fm_window = timesensitive(valdata_fm_window, 'gfc_losslist', filename='gfc_timeinsensitive_fm_window')
+tmf_timeinsensitive_fm_window = timesensitive(valdata_fm_window, 'tmf_distlist', filename='tmf_dist_timeinsensitive_fm_window')
+
+# Process for time insenstive map-reference matches (3x3 window mode, forest mask)
+gfc_timeinsensitive_tm_window = timesensitive(valdata_tm_window, 'gfc_losslist', filename='gfc_timeinsensitive_tm_window')
+tmf_timeinsensitive_tm_window = timesensitive(valdata_tm_window, 'tmf_distlist', filename='tmf_dist_timeinsensitive_tm_window')
+
+
+
+
+
