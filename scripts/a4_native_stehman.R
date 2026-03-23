@@ -52,14 +52,12 @@ valstats <- function(valdata, stratmap, folder, filename){
   )
   
   # Export annual data
-  write.csv(stats_df, 
-            file = sprintf("native_validation/%s/%s_stats.csv", 
-                           folder, filename), row.names = FALSE)
+  write.csv(stats_df, file=sprintf("native_validation/%s/%s_stats.csv", 
+    folder, filename), row.names = FALSE)
   
   # Export confusion matrix
-  write.csv(stats$matrix, 
-            file = sprintf("native_validation/%s/%s_cm.csv", 
-                           folder, filename))
+  write.csv(stats$matrix, file=sprintf("native_validation/%s/%s_cm.csv", 
+    folder, filename))
   
   # Print statement
   print("Stehman statistics calculated and saved to file")
@@ -184,30 +182,6 @@ colnames(area_dist3) <- c("strata", "ref", "map")
 dist1_stats <- valstats(area_dist1, stratmap, "areaestimation", "area_dist1")
 dist2_stats <- valstats(area_dist2, stratmap, "areaestimation", "area_dist2")
 dist3_stats <- valstats(area_dist3, stratmap, "areaestimation", "area_dist3")
-
-
-
-# -------------------------------------------------------------------------
-# ARCHIVE
-# -------------------------------------------------------------------------
-
-# Try again (defor)
-tmfdefor_anyyear2 <- read.csv("native_validation/anyyear/tmf_defor_anyyear_manual.csv")
-tmfdefor_anyyear2_stats <- valstats(tmfdefor_anyyear2, stratmap, "anyyear", "tmf_defor_anyyear_manual")
-
-# Try again (dist)
-tmfdist_anyyear2 <- read.csv("native_validation/anyyear/tmf_dist2_anyyear.csv")
-tmfdist_anyyear2_stats <- valstats(tmfdist_anyyear2, stratmap, "anyyear", "tmf_dist2_anyyear")
-
-# Try again
-tmfdefor2_anyyear_buff <- read.csv("native_validation/anyyear/tmf_defor_buff_anyyear2.csv")
-
-
-tmfdefor_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_defor_timeinsensitive2.csv")
-tmfdefor_timeinsensitive2_stats <- valstats(tmfdefor_timeinsensitive2, stratmap, "timeinsensitive", "tmf_defor_timeinsensitive2")
-
-tmfdist_timeinsensitive2 <- read.csv("native_validation/timeinsensitive/tmf_dist_timeinsensitive2.csv")
-tmfdist_timeinsensitive2_stats <- valstats(tmfdist_timeinsensitive2, stratmap, "timeinsensitive", "tmf_dist_timeinsensitive2")
 
 
 

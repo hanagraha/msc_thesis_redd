@@ -239,7 +239,7 @@ tmf_timeinsensitive_tm_window = timeinsensitive(valdata_tm_window, 'tmf_distlist
 # PREPROCESS DATA: TIME SENSITIVE
 # -------------------------------------------------------------------------
 # Define function for processing time sensitive map-reference matches
-def timesensitive(valdata, map_col, ref_col, folder=False):
+def timesensitive(valdata, map_col, ref_col, filename=False):
 
     # Copy input
     val_data = valdata.copy()
@@ -284,9 +284,10 @@ def timesensitive(valdata, map_col, ref_col, folder=False):
     val_data_exp = val_data[['strata', 'geometry', 'ref', 'map', map_col, ref_col]]
 
     # Optional export
-    if folder:
-        val_data_exp.to_csv(f'ee_processed/{folder}/{map_col}_{folder}.csv', index=False)
-        print(f"Exported ee_processed/{folder}/{map_col}_{folder}.csv")
+    if filename:
+        folder = [name for name in filename.split('_') if name.endswith('year')][0]
+        val_data_exp.to_csv(f'ee_processed/{folder}/{filename}.csv', index=False)
+        print(f"Exported ee_processed/{folder}/{filename}.csv")
 
     return val_data_exp
 
@@ -294,53 +295,53 @@ def timesensitive(valdata, map_col, ref_col, folder=False):
 # ---------------------------- first disturbance ----------------------------
 
 # Unmasked
-gfc_first = timesensitive(valdata, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_first = timesensitive(valdata, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_first = timesensitive(valdata, 'gfc_losslist', 'defor1', filename='gfc_firstyear')
+tmf_first = timesensitive(valdata, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear')
 
 # Process for time insenstive map-reference matches (undisturbed forest mask)
-gfc_firstyear_fm = timesensitive(valdata_fm, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_firstyear_fm = timesensitive(valdata_fm, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_firstyear_fm = timesensitive(valdata_fm, 'gfc_losslist', 'defor1', filename='gfc_firstyear_fm')
+tmf_firstyear_fm = timesensitive(valdata_fm, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear_fm')
 
 # Process for time insenstive map-reference matches (forest mask)
-gfc_firstyear_tm = timesensitive(valdata_tm, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_firstyear_tm = timesensitive(valdata_tm, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_firstyear_tm = timesensitive(valdata_tm, 'gfc_losslist', 'defor1', filename='gfc_firstyear_tm')
+tmf_firstyear_tm = timesensitive(valdata_tm, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear_tm')
 
 # Process for time insenstive map-reference matches (3x3 window mode, unmasked)
-gfc_firstyear_window = timesensitive(valdata_mapwindow, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_firstyear_window = timesensitive(valdata_mapwindow, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_firstyear_window = timesensitive(valdata_mapwindow, 'gfc_losslist', 'defor1', filename='gfc_firstyear_window')
+tmf_firstyear_window = timesensitive(valdata_mapwindow, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear_window')
 
 # Process for time insenstive map-reference matches (3x3 window mode, undisturbed forest mask)
-gfc_firstyear_fm_window = timesensitive(valdata_fm_window, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_firstyear_fm_window = timesensitive(valdata_fm_window, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_firstyear_fm_window = timesensitive(valdata_fm_window, 'gfc_losslist', 'defor1', filename='gfc_firstyear_fm_window')
+tmf_firstyear_fm_window = timesensitive(valdata_fm_window, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear_fm_window')
 
 # Process for time insenstive map-reference matches (3x3 window mode, forest mask)
-gfc_firstyear_tm_window = timesensitive(valdata_tm_window, 'gfc_losslist', 'defor1', folder='firstyear')
-tmf_firstyear_tm_window = timesensitive(valdata_tm_window, 'tmf_distlist', 'defor1', folder='firstyear')
+gfc_firstyear_tm_window = timesensitive(valdata_tm_window, 'gfc_losslist', 'defor1', filename='gfc_firstyear_tm_window')
+tmf_firstyear_tm_window = timesensitive(valdata_tm_window, 'tmf_distlist', 'defor1', filename='tmf_dist_firstyear_tm_window')
 
 # ----------------------------- any disturbance -----------------------------
 
 # Unmasked
-gfc_any = timesensitive(valdata, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_any = timesensitive(valdata, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_any = timesensitive(valdata, 'gfc_losslist', 'defor1', filename='gfc_anyyear')
+tmf_any = timesensitive(valdata, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear')
 
 # Process for time insenstive map-reference matches (undisturbed forest mask)
-gfc_anyyear_fm = timesensitive(valdata_fm, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_anyyear_fm = timesensitive(valdata_fm, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_anyyear_fm = timesensitive(valdata_fm, 'gfc_losslist', 'defor1', filename='gfc_anyyear_fm')
+tmf_anyyear_fm = timesensitive(valdata_fm, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear_fm')
 
 # Process for time insenstive map-reference matches (forest mask)
-gfc_anyyear_tm = timesensitive(valdata_tm, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_anyyear_tm = timesensitive(valdata_tm, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_anyyear_tm = timesensitive(valdata_tm, 'gfc_losslist', 'defor1', filename='gfc_anyyear_tm')
+tmf_anyyear_tm = timesensitive(valdata_tm, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear_tm')
 
 # Process for time insenstive map-reference matches (3x3 window mode, unmasked)
-gfc_anyyear_window = timesensitive(valdata_mapwindow, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_anyyear_window = timesensitive(valdata_mapwindow, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_anyyear_window = timesensitive(valdata_mapwindow, 'gfc_losslist', 'defor1', filename='gfc_anyyear_window')
+tmf_anyyear_window = timesensitive(valdata_mapwindow, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear_window')
 
 # Process for time insenstive map-reference matches (3x3 window mode, undisturbed forest mask)
-gfc_anyyear_fm_window = timesensitive(valdata_fm_window, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_anyyear_fm_window = timesensitive(valdata_fm_window, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_anyyear_fm_window = timesensitive(valdata_fm_window, 'gfc_losslist', 'defor1', filename='gfc_anyyear_fm_window')
+tmf_anyyear_fm_window = timesensitive(valdata_fm_window, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear_fm_window')
 
 # Process for time insenstive map-reference matches (3x3 window mode, forest mask)
-gfc_anyyear_tm_window = timesensitive(valdata_tm_window, 'gfc_losslist', 'defor1', folder='anyyear')
-tmf_anyyear_tm_window = timesensitive(valdata_tm_window, 'tmf_distlist', 'defor1', folder='anyyear')
+gfc_anyyear_tm_window = timesensitive(valdata_tm_window, 'gfc_losslist', 'defor1', filename='gfc_anyyear_tm_window')
+tmf_anyyear_tm_window = timesensitive(valdata_tm_window, 'tmf_distlist', 'defor1', filename='tmf_dist_anyyear_tm_window')
 
 
